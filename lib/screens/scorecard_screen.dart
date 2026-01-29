@@ -23,7 +23,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
       appBar: AppBar(
         backgroundColor: settings.isDarkMode ? Color(0xFF1E1E1E) : Color(0xFF222222),
         elevation: 0,
-        title: Text(settings.translate('full_scorecard'), style: TextStyle(fontWeight: FontWeight.black, fontSize: 16)),
+        title: Text(settings.translate('full_scorecard'), style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
         actions: [
           IconButton(
             icon: Icon(Icons.close),
@@ -40,7 +40,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${widget.match['teamA']} vs ${widget.match['teamB']}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.black)),
+                  Text('${widget.match['teamA']} vs ${widget.match['teamB']}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                   SizedBox(height: 4),
                   Text('${widget.match['series'] ?? 'SMCC League'} | ${widget.match['venue']}', style: TextStyle(color: Colors.grey, fontSize: 12)),
                   if (widget.match['status'] == 'completed')
@@ -148,7 +148,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(innings['team'], style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              Text('${innings['runs']}/${innings['wickets']} (${innings['overs']})', style: TextStyle(color: Colors.white, fontWeight: FontWeight.black)),
+              Text('${innings['runs']}/${innings['wickets']} (${innings['overs']})', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
             ],
           ),
         ),

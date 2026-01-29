@@ -89,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('SMCC LIVE', style: TextStyle(color: Colors.blue.shade800, fontWeight: FontWeight.black, fontSize: 18)),
+                  Text('SMCC LIVE', style: TextStyle(color: Colors.blue.shade800, fontWeight: FontWeight.w900, fontSize: 18)),
                   Text(settings.translate('live_scores'), style: TextStyle(color: Colors.grey, fontSize: 11)),
                 ],
               ),
@@ -157,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Container(width: 4, height: 16, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
           SizedBox(width: 8),
-          Text(title, style: TextStyle(fontWeight: FontWeight.black, fontSize: 13, color: Colors.grey.shade600, letterSpacing: 1.2)),
+          Text(title, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.grey.shade600, letterSpacing: 1.2)),
         ],
       ),
     );
@@ -266,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTeamScore(String team, dynamic match, bool showScore, SettingsProvider settings) {
-    dynamic innings = (match['innings'] as List?)?.find((inn) => inn['team'] == team);
+    dynamic innings = (match['innings'] as List?)?.firstWhere((inn) => inn['team'] == team, orElse: () => null);
     String runs = innings != null ? '${innings['runs']}/${innings['wickets']}' : (match['score']?['battingTeam'] == team ? '${match['score']['runs']}/${match['score']['wickets']}' : '-');
     String overs = innings != null ? '${innings['overs']} ${settings.translate('overs')}' : (match['score']?['battingTeam'] == team ? '${match['score']['overs']} ${settings.translate('overs')}' : '');
 
@@ -277,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (showScore && runs != '-') 
             Column(
               children: [
-                Text(runs, style: TextStyle(fontSize: 20, fontWeight: FontWeight.black, color: Colors.blue.shade700)),
+                Text(runs, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.blue.shade700)),
                 Text(overs, style: TextStyle(fontSize: 9, color: Colors.grey)),
               ],
             )

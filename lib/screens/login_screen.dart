@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               Image.asset('assets/logo.png', height: 100),
               SizedBox(height: 24),
-              Text('SMCC Admin', style: TextStyle(fontSize: 28, fontWeight: FontWeight.black, color: Colors.blue.shade900)),
+              Text('SMCC Admin', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.blue.shade900)),
               Text('Sign in to manage matches', style: TextStyle(color: Colors.grey)),
               SizedBox(height: 48),
               

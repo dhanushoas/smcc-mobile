@@ -29,7 +29,7 @@ class MyApp extends StatelessWidget {
               dialogTheme: DialogTheme(
                 backgroundColor: Color(0xFF1E1E1E),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                titleTextStyle: TextStyle(fontWeight: FontWeight.black, fontSize: 18, color: Colors.white),
+                titleTextStyle: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white),
               ),
             )
           : ThemeData(
@@ -41,7 +41,7 @@ class MyApp extends StatelessWidget {
                 backgroundColor: Colors.white,
                 surfaceTintColor: Colors.transparent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                titleTextStyle: TextStyle(fontWeight: FontWeight.black, fontSize: 18, color: Colors.black),
+                titleTextStyle: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black),
               ),
             ),
       home: HomeScreen(),
