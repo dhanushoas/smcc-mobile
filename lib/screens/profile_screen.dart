@@ -80,168 +80,137 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoggedIn) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text('My Profile', style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          iconTheme: IconThemeData(color: Colors.blue.shade900),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.admin_panel_settings, size: 80, color: Colors.blue.shade800),
-                SizedBox(height: 16),
-                Text('Welcome, Admin', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.blue.shade900)),
-                Text('You have full access to manage matches.', style: TextStyle(color: Colors.grey)),
-                SizedBox(height: 48),
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AdminScreen())),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade800,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text('Go to Admin Dashboard', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: OutlinedButton(
-                    onPressed: _logout,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: BorderSide(color: Colors.red),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text('Logout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        elevation: 0,
+        title: Text(_isLoggedIn ? 'Admin Account' : 'Admin Portal', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
-        iconTheme: IconThemeData(color: Colors.blue.shade900),
-        title: Text('Profile', style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
+        elevation: 0,
+        foregroundColor: Colors.blue.shade900,
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.settings, color: Colors.grey),
-                    onPressed: _showServerDialog,
-                    tooltip: 'Server Settings',
-                  )
-                ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          double cardWidth = constraints.maxWidth > 500 ? 450 : constraints.maxWidth * 0.9;
+          
+          return Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: cardWidth),
+                child: _isLoggedIn ? _buildProfileUI() : _buildLoginUI(),
               ),
-              Image.asset('assets/logo.png', height: 100),
-              SizedBox(height: 24),
-              Text('Admin Login', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.blue.shade900)),
-              Text('Public users do not need to login', style: TextStyle(color: Colors.grey)),
-              SizedBox(height: 48),
-              
-              TextField(
-                controller: _usernameController,
-                decoration: InputDecoration(
-                  labelText: 'Username',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-              ),
-              SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
-                obscureText: true,
-              ),
-              SizedBox(height: 32),
-              
-              _isLoading
-                  ? CircularProgressIndicator()
-                  : SizedBox(
-                      width: double.infinity,
-                      height: 55,
-                      child: ElevatedButton(
-                        onPressed: _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue.shade800,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 2,
-                        ),
-                        child: Text('Sign In', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  void _showServerDialog() {
-    final _urlController = TextEditingController(text: ApiService.baseUrl.replaceAll('/api', ''));
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Server Settings'),
-        content: Column(
+  Widget _buildProfileUI() {
+    return Card(
+      elevation: 8,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+      child: Padding(
+        padding: const EdgeInsets.all(40.0),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Enter your backend URL (e.g. 192.168.1.5:5000 or my-app.onrender.com)', style: TextStyle(fontSize: 12, color: Colors.grey)),
-            SizedBox(height: 10),
-            TextField(
-              controller: _urlController,
-              decoration: InputDecoration(
-                labelText: 'Server Host',
-                border: OutlineInputBorder(),
-                prefixText: _urlController.text.startsWith('http') ? '' : 'http://'
+            CircleAvatar(
+              radius: 50,
+              backgroundColor: Colors.blue.shade50,
+              child: Icon(Icons.admin_panel_settings, size: 60, color: Colors.blue.shade800),
+            ),
+            SizedBox(height: 24),
+            Text('Welcome, Admin', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.blue.shade900)),
+            SizedBox(height: 8),
+            Text('You have full access to manage matches.', style: TextStyle(color: Colors.grey, fontSize: 14)),
+            SizedBox(height: 40),
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade800,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  elevation: 5,
+                ),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AdminScreen())),
+                child: Text('GO TO DASHBOARD', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1)),
               ),
+            ),
+            SizedBox(height: 15),
+            TextButton(
+              onPressed: _logout,
+              child: Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
-        actions: [
-          TextButton(child: Text('Cancel'), onPressed: () => Navigator.pop(context)),
-          ElevatedButton(
-            child: Text('Save'),
-            onPressed: () async {
-              String url = _urlController.text.trim();
-              if (!url.startsWith('http')) url = 'http://$url';
-              await ApiService.setUrl(url);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Server URL updated to $url')));
-            },
-          )
-        ],
       ),
     );
   }
+
+  Widget _buildLoginUI() {
+    return Card(
+      elevation: 8,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+      child: Padding(
+        padding: const EdgeInsets.all(30.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Hero(tag: 'logo', child: Image.asset('assets/logo.png', height: 80)),
+            SizedBox(height: 24),
+            Text('Admin Login', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.blue.shade900)),
+            SizedBox(height: 8),
+            Text('Sign in to manage live scores', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            SizedBox(height: 30),
+            TextField(
+              controller: _usernameController,
+              decoration: InputDecoration(
+                labelText: 'Username',
+                prefixIcon: Icon(Icons.person_outline),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                filled: true,
+                fillColor: Colors.grey[50],
+              ),
+            ),
+            SizedBox(height: 15),
+            TextField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                prefixIcon: Icon(Icons.lock_outline),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                filled: true,
+                fillColor: Colors.grey[50],
+              ),
+            ),
+            SizedBox(height: 30),
+            _isLoading
+              ? CircularProgressIndicator()
+              : SizedBox(
+                  width: double.infinity,
+                  height: 55,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade800,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      elevation: 5,
+                    ),
+                    onPressed: _login,
+                    child: Text('SIGN IN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                  ),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
 }

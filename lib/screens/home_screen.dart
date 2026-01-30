@@ -26,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void initSocket() {
-    socket = IO.io('http://10.0.2.2:5000', <String, dynamic>{
+    socket = IO.io('https://smcc-backend.onrender.com', <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
     });
@@ -138,24 +138,55 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ));
                 }
-                return ListView(
+
+                // Determine grid crossAxisCount based on screen width
+                int crossAxisCount = constraints.maxWidth > 700 ? 2 : 1;
+
+                return SingleChildScrollView(
                   padding: EdgeInsets.all(16),
-                  children: [
-                    if (matches.any((m) => m['status'] == 'live')) ...[
-                       _buildSectionTitle(settings.translate('live').toUpperCase(), Colors.red),
-                       ...matches.where((m) => m['status'] == 'live').map((m) => _buildMatchCard(m, settings)),
-                       SizedBox(height: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (matches.any((m) => m['status'] == 'live')) ...[
+                         _buildSectionTitle(settings.translate('live').toUpperCase(), Colors.red),
+                         GridView.count(
+                           shrinkWrap: true,
+                           physics: NeverScrollableScrollPhysics(),
+                           crossAxisCount: crossAxisCount,
+                           mainAxisSpacing: 10,
+                           crossAxisSpacing: 10,
+                           childAspectRatio: constraints.maxWidth > 700 ? 1.5 : 1.2,
+                           children: matches.where((m) => m['status'] == 'live').map((m) => _buildMatchCard(m, settings)).toList(),
+                         ),
+                         SizedBox(height: 20),
+                      ],
+                      if (matches.any((m) => m['status'] == 'upcoming')) ...[
+                         _buildSectionTitle(settings.translate('upcoming').toUpperCase(), Colors.blue),
+                         GridView.count(
+                           shrinkWrap: true,
+                           physics: NeverScrollableScrollPhysics(),
+                           crossAxisCount: crossAxisCount,
+                           mainAxisSpacing: 10,
+                           crossAxisSpacing: 10,
+                           childAspectRatio: constraints.maxWidth > 700 ? 1.5 : 1.2,
+                           children: matches.where((m) => m['status'] == 'upcoming').map((m) => _buildMatchCard(m, settings)).toList(),
+                         ),
+                         SizedBox(height: 20),
+                      ],
+                      if (matches.any((m) => m['status'] == 'completed')) ...[
+                         _buildSectionTitle(settings.translate('completed').toUpperCase(), Colors.grey),
+                         GridView.count(
+                           shrinkWrap: true,
+                           physics: NeverScrollableScrollPhysics(),
+                           crossAxisCount: crossAxisCount,
+                           mainAxisSpacing: 10,
+                           crossAxisSpacing: 10,
+                           childAspectRatio: constraints.maxWidth > 700 ? 1.5 : 1.2,
+                           children: matches.where((m) => m['status'] == 'completed').map((m) => _buildMatchCard(m, settings)).toList(),
+                         ),
+                      ],
                     ],
-                    if (matches.any((m) => m['status'] == 'upcoming')) ...[
-                       _buildSectionTitle(settings.translate('upcoming').toUpperCase(), Colors.blue),
-                       ...matches.where((m) => m['status'] == 'upcoming').map((m) => _buildMatchCard(m, settings)),
-                       SizedBox(height: 20),
-                    ],
-                    if (matches.any((m) => m['status'] == 'completed')) ...[
-                       _buildSectionTitle(settings.translate('completed').toUpperCase(), Colors.grey),
-                       ...matches.where((m) => m['status'] == 'completed').map((m) => _buildMatchCard(m, settings)),
-                    ],
-                  ],
+                  ),
                 );
               },
             ),
@@ -179,23 +210,24 @@ class _HomeScreenState extends State<HomeScreen> {
     bool isLive = match['status'] == 'live';
     return Card(
       elevation: 2,
+      margin: EdgeInsets.all(0), // Margin handled by GridView spacing
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: Column(
           children: [
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               color: isLive ? Colors.red.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(match['title'] ?? 'Match', style: TextStyle(fontWeight: FontWeight.bold, color: isLive ? Colors.red.shade900 : Colors.blue.shade900)),
+                   Expanded(child: Text(match['title'] ?? 'Match', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isLive ? Colors.red.shade900 : Colors.blue.shade900), overflow: TextOverflow.ellipsis)),
                   if (match['status'] != 'upcoming') 
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(color: isLive ? Colors.red : Colors.grey, borderRadius: BorderRadius.circular(20)),
-                      child: Text(settings.translate(match['status']), style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                      child: Text(settings.translate(match['status']), style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                     ),
                 ],
               ),
@@ -203,17 +235,18 @@ class _HomeScreenState extends State<HomeScreen> {
             
             Expanded(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(12),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('${match['date']?.toString().split('T')[0] ?? ''} | ${match['venue']}', style: TextStyle(color: Colors.grey, fontSize: 10)),
-                    SizedBox(height: 15),
+                    Text('${match['date']?.toString().split('T')[0] ?? ''} | ${match['venue']}', style: TextStyle(color: Colors.grey, fontSize: 9)),
+                    SizedBox(height: 5),
                     Row(
                       children: [
                         _buildTeamScore(match['teamA'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamA'], settings),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                          child: Text('VS', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.bold, fontSize: 12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                          child: Text('VS', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.bold, fontSize: 10)),
                         ),
                         _buildTeamScore(match['teamB'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamB'], settings),
                       ],
@@ -221,22 +254,23 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (isLive) ...[
                       _buildLiveStats(match, settings),
                       if (match['score']?['target'] != null) ...[
-                        SizedBox(height: 10),
+                        SizedBox(height: 5),
                         _buildRRRDisplay(match, settings),
                       ]
                     ],
-                    Spacer(),
+                    SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ScorecardScreen(match: match))),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         foregroundColor: Color(0xFF009270),
                         elevation: 0,
+                        padding: EdgeInsets.symmetric(vertical: 0),
                         side: BorderSide(color: Color(0xFF009270)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                        minimumSize: Size(double.infinity, 36),
+                        minimumSize: Size(double.infinity, 30),
                       ),
-                      child: Text('${settings.translate('full_scorecard')} →', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                      child: Text('${settings.translate('full_scorecard')} →', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 9)),
                     ),
                   ],
                 ),

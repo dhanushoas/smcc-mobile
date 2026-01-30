@@ -129,46 +129,86 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Admin Dashboard')),
-      body: ListView.builder(
-        itemCount: matches.length,
-        itemBuilder: (context, index) {
-          final match = matches[index];
-          return Dismissible(
-            key: Key(match['_id']),
-            background: Container(color: Colors.red, child: Icon(Icons.delete, color: Colors.white)),
-            onDismissed: (direction) => _deleteMatch(match['_id']),
-            confirmDismiss: (direction) async {
-              return await showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: const Text("Confirm"),
-                    content: const Text("Are you sure you want to delete this match?"),
-                    actions: <Widget>[
-                      TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text("CANCEL")),
-                      TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text("DELETE", style: TextStyle(color: Colors.red))),
-                    ],
-                  );
-                },
-              );
-            },
-            child: ListTile(
-              title: Text(match['title']),
-              subtitle: Column(
-                 crossAxisAlignment: CrossAxisAlignment.start,
-                 children: [
-                    Text('${match['teamA']} vs ${match['teamB']}'),
-                    Text('Status: ${match['status']}', style: TextStyle(color: Colors.grey, fontSize: 12))
-                 ]
-              ),
-                trailing: IconButton(
-                  icon: Icon(Icons.scoreboard_outlined, color: Colors.blue.shade900),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AdminLiveMatchScreen(matchData: match))),
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        title: Text('Admin Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Color(0xFF1E3C72),
+        elevation: 0,
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          int crossAxisCount = constraints.maxWidth > 800 ? 3 : (constraints.maxWidth > 500 ? 2 : 1);
+          
+          return matches.isEmpty 
+            ? Center(child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   CircularProgressIndicator(color: Color(0xFF1E3C72)),
+                   SizedBox(height: 10),
+                   Text('Loading Matches...', style: TextStyle(color: Colors.grey)),
+                ],
+              ))
+            : Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: GridView.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 2.2,
+                    ),
+                    itemCount: matches.length,
+                    itemBuilder: (context, index) {
+                      final match = matches[index];
+                      return _buildAdminCard(match);
+                    },
                 ),
-            ),
-          );
+              );
         },
+      ),
+    );
+  }
+
+  Widget _buildAdminCard(dynamic match) {
+    bool isLive = match['status'] == 'live';
+    
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: InkWell(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AdminLiveMatchScreen(matchData: match))),
+        borderRadius: BorderRadius.circular(15),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(match['title'] ?? 'Match', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueGrey.shade800), overflow: TextOverflow.ellipsis),
+                    SizedBox(height: 4),
+                    Text('${match['teamA']} vs ${match['teamB']}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E3C72))),
+                    SizedBox(height: 8),
+                    Container(
+                       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                       decoration: BoxDecoration(color: isLive ? Colors.red : Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+                       child: Text(match['status'].toString().toUpperCase(), style: TextStyle(color: isLive ? Colors.white : Colors.black87, fontSize: 8, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   IconButton(icon: Icon(Icons.edit_outlined, color: Colors.blue), onPressed: () => _showUpdateDialog(match)),
+                   IconButton(icon: Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _deleteMatch(match['_id'])),
+                ],
+              )
+            ],
+          ),
+        ),
       ),
     );
   }

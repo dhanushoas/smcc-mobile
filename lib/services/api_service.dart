@@ -3,29 +3,15 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static String baseUrl = 'http://192.168.1.164:5000/api';
+  // Production Backend URL
+  static const String baseUrl = 'https://smcc-backend.onrender.com/api';
 
-  static Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? savedUrl = prefs.getString('api_base_url');
-    if (savedUrl != null && savedUrl.isNotEmpty) {
-      if (savedUrl.endsWith('/')) savedUrl = savedUrl.substring(0, savedUrl.length - 1);
-      if (savedUrl.endsWith('/api')) savedUrl = savedUrl.substring(0, savedUrl.length - 4);
-      baseUrl = '$savedUrl/api';
-    }
-  }
+  // Legacy dynamic URL logic removed as per request for seamless valid login
+  static Future<void> init() async {}
 
-  static Future<void> setUrl(String url) async {
-    if (url.endsWith('/')) url = url.substring(0, url.length - 1);
-    if (url.endsWith('/api')) url = url.substring(0, url.length - 4);
-    
-    baseUrl = '$url/api';
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('api_base_url', url);
-  }
 
   static Future<List<dynamic>> getMatches() async {
-    if (baseUrl.contains('10.0.2.2')) await init(); // Try to load saved if default
+
     final response = await http.get(Uri.parse('$baseUrl/matches'));
     if (response.statusCode == 200) {
       return json.decode(response.body);

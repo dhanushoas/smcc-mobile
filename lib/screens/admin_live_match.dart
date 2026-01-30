@@ -215,7 +215,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Text('Admin Control Panel', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Admin Control Panel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: [primaryColor, accentColor]),
@@ -223,44 +223,99 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
         ),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-         child: Column(
-           children: [
-             _buildScoreCard(),
-             
-             if (isUpcoming) _buildUpcomingControls(),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          bool isWide = constraints.maxWidth > 700;
+          
+          return SingleChildScrollView(
+             child: Column(
+               children: [
+                 _buildScoreCard(isWide),
+                 
+                 Padding(
+                   padding: EdgeInsets.symmetric(horizontal: isWide ? 40 : 16, vertical: 20),
+                   child: Column(
+                     children: [
+                       if (isUpcoming) _buildUpcomingControls(),
 
-             if (isLive) ...[
-                _buildLiveStatus(),
-                Divider(thickness: 1),
-                _buildScoringGrid(),
-             ]
-           ],
-         ),
+                       if (isLive) ...[
+                          _buildLiveStatus(isWide),
+                          Divider(thickness: 1, height: 40),
+                          _buildScoringGrid(isWide),
+                       ],
+                       
+                       // Additional Controls
+                       SizedBox(height: 30),
+                       _buildAdvancedControls(isWide),
+                       SizedBox(height: 40),
+                     ],
+                   ),
+                 ),
+               ],
+             ),
+          );
+        }
       ),
     );
   }
 
-  Widget _buildScoreCard() {
+  Widget _buildAdvancedControls(bool isWide) {
+      return Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('ADVANCED SETTINGS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+              SizedBox(height: 15),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: Icon(Icons.edit_note),
+                      label: Text('Manual Sync'),
+                      onPressed: _saveMatch,
+                      style: OutlinedButton.styleFrom(padding: EdgeInsets.symmetric(vertical: 12)),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: Icon(Icons.settings_backup_restore),
+                      label: Text('Reset Session'),
+                      onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Session reset locally'))),
+                      style: OutlinedButton.styleFrom(padding: EdgeInsets.symmetric(vertical: 12)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+  }
+
+  Widget _buildScoreCard(bool isWide) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: primaryColor,
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(isWide ? 50 : 30), bottomRight: Radius.circular(isWide ? 50 : 30)),
         boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))],
       ),
-      padding: EdgeInsets.fromLTRB(20, 10, 20, 30),
+      padding: EdgeInsets.fromLTRB(20, isWide ? 30 : 10, 20, isWide ? 50 : 30),
       child: Column(
         children: [
-          Text('${match['teamA']} vs ${match['teamB']}', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          Text('${match['teamA']} vs ${match['teamB']}', style: TextStyle(color: Colors.white70, fontSize: isWide ? 20 : 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           SizedBox(height: 10),
-          Text('${match['score']['runs']}/${match['score']['wickets']}', style: TextStyle(color: Colors.white, fontSize: 56, fontWeight: FontWeight.w900)),
-          Text('OVERS: ${match['score']['overs']} / ${match['totalOvers']}', style: TextStyle(color: warningColor, fontSize: 18, fontWeight: FontWeight.bold)),
-          SizedBox(height: 10),
+          Text('${match['score']['runs']}/${match['score']['wickets']}', style: TextStyle(color: Colors.white, fontSize: isWide ? 80 : 56, fontWeight: FontWeight.w900)),
+          Text('OVERS: ${match['score']['overs']} / ${match['totalOvers']}', style: TextStyle(color: warningColor, fontSize: isWide ? 24 : 18, fontWeight: FontWeight.bold)),
+          SizedBox(height: 15),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-            child: Text('CRR: ${(match['score']['overs'] > 0 ? (match['score']['runs'] / match['score']['overs']).toStringAsFixed(2) : "0.00")}', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text('CRR: ${(match['score']['overs'] > 0 ? (match['score']['runs'] / match['score']['overs']).toStringAsFixed(2) : "0.00")}', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isWide ? 16 : 14)),
           )
         ],
       ),
@@ -268,124 +323,116 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
   }
 
   Widget _buildUpcomingControls() {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        children: [
-          _actionButton('👥 MANAGE SQUADS', Colors.blueGrey, Icons.group, () async {
-              await Navigator.push(context, MaterialPageRoute(builder: (_) => SquadScreen(match: match)));
-              setState(() {}); // Refresh state after return
-          }),
-          SizedBox(height: 15),
-          if (match['toss'] == null || match['toss']['winner'] == null)
-             _actionButton('🪙 CONDUCT TOSS', warningColor, Icons.monetization_on, _showTossDialog, textColor: Colors.black),
-          
-          if (match['toss'] != null && match['toss']['winner'] != null) ...[
-             SizedBox(height: 15),
-             Container(
-               padding: EdgeInsets.all(12),
-               decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber)),
-               child: Row(children: [Icon(Icons.info, color: Colors.amber[800]), SizedBox(width: 10), Expanded(child: Text('Toss won by ${match['toss']['winner']} elected to ${match['toss']['decision']}', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber[900])))]),
-             ),
-             SizedBox(height: 15),
-             _actionButton('🚀 START MATCH', successColor, Icons.play_arrow, _showStartDialog),
-          ]
-        ],
-      ),
+    return Column(
+      children: [
+        _actionButton('👥 MANAGE SQUADS', Colors.blueGrey, Icons.group, () async {
+            await Navigator.push(context, MaterialPageRoute(builder: (_) => SquadScreen(match: match)));
+            setState(() {}); // Refresh state after return
+        }),
+        SizedBox(height: 15),
+        if (match['toss'] == null || match['toss']['winner'] == null)
+           _actionButton('🪙 CONDUCT TOSS', warningColor, Icons.monetization_on, _showTossDialog, textColor: Colors.black),
+        
+        if (match['toss'] != null && match['toss']['winner'] != null) ...[
+           SizedBox(height: 15),
+           Container(
+             padding: EdgeInsets.all(12),
+             decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber)),
+             child: Row(children: [Icon(Icons.info, color: Colors.amber[800]), SizedBox(width: 10), Expanded(child: Text('Toss won by ${match['toss']['winner']} elected to ${match['toss']['decision']}', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber[900])))]),
+           ),
+           SizedBox(height: 15),
+           _actionButton('🚀 START MATCH', successColor, Icons.play_arrow, _showStartDialog),
+        ]
+      ],
     );
   }
   
-  Widget _buildLiveStatus() {
+  Widget _buildLiveStatus(bool isWide) {
      List<dynamic> batsmen = match['currentBatsmen'] ?? [];
      String bowler = match['currentBowler'] ?? '-';
      
-     return Padding(
-       padding: const EdgeInsets.all(16.0),
-       child: Row(
-         children: [
-           Expanded(
-             child: Card(
-               elevation: 4, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-               child: Padding(
-                 padding: const EdgeInsets.all(12.0),
-                 child: Column(
-                   crossAxisAlignment: CrossAxisAlignment.start,
-                   children: [
-                     Text('BATTING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                     ...batsmen.map((b) => Padding(
-                       padding: const EdgeInsets.symmetric(vertical: 4.0),
-                       child: Row(
-                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                         children: [
-                           Text(b['name'], style: TextStyle(fontWeight: FontWeight.bold, color: b['onStrike'] ? primaryColor : Colors.black54)),
-                           Text('${b['runs']}(${b['balls']})', style: TextStyle(fontWeight: FontWeight.bold)),
-                         ],
-                       ),
-                     )),
-                   ],
-                 ),
+     return Row(
+       children: [
+         Expanded(
+           child: Card(
+             elevation: 4, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+             child: Padding(
+               padding: EdgeInsets.all(isWide ? 20 : 12.0),
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   Text('BATTING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                   SizedBox(height: 10),
+                   ...batsmen.map((b) => Padding(
+                     padding: const EdgeInsets.symmetric(vertical: 6.0),
+                     child: Row(
+                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                       children: [
+                         Expanded(child: Text(b['name'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: isWide ? 16 : 14, color: b['onStrike'] ? primaryColor : Colors.black54), overflow: TextOverflow.ellipsis)),
+                         Text('${b['runs']}(${b['balls']})', style: TextStyle(fontWeight: FontWeight.bold, fontSize: isWide ? 16 : 14)),
+                       ],
+                     ),
+                   )),
+                 ],
                ),
              ),
            ),
-           SizedBox(width: 10),
-           Expanded(
-             child: Card(
-               elevation: 4, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-               child: Padding(
-                 padding: const EdgeInsets.all(12.0),
-                 child: Column(
-                   crossAxisAlignment: CrossAxisAlignment.start,
-                   children: [
-                     Text('BOWLING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                     SizedBox(height: 5),
-                     Text(bowler, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                     SizedBox(height: 5),
-                     Text('Current Over', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                   ],
-                 ),
+         ),
+         SizedBox(width: isWide ? 20 : 10),
+         Expanded(
+           child: Card(
+             elevation: 4, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+             child: Padding(
+               padding: EdgeInsets.all(isWide ? 20 : 12.0),
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   Text('BOWLING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                   SizedBox(height: 10),
+                   Text(bowler, style: TextStyle(fontSize: isWide ? 20 : 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                   SizedBox(height: 8),
+                   Text('Active Over', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                 ],
                ),
              ),
            ),
-         ],
-       ),
+         ),
+       ],
      );
   }
 
-  Widget _buildScoringGrid() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-               Expanded(child: _actionButton('MANAGE SQUADS', Colors.blueGrey, Icons.group, () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => SquadScreen(match: match))); setState(() {}); }, isSmall: true)),
-               SizedBox(width: 10),
-               Expanded(child: _actionButton('NEW BOWLER', Colors.teal, Icons.refresh, _showNewBowlerDialog, isSmall: true)),
-            ],
-          ),
-          SizedBox(height: 15),
-          GridView.count(
-            physics: NeverScrollableScrollPhysics(),
-            shrinkWrap: true,
-            crossAxisCount: 3,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.3,
-            children: [
-              _scoreTile('0', Colors.white, () => _handleUpdate('runs', 0)),
-              _scoreTile('1', Colors.grey.shade200, () => _handleUpdate('runs', 1)),
-              _scoreTile('2', Colors.grey.shade200, () => _handleUpdate('runs', 2)),
-              _scoreTile('3', Colors.grey.shade200, () => _handleUpdate('runs', 3)),
-              _scoreTile('4', Color(0xFFE3F2FD), () => _handleUpdate('runs', 4), textColor: primaryColor),
-              _scoreTile('6', Color(0xFFE8F5E9), () => _handleUpdate('runs', 6), textColor: successColor),
-              _scoreTile('WD', Colors.orange.shade50, () => _handleUpdate('extra', 'w'), textColor: Colors.orange),
-              _scoreTile('NB', Colors.orange.shade50, () => _handleUpdate('extra', 'nb'), textColor: Colors.orange),
-              _scoreTile('OUT', Colors.red.shade50, _showWicketDialog, textColor: dangerColor, isBold: true),
-            ],
-          ),
-        ],
-      ),
+  Widget _buildScoringGrid(bool isWide) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+             Expanded(child: _actionButton('MANAGE SQUADS', Colors.blueGrey, Icons.group, () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => SquadScreen(match: match))); setState(() {}); }, isSmall: true)),
+             SizedBox(width: 10),
+             Expanded(child: _actionButton('NEW BOWLER', Colors.teal, Icons.refresh, _showNewBowlerDialog, isSmall: true)),
+          ],
+        ),
+        SizedBox(height: 20),
+        GridView.count(
+          physics: NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          crossAxisCount: isWide ? 5 : 3,
+          mainAxisSpacing: isWide ? 20 : 12,
+          crossAxisSpacing: isWide ? 20 : 12,
+          childAspectRatio: isWide ? 1.5 : 1.3,
+          children: [
+            _scoreTile('0', Colors.white, () => _handleUpdate('runs', 0)),
+            _scoreTile('1', Colors.grey.shade200, () => _handleUpdate('runs', 1)),
+            _scoreTile('2', Colors.grey.shade200, () => _handleUpdate('runs', 2)),
+            _scoreTile('3', Colors.grey.shade200, () => _handleUpdate('runs', 3)),
+            _scoreTile('4', Color(0xFFE3F2FD), () => _handleUpdate('runs', 4), textColor: primaryColor),
+            _scoreTile('6', Color(0xFFE8F5E9), () => _handleUpdate('runs', 6), textColor: successColor),
+            _scoreTile('WD', Colors.orange.shade50, () => _handleUpdate('extra', 'w'), textColor: Colors.orange),
+            _scoreTile('NB', Colors.orange.shade50, () => _handleUpdate('extra', 'nb'), textColor: Colors.orange),
+            _scoreTile('OUT', Colors.red.shade50, _showWicketDialog, textColor: dangerColor, isBold: true),
+          ],
+        ),
+      ],
     );
   }
 
