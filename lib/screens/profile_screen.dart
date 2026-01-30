@@ -50,9 +50,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
+        String errorMessage = 'Login Failed';
+        if (e.toString().contains('Invalid')) {
+           errorMessage = 'Invalid Username or Password';
+        } else if (e.toString().contains('SocketException') || e.toString().contains('Connection refused') || e.toString().contains('ClientException')) {
+           errorMessage = 'Cannot connect to Server. Check connection or IP.';
+        } else {
+           errorMessage = 'Error: ${e.toString().replaceAll("Exception:", "").trim()}';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Login Failed: Invalid Credentials'),
+          content: Text(errorMessage, style: TextStyle(fontWeight: FontWeight.bold)),
           backgroundColor: Colors.red.shade800,
+          duration: Duration(seconds: 4),
         ));
       }
     }

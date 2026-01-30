@@ -30,7 +30,12 @@ class ApiService {
       await prefs.setString('token', token);
       return token;
     } else {
-      throw Exception('Login failed');
+      String msg = 'Login failed';
+      try {
+        final errData = json.decode(response.body);
+        if (errData['msg'] != null) msg = 'Invalid: ${errData['msg']}';
+      } catch (_) {}
+      throw Exception(msg);
     }
   }
 
