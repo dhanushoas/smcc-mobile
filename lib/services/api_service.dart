@@ -5,7 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // Use 10.0.2.2 for Android Emulator, localhost for iOS/Web
   // static const String baseUrl = 'http://10.0.2.2:5000/api';
-  static const String baseUrl = 'http://10.0.2.2:5000/api';
+  // static const String baseUrl = 'http://10.0.2.2:5000/api';
+  static const String baseUrl = 'http://192.168.1.164:5000/api';
 
   static Future<List<dynamic>> getMatches() async {
     final response = await http.get(Uri.parse('$baseUrl/matches'));
