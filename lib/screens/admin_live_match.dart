@@ -187,7 +187,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
 
       if (isAllOut || isOversCompleted || targetChased) {
           if (updatedMatch['score']['target'] == null) {
-              updatedMatch['score']['target'] = currentInnings['runs'] as int + 1;
+              updatedMatch['score']['target'] = (currentInnings['runs'] as int) + 1;
               String nextBatTeam = updatedMatch['score']['battingTeam'] == updatedMatch['teamA'] ? updatedMatch['teamB'] : updatedMatch['teamA'];
               // Auto switch or alert
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Innings Over! Target: ${updatedMatch['score']['target']}')));

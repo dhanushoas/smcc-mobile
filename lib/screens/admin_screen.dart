@@ -251,8 +251,7 @@ class _AdminScreenState extends State<AdminScreen> {
        } catch (e) {
          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete')));
        }
-     }
-  }
+      }
   }
 
   @override
