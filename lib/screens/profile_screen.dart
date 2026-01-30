@@ -205,7 +205,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-  }
 
   void _showServerDialog() {
     final _urlController = TextEditingController(text: ApiService.baseUrl.replaceAll('/api', ''));

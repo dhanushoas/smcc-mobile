@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+class ApiService {
   static String baseUrl = 'http://192.168.1.164:5000/api';
 
   static Future<void> init() async {
