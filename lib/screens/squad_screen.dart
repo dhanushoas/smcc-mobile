@@ -41,21 +41,28 @@ class _SquadScreenState extends State<SquadScreen> with SingleTickerProviderStat
   }
 
   Future<void> _saveSquads() async {
-    List<String> teamA = _controllersA.map((c) => _capitalize(c.text.trim())).toList();
-    List<String> teamB = _controllersB.map((c) => _capitalize(c.text.trim())).toList();
+    List<String> teamA = _controllersA.map((c) => _capitalize(c.text.trim())).where((s) => s.isNotEmpty).toList();
+    List<String> teamB = _controllersB.map((c) => _capitalize(c.text.trim())).where((s) => s.isNotEmpty).toList();
 
-    if (teamA.any((s) => s.isEmpty) || teamB.any((s) => s.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('All 11 players per team must be entered!')));
+    if (teamA.isEmpty || teamB.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('At least one player per team is required!')));
       return;
     }
 
     try {
-      await ApiService.updateMatch(widget.match['_id'] ?? widget.match['id'], {
+      Map<String, dynamic> updateData = {
         'teamASquad': teamA,
         'teamBSquad': teamB
-      });
+      };
+      
+      await ApiService.updateMatch((widget.match['_id'] ?? widget.match['id']).toString(), updateData);
+      
+      // Update local reference so caller sees the change
+      widget.match['teamASquad'] = teamA;
+      widget.match['teamBSquad'] = teamB;
+      
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Squads Saved!')));
-      Navigator.pop(context, true); // Return true to indicate update
+      Navigator.pop(context, true); 
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save squads')));
     }

@@ -29,7 +29,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
   Future<void> _saveMatch() async {
     setState(() => isLoading = true);
     try {
-      await ApiService.updateMatch(match['_id'] ?? match['id'], match);
+      await ApiService.updateMatch((match['_id'] ?? match['id']).toString(), match);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Updated!', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: successColor));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update'), backgroundColor: dangerColor));

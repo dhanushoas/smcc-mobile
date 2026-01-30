@@ -58,12 +58,12 @@ class ApiService {
     }
   }
 
-  static Future<void> updateMatch(String id, Map<String, dynamic> data) async {
+  static Future<void> updateMatch(dynamic id, Map<String, dynamic> data) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
 
     final response = await http.put(
-      Uri.parse('$baseUrl/matches/$id'),
+      Uri.parse('$baseUrl/matches/${id.toString()}'),
       headers: {
         'Content-Type': 'application/json',
         'x-auth-token': token ?? ''
@@ -75,12 +75,12 @@ class ApiService {
       throw Exception('Failed to update match');
     }
   }
-  static Future<void> deleteMatch(String id) async {
+  static Future<void> deleteMatch(dynamic id) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
 
     final response = await http.delete(
-      Uri.parse('$baseUrl/matches/$id'),
+      Uri.parse('$baseUrl/matches/${id.toString()}'),
       headers: {
         'x-auth-token': token ?? ''
       },

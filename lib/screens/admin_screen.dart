@@ -112,7 +112,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 String isoDate = "${selectedDate.toIso8601String().split('T')[0]}T${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}:00";
                 
                 try {
-                  await ApiService.updateMatch(match['_id'], {
+                  await ApiService.updateMatch(match['_id'].toString(), {
                     'title': titleController.text,
                     'series': seriesController.text,
                     'venue': venueController.text,
@@ -355,7 +355,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                    IconButton(icon: Icon(Icons.edit_outlined, color: Colors.blue), onPressed: () => _showUpdateDialog(match)),
-                   IconButton(icon: Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _deleteMatch(match['_id'])),
+                   IconButton(icon: Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _deleteMatch(match['_id'].toString())),
                 ],
               )
             ],
