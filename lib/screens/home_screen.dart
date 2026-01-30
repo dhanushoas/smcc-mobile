@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../services/api_service.dart';
 import '../providers/settings_provider.dart';
-import 'login_screen.dart';
+import 'profile_screen.dart';
 import 'scorecard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -25,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void initSocket() {
-    socket = IO.io('https://smcc-backend.onrender.com', <String, dynamic>{
+    socket = IO.io('http://10.0.2.2:5000', <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
     });
@@ -103,11 +104,22 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           PopupMenuButton<String>(
             icon: Icon(Icons.language, size: 20),
+            tooltip: 'Language',
             onSelected: (String lang) => settings.setLanguage(lang),
             itemBuilder: (context) => [
               PopupMenuItem(value: 'en', child: Text('🇺🇸 English')),
               PopupMenuItem(value: 'ta', child: Text('🇮🇳 தமிழ்')),
             ],
+          ),
+          IconButton(
+            icon: Icon(Icons.account_circle, size: 28, color: Colors.blue.shade800),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen())).then((_) {
+                 // Refresh state if needed when coming back
+                 setState(() {}); 
+              });
+            },
+            tooltip: 'Profile',
           ),
           SizedBox(width: 4),
         ],
@@ -206,7 +218,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         _buildTeamScore(match['teamB'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamB'], settings),
                       ],
                     ),
-                    if (isLive) _buildLiveStats(match, settings),
+                    if (isLive) ...[
+                      _buildLiveStats(match, settings),
+                      if (match['score']?['target'] != null) ...[
+                        SizedBox(height: 10),
+                        _buildRRRDisplay(match, settings),
+                      ]
+                    ],
                     Spacer(),
                     ElevatedButton(
                       onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ScorecardScreen(match: match))),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'admin_live_match.dart';
 
 class AdminScreen extends StatefulWidget {
   @override
@@ -161,10 +162,10 @@ class _AdminScreenState extends State<AdminScreen> {
                     Text('Status: ${match['status']}', style: TextStyle(color: Colors.grey, fontSize: 12))
                  ]
               ),
-              trailing: IconButton(
-                icon: Icon(Icons.scoreboard),
-                onPressed: () => _showUpdateDialog(match),
-              ),
+                trailing: IconButton(
+                  icon: Icon(Icons.scoreboard_outlined, color: Colors.blue.shade900),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AdminLiveMatchScreen(matchData: match))),
+                ),
             ),
           );
         },
