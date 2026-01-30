@@ -14,7 +14,7 @@ class ApiService {
     try {
       // Hit the base domain (without /api) /ping
       String pingUrl = baseUrl.replaceAll('/api', '/ping');
-      http.get(Uri.parse(pingUrl)).timeout(Duration(seconds: 1));
+      http.get(Uri.parse(pingUrl)).timeout(Duration(seconds: 30));
     } catch (_) {}
   }
 
@@ -33,7 +33,7 @@ class ApiService {
       Uri.parse('$baseUrl/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({'username': username, 'password': password}),
-    );
+    ).timeout(Duration(seconds: 30));
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -44,8 +44,14 @@ class ApiService {
     } else {
       String msg = 'Login failed';
       try {
-        final errData = json.decode(response.body);
-        if (errData['msg'] != null) msg = 'Invalid: ${errData['msg']}';
+        if (response.body.startsWith('{')) {
+          final errData = json.decode(response.body);
+          if (errData['msg'] != null) msg = 'Invalid: ${errData['msg']}';
+        } else if (response.statusCode == 500) {
+          msg = 'Server Error (500). Please check backend logs.';
+        } else if (response.statusCode == 404) {
+          msg = 'Backend endpoint not found (404). Check API URL.';
+        }
       } catch (_) {}
       throw Exception(msg);
     }

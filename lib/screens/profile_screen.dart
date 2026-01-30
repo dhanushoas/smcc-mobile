@@ -31,15 +31,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _login() async {
-    if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please fill all fields')));
       return;
     }
     
     setState(() => _isLoading = true);
     try {
-      await ApiService.login(_usernameController.text, _passwordController.text);
-      final prefs = await SharedPreferences.getInstance();
+      await ApiService.login(username, password);
+      // Removed redundant prefs load
       
       if (mounted) {
         setState(() {
@@ -206,6 +209,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Text('SIGN IN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                   ),
                 ),
+            SizedBox(height: 20),
+            Text('Server: ${ApiService.baseUrl.split('/api')[0]}', 
+                 style: TextStyle(color: Colors.grey.shade400, fontSize: 9, fontStyle: FontStyle.italic)),
           ],
         ),
       ),
