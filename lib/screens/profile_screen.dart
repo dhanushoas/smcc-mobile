@@ -147,6 +147,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.settings, color: Colors.grey),
+                    onPressed: _showServerDialog,
+                    tooltip: 'Server Settings',
+                  )
+                ],
+              ),
               Image.asset('assets/logo.png', height: 100),
               SizedBox(height: 24),
               Text('Admin Login', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.blue.shade900)),
@@ -192,6 +202,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+  }
+
+  void _showServerDialog() {
+    final _urlController = TextEditingController(text: ApiService.baseUrl.replaceAll('/api', ''));
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Server Settings'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Enter your backend URL (e.g. 192.168.1.5:5000 or my-app.onrender.com)', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            SizedBox(height: 10),
+            TextField(
+              controller: _urlController,
+              decoration: InputDecoration(
+                labelText: 'Server Host',
+                border: OutlineInputBorder(),
+                prefixText: _urlController.text.startsWith('http') ? '' : 'http://'
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(child: Text('Cancel'), onPressed: () => Navigator.pop(context)),
+          ElevatedButton(
+            child: Text('Save'),
+            onPressed: () async {
+              String url = _urlController.text.trim();
+              if (!url.startsWith('http')) url = 'http://$url';
+              await ApiService.setUrl(url);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Server URL updated to $url')));
+            },
+          )
+        ],
       ),
     );
   }
