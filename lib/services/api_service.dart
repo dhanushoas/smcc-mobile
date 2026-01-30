@@ -9,6 +9,14 @@ class ApiService {
   // Legacy dynamic URL logic removed as per request for seamless valid login
   static Future<void> init() async {}
 
+  // Wake up Render server early
+  static Future<void> warmup() async {
+    try {
+      // Hit the base domain (without /api) /ping
+      String pingUrl = baseUrl.replaceAll('/api', '/ping');
+      http.get(Uri.parse(pingUrl)).timeout(Duration(seconds: 1));
+    } catch (_) {}
+  }
 
   static Future<List<dynamic>> getMatches() async {
 

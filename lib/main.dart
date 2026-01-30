@@ -6,6 +6,7 @@ import 'services/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  ApiService.warmup(); // Start waking up the server instantly
   await ApiService.init();
   runApp(
     ChangeNotifierProvider(
