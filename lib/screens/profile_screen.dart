@@ -13,6 +13,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _isLoggedIn = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -183,10 +184,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(height: 15),
             TextField(
               controller: _passwordController,
-              obscureText: true,
+              obscureText: _obscurePassword,
               decoration: InputDecoration(
                 labelText: 'Password',
                 prefixIcon: Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                ),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                 filled: true,
                 fillColor: Colors.grey[50],
