@@ -68,8 +68,26 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
                 ],
               ),
             ),
+            if (widget.match['status'] == 'completed')
+              Container(
+                margin: EdgeInsets.all(20),
+                padding: EdgeInsets.all(15),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Color(0xFF009270).withOpacity(0.1),
+                  border: Border.all(color: Color(0xFF009270).withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  widget.match['manOfTheMatch'] != null 
+                    ? '${settings.translate('man_of_the_match')}: ${widget.match['manOfTheMatch']}' 
+                    : settings.translate('completed'),
+                  style: TextStyle(color: Color(0xFF009270), fontWeight: FontWeight.bold, fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             if (_activeTab == 0)
-              ...inningsList.map((innings) => _buildInningsList(innings, settings)).toList()
+              ...inningsList.asMap().entries.map((entry) => _buildInningsList(entry.value, entry.key, widget.match, settings)).toList()
             else
               _buildMatchInfo(widget.match, settings),
           ],
@@ -147,8 +165,16 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
     );
   }
 
-  Widget _buildInningsList(dynamic innings, SettingsProvider settings) {
+  Widget _buildInningsList(dynamic innings, int inningsIdx, dynamic match, SettingsProvider settings) {
     List<dynamic> batting = innings['batting'] ?? [];
+    
+    // Find bowling for this innings
+    // The bowling team is the OTHER team in the match
+    int bowlingInningsIdx = inningsIdx == 0 ? 1 : 0;
+    List<dynamic> bowling = [];
+    if (match['innings'] != null && match['innings'].length > bowlingInningsIdx) {
+       bowling = match['innings'][bowlingInningsIdx]['bowling'] ?? [];
+    }
     
     return Column(
       children: [
@@ -164,6 +190,8 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
             ],
           ),
         ),
+        
+        // Batting Table
         Table(
           columnWidths: {
             0: FlexColumnWidth(4),
@@ -194,17 +222,58 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
                 _buildCell(settings.translate('extras'), isSmall: true),
                 _buildCell(innings['extras']['total'].toString(), isBold: true, align: TextAlign.center),
                 _buildCell('', align: TextAlign.center),
-                _buildCell('', align: TextAlign.center),
+                _buildCell('(wd ${innings['extras']['wides']}, nb ${innings['extras']['noBalls']}, b ${innings['extras']['byes'] ?? 0}, lb ${innings['extras']['legByes'] ?? 0})', isSmall: true, align: TextAlign.end),
               ],
             ),
           ],
         ),
-        SizedBox(height: 20),
+
+        // Bowling Table
+        if (bowling.isNotEmpty) ...[
+          SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            color: settings.isDarkMode ? Colors.white10 : Colors.grey.shade200,
+            child: Text(settings.translate('bowling').toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
+          ),
+          Table(
+            columnWidths: {
+              0: FlexColumnWidth(4),
+              1: FlexColumnWidth(1),
+              2: FlexColumnWidth(1),
+              3: FlexColumnWidth(1),
+              4: FlexColumnWidth(1.2),
+            },
+            children: [
+              TableRow(
+                decoration: BoxDecoration(color: settings.isDarkMode ? Color(0xFF1A1A1A) : Colors.white),
+                children: [
+                  _buildCell(settings.translate('bowler'), isHeader: true),
+                  _buildCell('O', isHeader: true, align: TextAlign.center),
+                  _buildCell('R', isHeader: true, align: TextAlign.center),
+                  _buildCell('W', isHeader: true, align: TextAlign.center),
+                  _buildCell('ECO', isHeader: true, align: TextAlign.center),
+                ],
+              ),
+              ...bowling.map((bowl) => TableRow(
+                children: [
+                  _buildCell(bowl['player'], isBold: true),
+                  _buildCell(bowl['overs'].toString(), align: TextAlign.center),
+                  _buildCell(bowl['runs'].toString(), align: TextAlign.center),
+                  _buildCell(bowl['wickets'].toString(), isBold: true, align: TextAlign.center, color: Colors.red),
+                  _buildCell(bowl['economy'].toString(), isSmall: true, align: TextAlign.center),
+                ],
+              )).toList(),
+            ],
+          ),
+        ],
+        SizedBox(height: 30),
       ],
     );
   }
 
-  Widget _buildCell(String text, {bool isHeader = false, bool isBold = false, bool isName = false, bool isSmall = false, TextAlign align = TextAlign.start}) {
+  Widget _buildCell(String text, {bool isHeader = false, bool isBold = false, bool isName = false, bool isSmall = false, TextAlign align = TextAlign.start, Color? color}) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Text(
@@ -213,7 +282,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
         style: TextStyle(
           fontSize: isHeader ? 10 : (isSmall ? 10 : 12),
           fontWeight: (isHeader || isBold || isName) ? FontWeight.bold : FontWeight.normal,
-          color: isHeader ? Colors.grey : (isName ? Colors.blue.shade600 : null),
+          color: color ?? (isHeader ? Colors.grey : (isName ? Colors.blue.shade600 : null)),
         ),
       ),
     );

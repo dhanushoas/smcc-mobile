@@ -44,8 +44,8 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
     // Ensure innings structure exists
     if (updatedMatch['innings'] == null || (updatedMatch['innings'] as List).isEmpty) {
        updatedMatch['innings'] = [
-         {'team': updatedMatch['teamA'], 'runs': 0, 'wickets': 0, 'overs': 0, 'batting': [], 'bowling': [], 'extras': {'total': 0, 'wides': 0, 'noBalls': 0}},
-         {'team': updatedMatch['teamB'], 'runs': 0, 'wickets': 0, 'overs': 0, 'batting': [], 'bowling': [], 'extras': {'total': 0, 'wides': 0, 'noBalls': 0}}
+         {'team': updatedMatch['teamA'], 'runs': 0, 'wickets': 0, 'overs': 0, 'batting': [], 'bowling': [], 'extras': {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0}},
+         {'team': updatedMatch['teamB'], 'runs': 0, 'wickets': 0, 'overs': 0, 'batting': [], 'bowling': [], 'extras': {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0}}
        ];
     }
     
@@ -77,13 +77,11 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
       updatedMatch['status'] = 'live';
       if (updatedMatch['score']['battingTeam'] == null) updatedMatch['score']['battingTeam'] = updatedMatch['teamA'];
     } 
-    else if (type == 'runs' || type == 'extra' || type == 'wicket') {
+    else if (type == 'runs' || type == 'extra' || type == 'wicket' || type == 'retire') {
       List<dynamic> curBatsmen = updatedMatch['currentBatsmen'] ?? [];
       
-      // FALLBACK & ROBUSTNESS: Handle missing state
-      if (curBatsmen.isEmpty || curBatsmen.length < 2) {
-         // Try to repair from innings if absolutely needed, or alert
-         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: Batsmen data missing. Please restart match or re-enter details.')));
+      if (curBatsmen.length < 2) {
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Batsmen data missing. Check Squads.')));
          return; 
       }
 
@@ -94,7 +92,6 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
       int sIdx = findBatIndex(striker);
       int bIdx = findBowlIndex(bowler);
 
-      // Auto-add if missing (Fallback Logic ported from web)
       if (sIdx == -1 && striker.isNotEmpty) {
           (currentInnings['batting'] as List).add({'player': striker, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
           sIdx = (currentInnings['batting'] as List).length - 1;
@@ -102,11 +99,6 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
       if (bIdx == -1 && bowler.isNotEmpty) {
           (currentBowling['bowling'] as List).add({'player': bowler, 'overs': 0, 'maidens': 0, 'runs': 0, 'wickets': 0, 'economy': 0});
           bIdx = (currentBowling['bowling'] as List).length - 1;
-      }
-
-      if (sIdx == -1 || bIdx == -1) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Critical Error: Batsman or Bowler missing from records!')));
-          return;
       }
 
       bool ballCounts = true;
@@ -127,11 +119,14 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
            curBatsmen[1]['onStrike'] = t;
         }
       } else if (type == 'extra') {
-         currentInnings['runs'] += 1;
-         currentBowling['bowling'][bIdx]['runs'] += 1;
-         currentInnings['extras']['total'] += 1;
-         if (value == 'w') { currentInnings['extras']['wides'] += 1; ballCounts = false; }
-         else if (value == 'nb') { currentInnings['extras']['noBalls'] += 1; ballCounts = false; }
+         int amount = params?['amount'] ?? 1;
+         currentInnings['runs'] += amount;
+         currentInnings['extras']['total'] += amount;
+         
+         if (value == 'w') { currentInnings['extras']['wides'] += amount; ballCounts = false; currentBowling['bowling'][bIdx]['runs'] += amount; }
+         else if (value == 'nb') { currentInnings['extras']['noBalls'] += amount; ballCounts = false; currentBowling['bowling'][bIdx]['runs'] += amount; }
+         else if (value == 'b') { currentInnings['extras']['byes'] = (currentInnings['extras']['byes'] ?? 0) + amount; }
+         else if (value == 'lb') { currentInnings['extras']['legByes'] = (currentInnings['extras']['legByes'] ?? 0) + amount; }
       } else if (type == 'wicket') {
          currentInnings['wickets'] += 1;
          var wDetail = params; 
@@ -147,8 +142,11 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
             else if (t == 'hit wicket') outStatus = 'hit wicket b $bowler';
          }
          currentInnings['batting'][sIdx]['status'] = outStatus;
-         if (wDetail?['type'] != 'run out') currentBowling['bowling'][bIdx]['wickets'] += 1; // Run out usually doesn't credit bowler
+         if (params?['type'] != 'run out') currentBowling['bowling'][bIdx]['wickets'] += 1;
          currentInnings['batting'][sIdx]['balls'] += 1; 
+      } else if (type == 'retire') {
+         currentInnings['batting'][sIdx]['status'] = 'retired hurt';
+         // Ball doesn't count if retired? Depends on rules, usually treated as not out but replaced.
       }
 
       if (ballCounts) {
@@ -159,6 +157,9 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
              var t = curBatsmen[0]['onStrike'];
              curBatsmen[0]['onStrike'] = curBatsmen[1]['onStrike'];
              curBatsmen[1]['onStrike'] = t;
+             if (currentInnings['overs'] < updatedMatch['totalOvers']) {
+                Future.delayed(Duration(milliseconds: 500), () => _showNewBowlerDialog());
+             }
          } else {
              currentInnings['overs'] = (balls ~/ 6) + (balls % 6) / 10;
          }
@@ -169,33 +170,60 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
          else currentBowling['bowling'][bIdx]['overs'] = (bBalls ~/ 6) + (bBalls % 6) / 10;
       }
 
+      // Calculate Stats (SR & Eco)
+      (currentInnings['batting'] as List).forEach((p) {
+          if (p['balls'] > 0) p['strikeRate'] = double.parse(((p['runs'] / p['balls']) * 100).toStringAsFixed(2));
+      });
+      (currentBowling['bowling'] as List).forEach((p) {
+          double ov = (p['overs'] as num).toDouble();
+          int totB = (ov.floor() * 6) + ((ov * 10) % 10).round().toInt();
+          if (totB > 0) p['economy'] = double.parse(((p['runs'] / totB) * 6).toStringAsFixed(2));
+      });
+
+      // Completion Logic
+      bool isAllOut = currentInnings['wickets'] >= 10;
+      bool isOversCompleted = currentInnings['overs'] >= updatedMatch['totalOvers'];
+      bool targetChased = updatedMatch['score']['target'] != null && currentInnings['runs'] >= updatedMatch['score']['target'];
+
+      if (isAllOut || isOversCompleted || targetChased) {
+          if (updatedMatch['score']['target'] == null) {
+              updatedMatch['score']['target'] = currentInnings['runs'] as int + 1;
+              String nextBatTeam = updatedMatch['score']['battingTeam'] == updatedMatch['teamA'] ? updatedMatch['teamB'] : updatedMatch['teamA'];
+              // Auto switch or alert
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Innings Over! Target: ${updatedMatch['score']['target']}')));
+              updatedMatch['score']['battingTeam'] = nextBatTeam;
+              updatedMatch['score']['runs'] = 0; updatedMatch['score']['wickets'] = 0; updatedMatch['score']['overs'] = 0;
+              updatedMatch['currentBatsmen'] = []; updatedMatch['currentBowler'] = null;
+              Future.delayed(Duration(seconds: 1), () => _showStartDialog());
+          } else {
+              updatedMatch['status'] = 'completed';
+              updatedMatch['manOfTheMatch'] = _calculateMOM(updatedMatch);
+          }
+      }
+
       updatedMatch['score']['runs'] = currentInnings['runs'];
       updatedMatch['score']['wickets'] = currentInnings['wickets'];
       updatedMatch['score']['overs'] = currentInnings['overs'];
       
-      for (var b in curBatsmen) {
+      for (var b in (updatedMatch['currentBatsmen'] as List)) {
          var p = (currentInnings['batting'] as List).firstWhere((pl) => pl['player'] == b['name'], orElse: () => null);
-         if (p != null) {
-            b['runs'] = p['runs'];
-            b['balls'] = p['balls'];
-         }
+         if (p != null) { b['runs'] = p['runs']; b['balls'] = p['balls']; }
       }
     }
     else if (type == 'new_batsman') {
-        List<dynamic> curBatsmen = updatedMatch['currentBatsmen'];
-        int outIdx = curBatsmen.indexWhere((b) => b['onStrike'] == true); 
-        if (outIdx != -1) {
-            curBatsmen[outIdx] = {'name': value, 'onStrike': true, 'runs': 0, 'balls': 0};
-            if (findBatIndex(value) == -1) {
-               (currentInnings['batting'] as List).add({'player': value, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
-            }
+        List<dynamic> curBatsmen = updatedMatch['currentBatsmen'] ?? [];
+        if (curBatsmen.isEmpty) {
+            curBatsmen = [{'name': value, 'onStrike': true, 'runs': 0, 'balls': 0}];
+        } else {
+            int outIdx = curBatsmen.indexWhere((b) => b['onStrike'] == true); 
+            if (outIdx != -1) curBatsmen[outIdx] = {'name': value, 'onStrike': true, 'runs': 0, 'balls': 0};
         }
+        updatedMatch['currentBatsmen'] = curBatsmen;
+        if (findBatIndex(value) == -1) (currentInnings['batting'] as List).add({'player': value, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
     }
     else if (type == 'new_bowler') {
         updatedMatch['currentBowler'] = value;
-        if (findBowlIndex(value) == -1) {
-           (currentBowling['bowling'] as List).add({'player': value, 'overs': 0, 'maidens': 0, 'runs': 0, 'wickets': 0, 'economy': 0});
-        }
+        if (findBowlIndex(value) == -1) (currentBowling['bowling'] as List).add({'player': value, 'overs': 0, 'maidens': 0, 'runs': 0, 'wickets': 0, 'economy': 0});
     }
     else if (type == 'manual') {
        updatedMatch = value;
@@ -203,6 +231,27 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
 
     setState(() { match = updatedMatch; });
     _saveMatch();
+  }
+
+  String? _calculateMOM(Map<String, dynamic> m) {
+    try {
+      var inn1 = m['innings'][0]; var inn2 = m['innings'][1];
+      String? winner;
+      if (inn1['runs'] > inn2['runs']) winner = inn1['team'];
+      else if (inn2['runs'] > inn1['runs']) winner = inn2['team'];
+      if (winner == null) return null;
+
+      var winInn = m['innings'].firstWhere((i) => i['team'] == winner);
+      var loseInn = m['innings'].firstWhere((i) => i['team'] != winner);
+
+      Map<String, double> scores = {};
+      (winInn['batting'] as List).forEach((p) => scores[p['player']] = (p['runs'] as num).toDouble());
+      (winInn['bowling'] as List).forEach((p) => scores[p['player']] = (scores[p['player']] ?? 0) + (p['wickets'] as num) * 20); // Web used 25, I'll use 20 here or match web
+      
+      String? best; double max = -1;
+      scores.forEach((name, s) { if (s > max) { max = s; best = name; } });
+      return best;
+    } catch (_) { return null; }
   }
 
   // --- UI COMPONENTS ---
@@ -231,26 +280,27 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
              child: Column(
                children: [
                  _buildScoreCard(isWide),
-                 
-                 Padding(
-                   padding: EdgeInsets.symmetric(horizontal: isWide ? 40 : 16, vertical: 20),
-                   child: Column(
-                     children: [
-                       if (isUpcoming) _buildUpcomingControls(),
+                                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: isWide ? 40 : 16, vertical: 20),
+                    child: Column(
+                      children: [
+                        if (isUpcoming) _buildUpcomingControls(),
 
-                       if (isLive) ...[
-                          _buildLiveStatus(isWide),
-                          Divider(thickness: 1, height: 40),
-                          _buildScoringGrid(isWide),
-                       ],
-                       
-                       // Additional Controls
-                       SizedBox(height: 30),
-                       _buildAdvancedControls(isWide),
-                       SizedBox(height: 40),
-                     ],
-                   ),
-                 ),
+                        if (isLive) ...[
+                           _buildLiveStatus(isWide),
+                           Divider(thickness: 1, height: 40),
+                           _buildScoringGrid(isWide),
+                        ],
+                        
+                        // Additional Controls
+                        SizedBox(height: 30),
+                        _buildCorrectionPanel(isWide),
+                        SizedBox(height: 15),
+                        _buildAdvancedControls(isWide),
+                        SizedBox(height: 40),
+                      ],
+                    ),
+                  ),
                ],
              ),
           );
@@ -267,24 +317,27 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('ADVANCED SETTINGS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+              Text('QUICK ACTIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
               SizedBox(height: 15),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: Icon(Icons.edit_note),
-                      label: Text('Manual Sync'),
-                      onPressed: _saveMatch,
-                      style: OutlinedButton.styleFrom(padding: EdgeInsets.symmetric(vertical: 12)),
+                      icon: Icon(Icons.person_off),
+                      label: Text('Retire Batsman'),
+                      onPressed: () {
+                         _handleUpdate('retire', null);
+                         _showNewBatsmanDialog();
+                      },
+                      style: OutlinedButton.styleFrom(padding: EdgeInsets.symmetric(vertical: 12), foregroundColor: dangerColor),
                     ),
                   ),
                   SizedBox(width: 10),
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: Icon(Icons.settings_backup_restore),
-                      label: Text('Reset Session'),
-                      onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Session reset locally'))),
+                      icon: Icon(Icons.sync),
+                      label: Text('Manual Sync'),
+                      onPressed: _saveMatch,
                       style: OutlinedButton.styleFrom(padding: EdgeInsets.symmetric(vertical: 12)),
                     ),
                   ),
@@ -294,6 +347,73 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
           ),
         ),
       );
+  }
+
+  Widget _buildCorrectionPanel(bool isWide) {
+    bool isExpanded = false;
+    return StatefulBuilder(builder: (context, setStateLocal) {
+      return Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: Column(
+          children: [
+            ListTile(
+              title: Text('🔧 CORRECTION PANEL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+              trailing: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+              onTap: () => setStateLocal(() => isExpanded = !isExpanded),
+            ),
+            if (isExpanded) Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: _miniInput('Runs', match['score']['runs'].toString(), (v) {
+                         var m = Map<String, dynamic>.from(match);
+                         m['score']['runs'] = int.tryParse(v) ?? 0;
+                         _handleUpdate('manual', m);
+                      })),
+                      SizedBox(width: 10),
+                      Expanded(child: _miniInput('Wkts', match['score']['wickets'].toString(), (v) {
+                         var m = Map<String, dynamic>.from(match);
+                         m['score']['wickets'] = int.tryParse(v) ?? 0;
+                         _handleUpdate('manual', m);
+                      })),
+                      SizedBox(width: 10),
+                      Expanded(child: _miniInput('Overs', match['score']['overs'].toString(), (v) {
+                         var m = Map<String, dynamic>.from(match);
+                         m['score']['overs'] = double.tryParse(v) ?? 0.0;
+                         _handleUpdate('manual', m);
+                      })),
+                    ],
+                  ),
+                  SizedBox(height: 15),
+                  _buildDropdown('Batting Team', match['score']['battingTeam'], [match['teamA'], match['teamB']], (v) {
+                      var m = Map<String, dynamic>.from(match);
+                      m['score']['battingTeam'] = v;
+                      _handleUpdate('manual', m);
+                  }),
+                  SizedBox(height: 10),
+                  _buildDropdown('Status', match['status'], ['upcoming', 'live', 'completed'], (v) {
+                      var m = Map<String, dynamic>.from(match);
+                      m['status'] = v;
+                      _handleUpdate('manual', m);
+                  }),
+                ],
+              ),
+            )
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _miniInput(String label, String value, Function(String) onChange) {
+    return TextField(
+      decoration: InputDecoration(labelText: label, border: OutlineInputBorder(), contentPadding: EdgeInsets.all(8)),
+      keyboardType: TextInputType.numberWithOptions(decimal: true),
+      controller: TextEditingController(text: value)..selection = TextSelection.collapsed(offset: value.length),
+      onSubmitted: onChange,
+    );
   }
 
   Widget _buildScoreCard(bool isWide) {
@@ -429,6 +549,8 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
             _scoreTile('6', Color(0xFFE8F5E9), () => _handleUpdate('runs', 6), textColor: successColor),
             _scoreTile('WD', Colors.orange.shade50, () => _handleUpdate('extra', 'w'), textColor: Colors.orange),
             _scoreTile('NB', Colors.orange.shade50, () => _handleUpdate('extra', 'nb'), textColor: Colors.orange),
+            _scoreTile('BYE', Colors.blue.shade50, () => _handleUpdate('extra', 'b'), textColor: Colors.blue),
+            _scoreTile('LB', Colors.green.shade50, () => _handleUpdate('extra', 'lb'), textColor: Colors.green),
             _scoreTile('OUT', Colors.red.shade50, _showWicketDialog, textColor: dangerColor, isBold: true),
           ],
         ),
