@@ -39,102 +39,220 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   void _showUpdateDialog(var match) {
-    if (DateTime.tryParse(match['date'])!.isAfter(DateTime.now())) {
-       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Match hasn\'t started yet.')));
-       // Check if strict mode - for now allow edit but warn
-       // return; 
-    }
-
-    final runsController = TextEditingController(text: match['score']?['runs']?.toString() ?? '0');
-    final wicketsController = TextEditingController(text: match['score']?['wickets']?.toString() ?? '0');
-    final oversController = TextEditingController(text: match['score']?['overs']?.toString() ?? '0');
+    final titleController = TextEditingController(text: match['title'] ?? '');
+    final seriesController = TextEditingController(text: match['series'] ?? 'SMCC Premier League');
+    final venueController = TextEditingController(text: match['venue'] ?? '');
+    final oversController = TextEditingController(text: match['totalOvers']?.toString() ?? '20');
+    final momController = TextEditingController(text: match['manOfTheMatch'] ?? '');
+    DateTime selectedDate = DateTime.tryParse(match['date'] ?? '') ?? DateTime.now();
+    TimeOfDay selectedTime = TimeOfDay(hour: selectedDate.hour, minute: selectedDate.minute);
     String status = match['status'];
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Scoring: ${match['teamA']} vs ${match['teamB']}'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Current Run Rate: ${(int.parse(runsController.text) / (double.parse(oversController.text) == 0 ? 1 : double.parse(oversController.text))).toStringAsFixed(2)}'),
-              SizedBox(height: 20),
-              TextField(controller: runsController, decoration: InputDecoration(labelText: 'Runs', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), keyboardType: TextInputType.number),
-              SizedBox(height: 12),
-              TextField(controller: wicketsController, decoration: InputDecoration(labelText: 'Wickets', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), keyboardType: TextInputType.number),
-              SizedBox(height: 12),
-              TextField(controller: oversController, decoration: InputDecoration(labelText: 'Overs', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), keyboardType: TextInputType.number),
-              SizedBox(height: 15),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(12)),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: status,
-                    items: ['upcoming', 'live', 'completed'].map((s) => DropdownMenuItem(value: s, child: Text(s.toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))).toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        status = val!;
-                      });
-                    },
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Edit Match Info'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: titleController, decoration: InputDecoration(labelText: 'Match Title', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                SizedBox(height: 12),
+                TextField(controller: seriesController, decoration: InputDecoration(labelText: 'Series Name', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                SizedBox(height: 12),
+                TextField(controller: venueController, decoration: InputDecoration(labelText: 'Venue', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                SizedBox(height: 12),
+                TextField(controller: oversController, decoration: InputDecoration(labelText: 'Total Overs Limit', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), keyboardType: TextInputType.number),
+                SizedBox(height: 12),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(12)),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: status,
+                      items: ['upcoming', 'live', 'completed'].map((s) => DropdownMenuItem(value: s, child: Text(s.toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))).toList(),
+                      onChanged: (val) => setDialogState(() => status = val!),
+                    ),
                   ),
                 ),
-              ),
-              if (status == 'completed') ...[
-                SizedBox(height: 10),
-                Text('Select Man of the Match on Web for now')
-              ]
-            ],
+                SizedBox(height: 12),
+                if (status == 'completed') ...[
+                  TextField(controller: momController, decoration: InputDecoration(labelText: 'Man of the Match', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                  SizedBox(height: 12),
+                ],
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.calendar_today, color: Color(0xFF1E3C72)),
+                  title: Text('Date: ${selectedDate.toString().split(' ')[0]}'),
+                  onTap: () async {
+                    final picked = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
+                    if (picked != null) setDialogState(() => selectedDate = picked);
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.access_time, color: Color(0xFF1E3C72)),
+                  title: Text('Time: ${selectedTime.format(context)}'),
+                  onTap: () async {
+                    final picked = await showTimePicker(context: context, initialTime: selectedTime);
+                    if (picked != null) setDialogState(() => selectedTime = picked);
+                  },
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF1E3C72), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              onPressed: () async {
+                String isoDate = "${selectedDate.toIso8601String().split('T')[0]}T${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}:00";
+                
+                try {
+                  await ApiService.updateMatch(match['_id'], {
+                    'title': titleController.text,
+                    'series': seriesController.text,
+                    'venue': venueController.text,
+                    'totalOvers': int.tryParse(oversController.text) ?? 20,
+                    'status': status,
+                    'manOfTheMatch': momController.text,
+                    'date': isoDate,
+                  });
+                  Navigator.pop(context);
+                  fetchMatches();
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Updated successfully')));
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+                }
+              },
+              child: Text('Save'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade800, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-            onPressed: () async {
-              int? runs = int.tryParse(runsController.text);
-              int? wickets = int.tryParse(wicketsController.text);
-              double? overs = double.tryParse(oversController.text);
+      ),
+    );
+  }
 
-              if (runs == null || runs < 0) return;
-              if (wickets == null || wickets < 0 || wickets > 10) return;
+  void _showCreateDialog() {
+    final titleController = TextEditingController();
+    final seriesController = TextEditingController(text: 'SMCC Premier League');
+    final teamAController = TextEditingController();
+    final teamBController = TextEditingController();
+    final venueController = TextEditingController();
+    final oversController = TextEditingController(text: '20');
+    DateTime selectedDate = DateTime.now();
+    TimeOfDay selectedTime = TimeOfDay(hour: 9, minute: 0);
 
-              try {
-                await ApiService.updateMatch(match['_id'], {
-                  'status': status,
-                  'score': {
-                    'runs': runs,
-                    'wickets': wickets,
-                    'overs': overs ?? 0.0,
-                    'battingTeam': match['score']?['battingTeam'] ?? match['teamA'], 
-                  }
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Updated!')));
-                fetchMatches();
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed')));
-              }
-            },
-            child: Text('Save'),
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('New Match', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: titleController, decoration: InputDecoration(labelText: 'Match Title', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                SizedBox(height: 12),
+                TextField(controller: seriesController, decoration: InputDecoration(labelText: 'Series Name', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: TextField(controller: teamAController, decoration: InputDecoration(labelText: 'Team A', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))))),
+                    SizedBox(width: 10),
+                    Text('VS', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                    SizedBox(width: 10),
+                    Expanded(child: TextField(controller: teamBController, decoration: InputDecoration(labelText: 'Team B', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))))),
+                  ],
+                ),
+                SizedBox(height: 12),
+                TextField(controller: venueController, decoration: InputDecoration(labelText: 'Venue', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                SizedBox(height: 12),
+                TextField(controller: oversController, decoration: InputDecoration(labelText: 'Total Overs', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), keyboardType: TextInputType.number),
+                SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.calendar_today, color: Color(0xFF1E3C72)),
+                  title: Text('Date: ${selectedDate.toString().split('00:00')[0]}'),
+                  onTap: () async {
+                    final picked = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime.now(), lastDate: DateTime(2030));
+                    if (picked != null) setDialogState(() => selectedDate = picked);
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.access_time, color: Color(0xFF1E3C72)),
+                  title: Text('Time: ${selectedTime.format(context)}'),
+                  onTap: () async {
+                    final picked = await showTimePicker(context: context, initialTime: selectedTime);
+                    if (picked != null) setDialogState(() => selectedTime = picked);
+                  },
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF1E3C72), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              onPressed: () async {
+                if (teamAController.text.isEmpty || teamBController.text.isEmpty) return;
+                
+                String isoDate = "${selectedDate.toIso8601String().split('T')[0]}T${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}:00";
+
+                try {
+                  await ApiService.createMatch({
+                    'title': titleController.text.isEmpty ? "${teamAController.text} vs ${teamBController.text}" : titleController.text,
+                    'series': seriesController.text,
+                    'teamA': teamAController.text,
+                    'teamB': teamBController.text,
+                    'venue': venueController.text,
+                    'totalOvers': int.tryParse(oversController.text) ?? 20,
+                    'date': isoDate,
+                    'status': 'upcoming'
+                  });
+                  Navigator.pop(context);
+                  fetchMatches();
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Match Created! Ensure you add squads before starting.')));
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
+              },
+              child: Text('Create'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   void _deleteMatch(String id) async {
-     try {
-       // We need to implement delete in ApiService first, assume it exists or just skip for now as user asked for "admin put... public view"
-       // But I will stick to showing the UI for it
-       await ApiService.deleteMatch(id); // Future/Mock call
-       fetchMatches();
-       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Match Deleted')));
-     } catch (e) {
-       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete not implemented in API service yet')));
+     bool? confirm = await showDialog<bool>(
+       context: context,
+       builder: (context) => AlertDialog(
+         title: Text('Delete Match?'),
+         content: Text('This action cannot be undone.'),
+         actions: [
+           TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel')),
+           TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Delete', style: TextStyle(color: Colors.red))),
+         ],
+       )
+     );
+
+     if (confirm == true) {
+       try {
+         await ApiService.deleteMatch(id);
+         fetchMatches();
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Match Deleted')));
+       } catch (e) {
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete')));
+       }
      }
+  }
   }
 
   @override
@@ -145,6 +263,15 @@ class _AdminScreenState extends State<AdminScreen> {
         title: Text('Admin Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Color(0xFF1E3C72),
         elevation: 0,
+        actions: [
+          IconButton(icon: Icon(Icons.refresh), onPressed: fetchMatches)
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: Color(0xFF1E3C72),
+        onPressed: _showCreateDialog,
+        icon: Icon(Icons.add, color: Colors.white),
+        label: Text('NEW MATCH', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {

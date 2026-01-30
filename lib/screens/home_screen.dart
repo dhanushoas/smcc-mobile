@@ -251,6 +251,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         _buildTeamScore(match['teamB'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamB'], settings),
                       ],
                     ),
+                    if (match['toss'] != null && match['toss']['winner'] != null)
+                       Padding(
+                         padding: const EdgeInsets.symmetric(vertical: 4.0),
+                         child: Text(
+                           'Toss: ${match['toss']['winner']} elected to ${match['toss']['decision']}',
+                           style: TextStyle(fontSize: 8, color: Colors.orange.shade900, fontStyle: FontStyle.italic, fontWeight: FontWeight.bold),
+                           textAlign: TextAlign.center,
+                           maxLines: 1,
+                           overflow: TextOverflow.ellipsis,
+                         ),
+                       ),
                     if (isLive) ...[
                       _buildLiveStats(match, settings),
                       if (match['score']?['target'] != null) ...[

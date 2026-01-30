@@ -90,4 +90,22 @@ class ApiService {
       throw Exception('Failed to delete match');
     }
   }
+
+  static Future<void> createMatch(Map<String, dynamic> data) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/matches'),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-auth-token': token ?? ''
+      },
+      body: json.encode(data),
+    ).timeout(Duration(seconds: 30));
+
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception('Failed to create match: ${response.body}');
+    }
+  }
 }
