@@ -248,6 +248,35 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildRRRDisplay(dynamic match, SettingsProvider settings) {
+    if (match['score']?['target'] == null) return SizedBox.shrink();
+
+    int runsNeeded = (match['score']['target'] as int) - (match['score']['runs'] as int);
+    int totalBalls = (match['totalOvers'] as int) * 6;
+    double currentOvers = (match['score']['overs'] as num).toDouble();
+    int ballsBowled = (currentOvers.floor() * 6) + ((currentOvers * 10) % 10).round();
+    int ballsRemaining = totalBalls - ballsBowled;
+    
+    double rrr = 0.0;
+    if (ballsRemaining > 0) {
+       rrr = (runsNeeded / ballsRemaining) * 6;
+    } else if (runsNeeded > 0) {
+       rrr = 99.99; // Infinite
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(5), border: Border.all(color: Colors.orange.shade200)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('Target: ${match['score']['target']}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
+          Text('RRR: ${rrr.toStringAsFixed(2)}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLiveStats(dynamic match, SettingsProvider settings) {
     return Container(
       margin: EdgeInsets.only(top: 15),
