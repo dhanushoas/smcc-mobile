@@ -20,7 +20,8 @@ class ApiService {
 
   static Future<List<dynamic>> getMatches() async {
 
-    final response = await http.get(Uri.parse('$baseUrl/matches'));
+    final response = await http.get(Uri.parse('$baseUrl/matches'))
+        .timeout(Duration(seconds: 30));
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {

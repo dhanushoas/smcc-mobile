@@ -9,6 +9,7 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> matches = [];
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -17,13 +18,23 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> fetchMatches() async {
+    if (!mounted) return;
+    setState(() => isLoading = true);
     try {
       final data = await ApiService.getMatches();
-      setState(() {
-        matches = data;
-      });
+      if (mounted) {
+        setState(() {
+          matches = data;
+          isLoading = false;
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load matches')));
+      if (mounted) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load matches: $e'))
+        );
+      }
     }
   }
 
@@ -139,31 +150,46 @@ class _AdminScreenState extends State<AdminScreen> {
         builder: (context, constraints) {
           int crossAxisCount = constraints.maxWidth > 800 ? 3 : (constraints.maxWidth > 500 ? 2 : 1);
           
-          return matches.isEmpty 
-            ? Center(child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                   CircularProgressIndicator(color: Color(0xFF1E3C72)),
-                   SizedBox(height: 10),
-                   Text('Loading Matches...', style: TextStyle(color: Colors.grey)),
-                ],
-              ))
-            : Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 2.2,
-                    ),
-                    itemCount: matches.length,
-                    itemBuilder: (context, index) {
-                      final match = matches[index];
-                      return _buildAdminCard(match);
-                    },
-                ),
-              );
+          if (isLoading) {
+            return Center(child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                 CircularProgressIndicator(color: Color(0xFF1E3C72)),
+                 SizedBox(height: 10),
+                 Text('Loading Matches...', style: TextStyle(color: Colors.grey)),
+              ],
+            ));
+          }
+
+          if (matches.isEmpty) {
+            return Center(child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.event_note, size: 80, color: Colors.grey.shade300),
+                SizedBox(height: 16),
+                Text('No matches found', style: TextStyle(color: Colors.grey, fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                ElevatedButton(onPressed: fetchMatches, child: Text('Refresh'))
+              ],
+            ));
+          }
+
+          return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: GridView.builder(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 2.2,
+                  ),
+                  itemCount: matches.length,
+                  itemBuilder: (context, index) {
+                    final match = matches[index];
+                    return _buildAdminCard(match);
+                  },
+              ),
+          );
         },
       ),
     );
