@@ -1,5 +1,6 @@
 name: smcc_cricket
-description: SMCC Cricket Scorecard App
+description: Official SMCC Cricket Live Scoring Application.
+version: 1.0.0+1
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
