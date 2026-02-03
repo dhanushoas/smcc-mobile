@@ -625,7 +625,8 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
     // if (match['status'] == 'completed') return SizedBox.shrink(); // ALLOW View for Override
     
     bool isCompleted = match['status'] == 'completed' || match['status'] == 'cancelled' || match['status'] == 'abandoned';
-    bool isSecondInnings = (match['score']['target'] != null && match['score']['target'] > 0);
+    // Remove restriction for second innings (target set) to allow edits
+    // bool isSecondInnings = (match['score']['target'] != null && match['score']['target'] > 0);
 
     bool isExpanded = false;
     return StatefulBuilder(builder: (context, setStateLocal) {
