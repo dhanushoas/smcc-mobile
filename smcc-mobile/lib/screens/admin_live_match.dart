@@ -1600,23 +1600,23 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
   }
 
   void _initSuperOver() {
-    // setState(() => isSaving = true);
     var newMatch = Map<String, dynamic>.from(match);
     
-    // Add Super Over innings
-    List<dynamic> currentInnings = (newMatch['innings'] as List).toList();
-    currentInnings.add({'team': newMatch['teamA'], 'runs': 0, 'wickets': 0, 'overs': 0, 'batting': [], 'bowling': [], 'extras': {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0}, 'isSuperOver': true});
-    currentInnings.add({'team': newMatch['teamB'], 'runs': 0, 'wickets': 0, 'overs': 0, 'batting': [], 'bowling': [], 'extras': {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0}, 'isSuperOver': true});
+    // Archive previous innings to preserve history
+    newMatch['previousInnings'] = newMatch['innings'];
     
-    newMatch['innings'] = currentInnings;
+    // Reset for fresh start (Super Over)
+    newMatch['innings'] = [];
     newMatch['status'] = 'live'; 
     newMatch['totalOvers'] = 1;
     newMatch['isSuperOver'] = true;
-    newMatch['manOfTheMatch'] = null; // Reset MOM
+    newMatch['manOfTheMatch'] = null;
     
-    newMatch['toss'] = null; // Force toss/choice for Super Over
+    // Force toss/choice for Super Over to trigger "Conduct Toss"
+    newMatch['toss'] = null; 
+    
     newMatch['score'] = {
-        'battingTeam': '', // Will prompt Start Match
+        'battingTeam': '', 
         'runs': 0,
         'wickets': 0,
         'overs': 0,
