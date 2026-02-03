@@ -282,6 +282,7 @@ const FullScorecard = () => {
                                     <div className="bg-light p-3 rounded-3 small text-muted">
                                         <ul className="ps-3 mb-0" style={{ lineHeight: '1.8' }}>
 
+                                            <li><strong>Pure Bowling Only.</strong></li>
                                             <li><strong>Extras:</strong>
                                                 <ul className="ps-3 mt-1">
                                                     <li><strong>Wide Ball:</strong> 1 Run + Re-bowl. Strict adjudication on leg-side deliveries.</li>
