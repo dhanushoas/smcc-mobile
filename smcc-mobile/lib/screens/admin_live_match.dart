@@ -825,8 +825,17 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                          }
                       )
                   ]
+                  ]
                 ],
               ),
+            ),
+            SizedBox(height: 10),
+            ListTile(
+              title: Text('Start Super Over', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+              leading: Icon(Icons.flash_on, color: Colors.deepPurple),
+              onTap: () {
+                 _showSuperOverDialog();
+              },
             )
           ],
         ),
@@ -843,53 +852,62 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
     );
   }
 
-  Widget _buildScoreCard(bool isWide) {
-    int target = match['score']['target'] ?? 0;
-    bool isSecondInnings = target > 0;
-    
-    double rrr = 0.0;
-    int runsNeeded = 0;
-    if (isSecondInnings) {
-       runsNeeded = target - (match['score']['runs'] as int);
-       int totalBalls = (match['totalOvers'] as int) * 6;
-       double currentOvers = (match['score']['overs'] as num).toDouble();
-       int ballsBowled = (currentOvers.floor() * 6) + ((currentOvers * 10) % 10).round();
-       int ballsRemaining = totalBalls - ballsBowled;
-       if (ballsRemaining > 0) rrr = (runsNeeded / ballsRemaining) * 6;
-       else if (runsNeeded > 0) rrr = 99.9;
-    }
+  Widget _buildLiveStatus(bool isWide) {
+    bool isSecondInnings = match['score']['target'] != null;
+    int runsNeeded = isSecondInnings ? (match['score']['target'] - match['score']['runs']) : 0;
+    int ballsRemaining = isSecondInnings ? ((match['totalOvers'] * 6) - (match['score']['overs'] * 6).round() - ((match['score']['overs'] * 10) % 10)) : 0; // Approx
+    double rrr = (ballsRemaining > 0 && runsNeeded > 0) ? (runsNeeded / ballsRemaining) * 6 : 0;
 
     return Container(
       width: double.infinity,
+      margin: EdgeInsets.symmetric(horizontal: isWide ? 40 : 16),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: primaryColor,
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(isWide ? 50 : 30), bottomRight: Radius.circular(isWide ? 50 : 30)),
-        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))],
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: primaryColor.withOpacity(0.5), blurRadius: 10, offset: Offset(0, 5))]
       ),
-      padding: EdgeInsets.fromLTRB(20, isWide ? 30 : 10, 20, isWide ? 50 : 30),
       child: Column(
         children: [
-          Text('${match['teamA'].toString().toUpperCase()} vs ${match['teamB'].toString().toUpperCase()}', style: TextStyle(color: Colors.white70, fontSize: isWide ? 20 : 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          Text(
+            '${match['teamA']} vs ${match['teamB']}'.toUpperCase(),
+            style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.2),
+          ),
           SizedBox(height: 10),
-          Text('${match['score']['runs']}/${match['score']['wickets']}', style: TextStyle(color: Colors.white, fontSize: isWide ? 80 : 56, fontWeight: FontWeight.w900)),
-          Text('OVERS: ${match['score']['overs']} / ${match['totalOvers']}', style: TextStyle(color: warningColor, fontSize: isWide ? 24 : 18, fontWeight: FontWeight.bold)),
-          if (isSecondInnings) ...[
-             SizedBox(height: 10),
-             Text('NEEDS $runsNeeded RUNS FROM ${((match['totalOvers'] * 6) - ((match['score']['overs'].floor() * 6) + ((match['score']['overs'] * 10) % 10).round())).toInt()} BALLS', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-             SizedBox(height: 10),
-             Builder(builder: (context) {
-                 var innings = (match['innings'] as List);
-                 var nonBattingTeamInn = innings.firstWhere((i) => i['team'] != match['score']['battingTeam'] && i['runs'] != null, orElse: () => null);
+          Text(
+            '${match['score']['runs']}/${match['score']['wickets']}',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: isWide ? 60 : 48),
+          ),
+          Text(
+            'OVERS: ${match['score']['overs']} / ${match['totalOvers']}',
+            style: TextStyle(color: warningColor, fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          SizedBox(height: 15),
+          
+          // NEW STATUS COLUMN
+          Container(
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(10)),
+            child: Column(
+              children: [
+                 if (match['toss'] != null)
+                   Text('Toss: ${match['toss']['winner']} elected to ${match['toss']['decision']}'.toLowerCase().split(' ').map((w) => w[0].toUpperCase() + w.substring(1)).join(' '), style: TextStyle(color: Colors.white, fontSize: 11)),
                  
-                 if (nonBattingTeamInn != null) 
-                    return Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(5)),
-                      child: Text('1st INNINGS: ${nonBattingTeamInn['team']} ${nonBattingTeamInn['runs']}/${nonBattingTeamInn['wickets']} (${nonBattingTeamInn['overs']})', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold))
-                    );
-                 return SizedBox.shrink();
-             }),
-          ],
+                 if (isSecondInnings) 
+                   Padding(
+                     padding: const EdgeInsets.only(top: 4.0),
+                     child: Text('$runsNeeded runs needed from $ballsRemaining balls', style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold, fontSize: 12)),
+                   ),
+                 
+                 if (match['isSuperOver'] == true) 
+                   Padding(
+                     padding: const EdgeInsets.only(top: 4.0),
+                     child: Text('SUPER OVER', style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 2)),
+                   ),
+              ],
+            ),
+          ),
+
           SizedBox(height: 15),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1013,21 +1031,12 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
           SizedBox(height: 15),
         ],
 
+        /* REMOVED AUTO SUPER OVER PROMPT
         if (isCompleted && match['isSuperOver'] != true && (match['innings'] as List).length >= 2 && 
             (match['innings'][0]['runs'] == match['innings'][1]['runs'])) ...[
-             Container(
-               padding: EdgeInsets.all(16),
-               decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber)),
-               child: Column(
-                 children: [
-                   Text('MATCH TIED - SCORES LEVEL', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber[900])),
-                   SizedBox(height: 10),
-                   _actionButton('⚔️ START SUPER OVER', Colors.deepPurple, Icons.flash_on, _showSuperOverDialog, textColor: Colors.white),
-                 ],
-               ),
-             ),
-             SizedBox(height: 20),
+             // ...
         ],
+        */
 
         if (isCompleted) ...[
           Container(

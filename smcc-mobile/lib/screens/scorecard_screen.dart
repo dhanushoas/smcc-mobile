@@ -545,6 +545,23 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
                      cellStyle: pw.TextStyle(fontSize: 9),
                      cellAlignment: pw.Alignment.centerLeft,
                    ),
+                   pw.SizedBox(height: 10),
+                   if (inn['fallOfWickets'] != null && (inn['fallOfWickets'] as List).isNotEmpty)
+                      pw.Container(
+                        width: double.infinity,
+                        padding: pw.EdgeInsets.all(5),
+                        color: PdfColors.grey100,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text("Fall of Wickets:", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                            pw.Wrap(
+                              spacing: 10,
+                              children: (inn['fallOfWickets'] as List).map((f) => pw.Text("${f['score']}-${f['wickets']} (${f['player']}, ${f['overs']})", style: pw.TextStyle(fontSize: 8))).toList()
+                            )
+                          ]
+                        )
+                      ),
                    pw.SizedBox(height: 20),
                  ]
                );

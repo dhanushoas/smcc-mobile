@@ -485,18 +485,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ]
                     ],
                     SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ScorecardScreen(match: match))),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: Color(0xFF009270),
-                        elevation: 0,
-                        padding: EdgeInsets.symmetric(vertical: 0),
-                        side: BorderSide(color: Color(0xFF009270)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                        minimumSize: Size(double.infinity, 30),
-                      ),
-                      child: Text('${settings.translate('full_scorecard')} →', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 9)),
+                    Container(
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text('Tap card for full details', style: TextStyle(color: Colors.grey.shade400, fontSize: 8, fontStyle: FontStyle.italic)),
                     ),
                   ],
                 ),
