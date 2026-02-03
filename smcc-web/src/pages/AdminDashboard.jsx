@@ -976,15 +976,25 @@ const AdminDashboard = () => {
                                 <div className="d-flex gap-2 mb-4 justify-content-center flex-wrap">
                                     <Button variant="outline-dark" size="lg" className="px-3 fw-bold" onClick={() => setShowSquadModal(true)}>👥 SQUADS</Button>
                                     {(selectedMatch.status === 'upcoming' || (selectedMatch.status === 'live' && !selectedMatch.toss?.winner)) && <Button variant="warning" size="lg" className="px-5 fw-bold" onClick={() => {
-                                        if (new Date() < new Date(selectedMatch.date)) {
-                                            toast.error(`Cannot start before scheduled time: ${new Date(selectedMatch.date).toLocaleTimeString()}`);
+                                        // Allow 15 min buffer
+                                        const now = new Date();
+                                        const scheduled = new Date(selectedMatch.date);
+                                        const bufferTime = new Date(now.getTime() + 15 * 60000);
+
+                                        if (bufferTime < scheduled) {
+                                            toast.error(`Wait! Match starts at ${scheduled.toLocaleTimeString()}`, { icon: '⏳', style: { borderRadius: '10px', background: '#333', color: '#fff' } });
                                             return;
                                         }
                                         setShowTossModal(true);
                                     }}>🪙 CONDUCT TOSS</Button>}
                                     {selectedMatch.status === 'upcoming' && selectedMatch.toss?.winner && <Button variant="success" size="lg" className="px-5 fw-bold" onClick={() => {
-                                        if (new Date() < new Date(selectedMatch.date)) {
-                                            toast.error(`Cannot start before scheduled time: ${new Date(selectedMatch.date).toLocaleTimeString()}`);
+                                        // Allow 15 min buffer
+                                        const now = new Date();
+                                        const scheduled = new Date(selectedMatch.date);
+                                        const bufferTime = new Date(now.getTime() + 15 * 60000);
+
+                                        if (bufferTime < scheduled) {
+                                            toast.error(`Wait! Match starts at ${scheduled.toLocaleTimeString()}`, { icon: '⏳', style: { borderRadius: '10px', background: '#333', color: '#fff' } });
                                             return;
                                         }
                                         if (!validateSquads()) return;
