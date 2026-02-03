@@ -378,7 +378,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildMatchCard(dynamic match, SettingsProvider settings) {
     bool isLive = match['status'] == 'live';
-    return Card(
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ScorecardScreen(match: match))),
+      child: Card(
       elevation: 2,
       margin: EdgeInsets.all(0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
