@@ -148,7 +148,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
             decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
             child: Column(
               children: [
-                 _ruleItem('Match Format: T20 International Standard (${match['totalOvers']} Overs).'),
+
                  _ruleItem('Pure Bowling Action: Elbow extension < 15 degrees (ICC Regs).'),
                  _ruleItem('Wide: 1 Run + Re-bowl (Strict leg-side).'),
                  _ruleItem('No Ball: 1 Run + Re-bowl + Free Hit.'),

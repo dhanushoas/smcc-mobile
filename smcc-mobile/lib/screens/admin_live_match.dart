@@ -504,8 +504,10 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                           SizedBox(height: 20),
                           AppFooter(),
                           SizedBox(height: 40),
-                        ),
+                        ], // Closing children list
                       ),
+                    ),
+
                     ],
                   ),
                   if (_showBlast) 

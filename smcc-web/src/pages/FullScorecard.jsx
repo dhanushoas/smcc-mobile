@@ -282,7 +282,7 @@ const FullScorecard = () => {
                                     <h6 className="fw-bold text-uppercase text-muted border-bottom pb-2 mb-3">📋 ICC Match Rules & Format</h6>
                                     <div className="bg-light p-3 rounded-3 small text-muted">
                                         <ul className="ps-3 mb-0" style={{ lineHeight: '1.8' }}>
-                                            <li><strong>Match Format:</strong> T20 International Standard ({match.totalOvers} Overs per side).</li>
+
                                             <li><strong>Extras:</strong>
                                                 <ul className="ps-3 mt-1">
                                                     <li><strong>Wide Ball:</strong> 1 Run + Re-bowl. Strict adjudication on leg-side deliveries.</li>
