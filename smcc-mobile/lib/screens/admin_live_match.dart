@@ -1357,7 +1357,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
        ),
      );
   }
-  }
+
 
   void _showSuperOverDialog() {
     showDialog(context: context, builder: (context) {
