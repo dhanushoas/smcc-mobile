@@ -941,9 +941,14 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
            _actionButton('🪙 CONDUCT TOSS', warningColor, Icons.monetization_on, () {
               // Block if current time is before match scheduled time
                // Block if current time is before match scheduled time
+               // Block if current time is before match scheduled time
                if (match['date'] != null) {
                   try {
-                    DateTime scheduled = DateTime.parse(match['date']).toLocal(); // Fix: Convert to Local
+                    // Treat DB time as Local Wall Clock Time (Floating Time Check)
+                    // This fixes mismatch if Server saves as UTC but User meant Local
+                    String dStr = match['date'].toString().replaceAll('Z', '');
+                    DateTime scheduled = DateTime.parse(dStr); 
+                    
                     // Allow 15 mins early buffer for prep
                     if (DateTime.now().add(Duration(minutes: 15)).isBefore(scheduled)) {
                         _showSnackBar('Wait! Match starts at ${DateFormat('hh:mm a').format(scheduled)}', isError: true);
@@ -951,7 +956,6 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                     }
                   } catch (e) {
                     print("Date Parse Error: $e");
-                    // If date parse fails, ALLOW to proceed to avoid blockage
                   }
                }
                _showTossDialog();
@@ -968,14 +972,14 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                 // Block if current time is before match scheduled time
                if (match['date'] != null) {
                   try {
-                    DateTime scheduled = DateTime.parse(match['date']).toLocal();
+                    String dStr = match['date'].toString().replaceAll('Z', '');
+                    DateTime scheduled = DateTime.parse(dStr);
+                    
                     if (DateTime.now().add(Duration(minutes: 15)).isBefore(scheduled)) {
                         _showSnackBar('Wait! Match starts at ${DateFormat('hh:mm a').format(scheduled)}', isError: true);
                         return;
                     }
-                  } catch (e) {
-                     // Proceed if check fails
-                  }
+                  } catch (e) { }
                }
                _showStartDialog();
            }),
