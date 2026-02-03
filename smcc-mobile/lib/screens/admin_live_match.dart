@@ -64,15 +64,27 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
       SnackBar(
         content: Row(
           children: [
-            Icon(isError ? Icons.error_outline : Icons.check_circle_outline, color: Colors.white),
-            SizedBox(width: 10),
-            Expanded(child: Text(message, style: TextStyle(fontWeight: FontWeight.bold))),
+            Icon(isError ? Icons.error_outline : Icons.check_circle_outline, color: Colors.white, size: 28),
+            SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                   Text(isError ? 'Oops!' : 'Success!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                   Text(message, style: TextStyle(fontSize: 13)),
+                ],
+              ),
+            ),
           ],
         ),
-        backgroundColor: isError ? Color(0xFFC62828) : Color(0xFF2E7D32),
+        backgroundColor: isError ? Color(0xFFD32F2F) : Color(0xFF388E3C),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        elevation: 6,
         margin: EdgeInsets.all(16),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        duration: Duration(seconds: 3),
       )
     );
   }
@@ -928,11 +940,18 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
         ] else if (match['toss'] == null || match['toss']['winner'] == null)
            _actionButton('🪙 CONDUCT TOSS', warningColor, Icons.monetization_on, () {
               // Block if current time is before match scheduled time
+               // Block if current time is before match scheduled time
                if (match['date'] != null) {
-                  DateTime scheduled = DateTime.parse(match['date']);
-                  if (DateTime.now().isBefore(scheduled)) {
-                      _showSnackBar('Cannot start match before scheduled time: ${DateFormat('hh:mm a').format(scheduled)}', isError: true);
-                      return;
+                  try {
+                    DateTime scheduled = DateTime.parse(match['date']).toLocal(); // Fix: Convert to Local
+                    // Allow 15 mins early buffer for prep
+                    if (DateTime.now().add(Duration(minutes: 15)).isBefore(scheduled)) {
+                        _showSnackBar('Wait! Match starts at ${DateFormat('hh:mm a').format(scheduled)}', isError: true);
+                        return;
+                    }
+                  } catch (e) {
+                    print("Date Parse Error: $e");
+                    // If date parse fails, ALLOW to proceed to avoid blockage
                   }
                }
                _showTossDialog();
@@ -946,11 +965,16 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
            SizedBox(height: 15),
            _actionButton('1st Innings Start', successColor, Icons.play_arrow, () {
                 // Block if current time is before match scheduled time
+                // Block if current time is before match scheduled time
                if (match['date'] != null) {
-                  DateTime scheduled = DateTime.parse(match['date']);
-                  if (DateTime.now().isBefore(scheduled)) {
-                      _showSnackBar('Cannot start match before scheduled time: ${DateFormat('hh:mm a').format(scheduled)}', isError: true);
-                      return;
+                  try {
+                    DateTime scheduled = DateTime.parse(match['date']).toLocal();
+                    if (DateTime.now().add(Duration(minutes: 15)).isBefore(scheduled)) {
+                        _showSnackBar('Wait! Match starts at ${DateFormat('hh:mm a').format(scheduled)}', isError: true);
+                        return;
+                    }
+                  } catch (e) {
+                     // Proceed if check fails
                   }
                }
                _showStartDialog();
