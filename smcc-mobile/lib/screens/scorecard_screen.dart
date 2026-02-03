@@ -28,6 +28,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
     super.initState();
     match = widget.match;
     if (match['status'] == 'live') {
+      _fetchMatchUpdate(); // Fetch immediately
       _startPolling();
     }
   }

@@ -197,6 +197,8 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
       List newBattingSquad = derivedBattingTeam == updatedMatch['teamA'] ? squadA : squadB;
       List newBowlingSquad = derivedBattingTeam == updatedMatch['teamA'] ? squadB : squadA;
       
+      /* 
+      // Validation relaxed for mobile to prevent blocking
       if (!newBattingSquad.contains(s) || !newBattingSquad.contains(ns)) {
          _showSnackBar('Player not found in ${derivedBattingTeam} squad!', isError: true);
          return;
@@ -204,7 +206,8 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
       if (!newBowlingSquad.contains(b)) {
          _showSnackBar('Bowler not found in opponent squad!', isError: true);
          return;
-      }
+      } 
+      */
 
       if (findBatIndex(s) == -1) (currentInnings['batting'] as List).add({'player': s, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
       if (findBatIndex(ns) == -1) (currentInnings['batting'] as List).add({'player': ns, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
@@ -442,11 +445,11 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
       }
     }
     else if (type == 'new_batsman') {
-        value = _toCamelCase(value);
-        if (!battingSquad.contains(value)) {
+        // value = _toCamelCase(value); // Validation relaxed
+        /*if (!battingSquad.contains(value)) {
            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Player not in current batting team squad!'), backgroundColor: Colors.red));
            return;
-        }
+        }*/
         List<dynamic> curBatsmen = updatedMatch['currentBatsmen'] ?? [];
         if (curBatsmen.isEmpty) {
             curBatsmen = [{'name': value, 'onStrike': true, 'runs': 0, 'balls': 0}, {'name': '', 'onStrike': false, 'runs': 0, 'balls': 0}];
@@ -463,11 +466,11 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
         if (findBatIndex(value) == -1) (currentInnings['batting'] as List).add({'player': value, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
     }
     else if (type == 'new_bowler') {
-        value = _toCamelCase(value);
-        if (!bowlingSquad.contains(value)) {
+        // value = _toCamelCase(value); // Validation relaxed
+        /*if (!bowlingSquad.contains(value)) {
            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bowler not in bowling team squad!'), backgroundColor: Colors.red));
            return;
-        }
+        }*/
         updatedMatch['currentBowler'] = value;
         if (findBowlIndex(value) == -1) (currentBowling['bowling'] as List).add({'player': value, 'overs': 0, 'maidens': 0, 'runs': 0, 'wickets': 0, 'economy': 0});
     }
