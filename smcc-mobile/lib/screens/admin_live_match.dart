@@ -161,7 +161,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
 
     if (type == 'init') {
       // Start Match logic
-      String s = value['s']; String ns = value['ns']; String b = value['b'];
+      String s = _toCamelCase(value['s']); String ns = _toCamelCase(value['ns']); String b = _toCamelCase(value['b']);
       
       if (s == ns) {
         _showSnackBar('Striker and Non-Striker must be different!', isError: true);
@@ -438,6 +438,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
       }
     }
     else if (type == 'new_batsman') {
+        value = _toCamelCase(value);
         if (!battingSquad.contains(value)) {
            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Player not in current batting team squad!'), backgroundColor: Colors.red));
            return;
@@ -458,6 +459,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
         if (findBatIndex(value) == -1) (currentInnings['batting'] as List).add({'player': value, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
     }
     else if (type == 'new_bowler') {
+        value = _toCamelCase(value);
         if (!bowlingSquad.contains(value)) {
            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bowler not in bowling team squad!'), backgroundColor: Colors.red));
            return;
@@ -518,6 +520,26 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
           icon: Icon(Icons.home),
           onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
         ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            tooltip: 'Refresh Data',
+            onPressed: () {
+               setState(() => isLoading = true);
+               // Re-fetch match data from server
+               ApiService.getMatch(match['_id'] ?? match['id']).then((data) {
+                  setState(() {
+                    match = data;
+                    isLoading = false;
+                  });
+                  _showSnackBar('Match data refreshed');
+               }).catchError((e) {
+                  setState(() => isLoading = false);
+                  _showSnackBar('Refresh failed: ${e.toString()}', isError: true);
+               });
+            },
+          )
+        ],
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: [primaryColor, accentColor]),
@@ -847,6 +869,19 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
           if (isSecondInnings) ...[
              SizedBox(height: 10),
              Text('NEEDS $runsNeeded RUNS FROM ${((match['totalOvers'] * 6) - ((match['score']['overs'].floor() * 6) + ((match['score']['overs'] * 10) % 10).round())).toInt()} BALLS', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+             SizedBox(height: 10),
+             Builder(builder: (context) {
+                 var innings = (match['innings'] as List);
+                 var nonBattingTeamInn = innings.firstWhere((i) => i['team'] != match['score']['battingTeam'] && i['runs'] != null, orElse: () => null);
+                 
+                 if (nonBattingTeamInn != null) 
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(5)),
+                      child: Text('1st INNINGS: ${nonBattingTeamInn['team']} ${nonBattingTeamInn['runs']}/${nonBattingTeamInn['wickets']} (${nonBattingTeamInn['overs']})', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold))
+                    );
+                 return SizedBox.shrink();
+             }),
           ],
           SizedBox(height: 15),
           Row(
@@ -1136,6 +1171,21 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                    Text(bowler, style: TextStyle(fontSize: isWide ? 20 : 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
                    SizedBox(height: 8),
                    Text('Active Over', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                   SizedBox(height: 8),
+                   SingleChildScrollView(
+                     scrollDirection: Axis.horizontal,
+                     child: Row(
+                       children: ((match['score']['thisOver'] as List?) ?? []).map((b) => Container(
+                         margin: EdgeInsets.only(right: 5),
+                         padding: EdgeInsets.all(5),
+                         decoration: BoxDecoration(
+                           color: b.toString().contains('W') || b.toString() == 'OUT' ? Colors.red.shade100 : (['4','6'].contains(b.toString()) ? Colors.green.shade100 : Colors.grey.shade100),
+                           shape: BoxShape.circle
+                         ),
+                         child: Text(b.toString(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: b.toString().contains('W') ? Colors.red : Colors.black87)),
+                       )).toList(),
+                    ),
+                   )
                  ],
                ),
              ),
@@ -1428,7 +1478,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
 
   String _toCamelCase(String text) {
     if (text.isEmpty) return text;
-    return text.split(' ').map((word) {
+    return text.trim().split(' ').map((word) {
       if (word.isEmpty) return '';
       if (word.length == 1) return word.toUpperCase();
       return word[0].toUpperCase() + word.substring(1).toLowerCase();
