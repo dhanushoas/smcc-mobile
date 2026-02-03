@@ -163,14 +163,8 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
         return;
       }
 
-      if (!battingSquad.contains(s) || !battingSquad.contains(ns)) {
-        _showSnackBar('Batsmen must belong to the batting team squad!', isError: true);
-        return;
-      }
-      if (!bowlingSquad.contains(b)) {
-        _showSnackBar('Bowler must belong to the bowling team squad!', isError: true);
-        return;
-      }
+      // Validation moved after auto-detection
+
 
       // Auto-detect batting team from striker's squad
       String derivedBattingTeam = updatedMatch['teamA'];
@@ -189,6 +183,19 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
       bowlingIdx = inningsList.lastIndexWhere((inn) => inn['team'] != battingTeamName);
       if (bowlingIdx == -1) bowlingIdx = battingIdx == 0 ? 1 : 0;
       currentBowling = inningsList[bowlingIdx];
+
+      // Re-validate based on new batting team
+      List newBattingSquad = derivedBattingTeam == updatedMatch['teamA'] ? squadA : squadB;
+      List newBowlingSquad = derivedBattingTeam == updatedMatch['teamA'] ? squadB : squadA;
+      
+      if (!newBattingSquad.contains(s) || !newBattingSquad.contains(ns)) {
+         _showSnackBar('Player not found in ${derivedBattingTeam} squad!', isError: true);
+         return;
+      }
+      if (!newBowlingSquad.contains(b)) {
+         _showSnackBar('Bowler not found in opponent squad!', isError: true);
+         return;
+      }
 
       if (findBatIndex(s) == -1) (currentInnings['batting'] as List).add({'player': s, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
       if (findBatIndex(ns) == -1) (currentInnings['batting'] as List).add({'player': ns, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
