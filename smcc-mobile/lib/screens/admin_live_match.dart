@@ -121,9 +121,13 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
     
     List<dynamic> inningsList = updatedMatch['innings'];
     String battingTeamName = updatedMatch['score']['battingTeam'] ?? updatedMatch['teamA'];
-    int battingIdx = inningsList.indexWhere((inn) => inn['team'] == battingTeamName);
+    // Use lastIndexWhere to support multiple innings (Super Over)
+    int battingIdx = inningsList.lastIndexWhere((inn) => inn['team'] == battingTeamName);
     if (battingIdx == -1) battingIdx = 0; 
-    int bowlingIdx = battingIdx == 0 ? 1 : 0;
+    
+    // Find opposing team's last innings for bowling stats
+    int bowlingIdx = inningsList.lastIndexWhere((inn) => inn['team'] != battingTeamName);
+    if (bowlingIdx == -1) bowlingIdx = battingIdx == 0 ? 1 : 0;
     
     var currentInnings = inningsList[battingIdx];
     var currentBowling = inningsList[bowlingIdx];
@@ -840,6 +844,22 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
           SizedBox(height: 15),
         ],
 
+        if (isCompleted && match['isSuperOver'] != true && (match['innings'] as List).length >= 2 && 
+            (match['innings'][0]['runs'] == match['innings'][1]['runs'])) ...[
+             Container(
+               padding: EdgeInsets.all(16),
+               decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber)),
+               child: Column(
+                 children: [
+                   Text('MATCH TIED - SCORES LEVEL', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber[900])),
+                   SizedBox(height: 10),
+                   _actionButton('⚔️ START SUPER OVER', Colors.deepPurple, Icons.flash_on, _showSuperOverDialog, textColor: Colors.white),
+                 ],
+               ),
+             ),
+             SizedBox(height: 20),
+        ],
+
         if (isCompleted) ...[
           Container(
              width: double.infinity,
@@ -1336,5 +1356,57 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
          ],
        ),
      );
+  }
+  }
+
+  void _showSuperOverDialog() {
+    showDialog(context: context, builder: (context) {
+      return AlertDialog(
+        title: Text('⚔️ Start Super Over', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('This will start a 1-over tie-breaker match. The current score history will be preserved.\n\nAre you sure?'),
+        actions: [
+          TextButton(child: Text('Cancel'), onPressed: () => Navigator.pop(context)),
+          ElevatedButton(
+            child: Text('START SUPER OVER'), 
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white), 
+            onPressed: () {
+               Navigator.pop(context);
+               _initSuperOver();
+            }
+          )
+        ],
+      );
+    });
+  }
+
+  void _initSuperOver() {
+    // setState(() => isSaving = true);
+    var newMatch = Map<String, dynamic>.from(match);
+    
+    // Add Super Over innings
+    List<dynamic> currentInnings = (newMatch['innings'] as List).toList();
+    currentInnings.add({'team': newMatch['teamA'], 'runs': 0, 'wickets': 0, 'overs': 0, 'batting': [], 'bowling': [], 'extras': {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0}, 'isSuperOver': true});
+    currentInnings.add({'team': newMatch['teamB'], 'runs': 0, 'wickets': 0, 'overs': 0, 'batting': [], 'bowling': [], 'extras': {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0}, 'isSuperOver': true});
+    
+    newMatch['innings'] = currentInnings;
+    newMatch['status'] = 'live'; 
+    newMatch['totalOvers'] = 1;
+    newMatch['isSuperOver'] = true;
+    newMatch['manOfTheMatch'] = null; // Reset MOM
+    
+    newMatch['toss'] = null; // Force toss/choice for Super Over
+    newMatch['score'] = {
+        'battingTeam': '', // Will prompt Start Match
+        'runs': 0,
+        'wickets': 0,
+        'overs': 0,
+        'target': null,
+        'thisOver': []
+    };
+    newMatch['currentBatsmen'] = [];
+    newMatch['currentBowler'] = null;
+
+    setState(() { match = newMatch; });
+    _saveMatch();
   }
 }
