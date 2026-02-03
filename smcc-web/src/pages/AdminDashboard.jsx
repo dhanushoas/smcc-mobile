@@ -190,6 +190,30 @@ const AdminDashboard = () => {
         doc.save(`${selectedMatch.teamA}_vs_${selectedMatch.teamB}_Scorecard.pdf`);
     };
 
+    const undoLastBall = async () => {
+        if (!selectedMatch || !selectedMatch.history || selectedMatch.history.length === 0) {
+            toast.error("Nothing to undo!");
+            return;
+        }
+
+        if (!window.confirm("Undo last ball? This ensures accurate calculations.")) return;
+
+        const previousState = selectedMatch.history[selectedMatch.history.length - 1];
+
+        // Optimistic UI Update
+        setSelectedMatch(previousState);
+        setScorecardData(previousState.innings);
+        syncLocalPlayers(previousState);
+
+        try {
+            await axios.put(`${API_URL}/api/matches/${previousState._id || previousState.id}`, previousState, config);
+            toast.success("Undo successful!");
+        } catch (err) {
+            toast.error("Undo failed on server");
+            fetchMatches(); // Revert to server state
+        }
+    };
+
     const handleSquadSave = async () => {
         if (!validateSquads()) return;
 
@@ -299,7 +323,18 @@ const AdminDashboard = () => {
 
     const handleUpdate = async (type, value, params = {}) => {
         setIsUpdating(true);
-        let updatedMatch = { ...selectedMatch, innings: [...scorecardData] };
+        // Deep copy for safety and history
+        let updatedMatch = JSON.parse(JSON.stringify(selectedMatch));
+
+        // --- History Logging (Mobile Parity) ---
+        if (['runs', 'extra', 'wicket', 'retire', 'new_batsman', 'new_bowler', 'swap_strike'].includes(type) && type !== 'init') {
+            if (!updatedMatch.history) updatedMatch.history = [];
+            // Push the *current* (before update) state to history
+            const currentState = JSON.parse(JSON.stringify(selectedMatch));
+            updatedMatch.history.push(currentState);
+            if (updatedMatch.history.length > 20) updatedMatch.history.shift(); // Keep last 20
+        }
+        // ---------------------------------------
 
         if (type === 'manual') {
             updatedMatch = value;
@@ -610,7 +645,7 @@ const AdminDashboard = () => {
             const res = await axios.put(`${API_URL}/api/matches/${selectedMatch._id || selectedMatch.id}`, updatedMatch, config);
             setSelectedMatch(res.data);
             setScorecardData(res.data.innings);
-            toast.success("Score Updated!", { id: 'score-toast' });
+            // toast.success("Score Updated!", { id: 'score-toast' }); // Lower noise like mobile
         } catch (err) {
             toast.error("Sync failed");
         } finally {
@@ -925,14 +960,22 @@ const AdminDashboard = () => {
                                 <div className="d-flex gap-2 mb-4 justify-content-center flex-wrap">
                                     <Button variant="outline-dark" size="lg" className="px-3 fw-bold" onClick={() => setShowSquadModal(true)}>👥 SQUADS</Button>
                                     {(selectedMatch.status === 'upcoming' || (selectedMatch.status === 'live' && !selectedMatch.toss?.winner)) && <Button variant="warning" size="lg" className="px-5 fw-bold" onClick={() => setShowTossModal(true)}>🪙 CONDUCT TOSS</Button>}
-                                    {selectedMatch.status === 'upcoming' && selectedMatch.toss?.winner && <Button variant="success" size="lg" className="px-5 fw-bold" onClick={() => setShowStartModal(true)}>START MATCH</Button>}
+                                    {selectedMatch.status === 'upcoming' && selectedMatch.toss?.winner && <Button variant="success" size="lg" className="px-5 fw-bold" onClick={() => {
+                                        if (!validateSquads()) return;
+                                        if (squadA.filter(p => p).length < 11 || squadB.filter(p => p).length < 11) {
+                                            toast.error("Both teams must have 11 players!");
+                                            return;
+                                        }
+                                        setShowStartModal(true);
+                                    }}>1st Innings Start</Button>}
                                     {selectedMatch.status === 'live' && selectedMatch.score.target && (!selectedMatch.currentBatsmen || selectedMatch.currentBatsmen.length === 0) && (
                                         <Button variant="success" size="lg" className="px-5 fw-bold" onClick={() => {
                                             setModalData({ s: '', ns: '', b: '', nextB: '', nextS: '' });
                                             setShowStartModal(true);
-                                        }}>🚀 START 2ND INNINGS</Button>
+                                        }}>2nd Innings Start</Button>
                                     )}
-                                    {selectedMatch.status === 'live' && (<>{[0, 1, 2, 3, 4, 6].map(r => (<Button key={r} variant="outline-primary" size="lg" className="px-3 fw-bold" onClick={() => handleUpdate('runs', r)}>{r}</Button>))}<Button variant="danger" size="lg" className="px-3 fw-bold" onClick={() => { setWicketDetails({ type: 'caught', fielder: '' }); setShowWicketModal(true); }}>OUT</Button>
+                                    {selectedMatch.status === 'live' && (<>{[0, 1, 2, 3, 4, 6].map(r => (<Button key={r} disabled={isUpdating} variant="outline-primary" size="lg" className="px-3 fw-bold" onClick={() => handleUpdate('runs', r)}>{r}</Button>))}<Button variant="danger" size="lg" className="px-3 fw-bold" disabled={isUpdating} onClick={() => { setWicketDetails({ type: 'caught', fielder: '' }); setShowWicketModal(true); }}>OUT</Button>
+                                        <Button variant="dark" size="lg" className="px-3 fw-bold ms-2" disabled={isUpdating || !selectedMatch.history || selectedMatch.history.length === 0} onClick={undoLastBall}>UNDO</Button>
                                         <Button variant="warning" size="lg" className="px-3 fw-bold" onClick={() => setShowRunOutModal(true)}>RUN OUT</Button>
                                         <Button variant="outline-success" size="lg" className="px-3 fw-bold" onClick={() => setShowBowlerModal(true)}>⚾ CHANGE BOWLER</Button>
                                         <Button variant="info" size="lg" className="px-3 fw-bold text-white" onClick={() => { setBatsmanModalType('retired'); setShowBatsmanModal(true); }}>RETIRE</Button><Button variant="warning" size="lg" className="px-2 fw-bold" onClick={() => handleUpdate('extra', 'w')}>WD</Button><Button variant="warning" size="lg" className="px-2 fw-bold" onClick={() => handleUpdate('extra', 'nb')}>NB</Button></>)}
