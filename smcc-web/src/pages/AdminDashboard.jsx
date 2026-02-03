@@ -975,8 +975,18 @@ const AdminDashboard = () => {
                                 <div className="text-center mb-4 bg-light rounded-4 p-4 border"><div className="display-3 fw-bold text-primary">{selectedMatch.score.runs}/{selectedMatch.score.wickets}</div><div className="lead fw-bold">{selectedMatch.score.overs} / {selectedMatch.totalOvers} Overs</div><div className="mt-3"><Badge bg="white" text="dark" className="border px-3 py-2 me-2">CRR: {crr}</Badge>{rrr && <Badge bg="info" text="white" className="px-3 py-2 me-2">RRR: {rrr}</Badge>}{selectedMatch.score.target && <Badge bg="warning" text="dark" className="px-3 py-2">TARGET: {selectedMatch.score.target}</Badge>}</div></div>
                                 <div className="d-flex gap-2 mb-4 justify-content-center flex-wrap">
                                     <Button variant="outline-dark" size="lg" className="px-3 fw-bold" onClick={() => setShowSquadModal(true)}>👥 SQUADS</Button>
-                                    {(selectedMatch.status === 'upcoming' || (selectedMatch.status === 'live' && !selectedMatch.toss?.winner)) && <Button variant="warning" size="lg" className="px-5 fw-bold" onClick={() => setShowTossModal(true)}>🪙 CONDUCT TOSS</Button>}
+                                    {(selectedMatch.status === 'upcoming' || (selectedMatch.status === 'live' && !selectedMatch.toss?.winner)) && <Button variant="warning" size="lg" className="px-5 fw-bold" onClick={() => {
+                                        if (new Date() < new Date(selectedMatch.date)) {
+                                            toast.error(`Cannot start before scheduled time: ${new Date(selectedMatch.date).toLocaleTimeString()}`);
+                                            return;
+                                        }
+                                        setShowTossModal(true);
+                                    }}>🪙 CONDUCT TOSS</Button>}
                                     {selectedMatch.status === 'upcoming' && selectedMatch.toss?.winner && <Button variant="success" size="lg" className="px-5 fw-bold" onClick={() => {
+                                        if (new Date() < new Date(selectedMatch.date)) {
+                                            toast.error(`Cannot start before scheduled time: ${new Date(selectedMatch.date).toLocaleTimeString()}`);
+                                            return;
+                                        }
                                         if (!validateSquads()) return;
                                         if (squadA.filter(p => p).length < 11 || squadB.filter(p => p).length < 11) {
                                             toast.error("Both teams must have 11 players!");

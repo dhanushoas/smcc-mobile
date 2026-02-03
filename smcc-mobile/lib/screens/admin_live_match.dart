@@ -887,7 +887,17 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
            ),
            SizedBox(height: 20),
         ] else if (match['toss'] == null || match['toss']['winner'] == null)
-           _actionButton('🪙 CONDUCT TOSS', warningColor, Icons.monetization_on, _showTossDialog, textColor: Colors.black)
+           _actionButton('🪙 CONDUCT TOSS', warningColor, Icons.monetization_on, () {
+              // Block if current time is before match scheduled time
+               if (match['date'] != null) {
+                  DateTime scheduled = DateTime.parse(match['date']);
+                  if (DateTime.now().isBefore(scheduled)) {
+                      _showSnackBar('Cannot start match before scheduled time: ${DateFormat('hh:mm a').format(scheduled)}', isError: true);
+                      return;
+                  }
+               }
+               _showTossDialog();
+           }, textColor: Colors.black)
         else if (match['toss'] != null && match['toss']['winner'] != null) ...[
            Container(
              padding: EdgeInsets.all(12),
@@ -895,7 +905,17 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
              child: Row(children: [Icon(Icons.info, color: Colors.amber[800]), SizedBox(width: 10), Expanded(child: Text('Toss won by ${match['toss']['winner']} elected to ${match['toss']['decision']}', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber[900])))]),
            ),
            SizedBox(height: 15),
-           _actionButton('1st Innings Start', successColor, Icons.play_arrow, _showStartDialog),
+           _actionButton('1st Innings Start', successColor, Icons.play_arrow, () {
+                // Block if current time is before match scheduled time
+               if (match['date'] != null) {
+                  DateTime scheduled = DateTime.parse(match['date']);
+                  if (DateTime.now().isBefore(scheduled)) {
+                      _showSnackBar('Cannot start match before scheduled time: ${DateFormat('hh:mm a').format(scheduled)}', isError: true);
+                      return;
+                  }
+               }
+               _showStartDialog();
+           }),
         ]
       ],
     );

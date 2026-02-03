@@ -98,6 +98,14 @@ const Home = () => {
                                     </div>
                                 </div>
                             )}
+                            {/* LIVE TOSS DISPLAY */}
+                            {match.status === 'upcoming' && match.toss?.winner && (
+                                <div className="alert alert-warning py-2 mb-0 border-0 rounded-4 shadow-sm mt-3 text-center">
+                                    <small className="fw-bold text-dark">
+                                        🪙 Toss won by <span className="text-primary">{match.toss.winner}</span> elected to {match.toss.decision}
+                                    </small>
+                                </div>
+                            )}
                             {match.status === 'completed' && (
                                 <div className="mt-3">
                                     <div className="alert alert-success py-3 mb-0 border-0 rounded-4 shadow-sm">
