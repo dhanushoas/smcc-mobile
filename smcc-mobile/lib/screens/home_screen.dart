@@ -140,6 +140,14 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             tooltip: 'Profile',
           ),
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.blue.shade800),
+            onPressed: () {
+               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Refreshing...'), duration: Duration(milliseconds: 500)));
+               fetchMatches();
+            },
+            tooltip: 'Refresh',
+          ),
           SizedBox(width: 4),
         ],
       ),
@@ -153,95 +161,113 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMainContent(SettingsProvider settings) {
-     return isLoading 
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 20),
-                  Text('Fetching matches...', style: TextStyle(color: Colors.blue.shade800, fontWeight: FontWeight.bold)),
-                  Text('The server may take a moment to wake up.', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                ],
-              ),
-            )
-          : errorMessage != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.cloud_off, size: 60, color: Colors.red.shade300),
-                        SizedBox(height: 16),
-                        Text(errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red.shade800, fontWeight: FontWeight.bold)),
-                        SizedBox(height: 20),
-                        ElevatedButton.icon(
-                          onPressed: fetchMatches,
-                          icon: Icon(Icons.refresh),
-                          label: Text('Retry'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade800, foregroundColor: Colors.white),
+      return RefreshIndicator(
+        onRefresh: fetchMatches,
+        child: isLoading 
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 20),
+                    Text('Fetching matches...', style: TextStyle(color: Colors.blue.shade800, fontWeight: FontWeight.bold)),
+                    Text('The server may take a moment to wake up.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              )
+            : errorMessage != null
+                ? ListView( // Use ListView to allow pull-to-refresh even on error
+                    children: [
+                      Container(
+                        height: MediaQuery.of(context).size.height * 0.8,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.cloud_off, size: 60, color: Colors.red.shade300),
+                                SizedBox(height: 16),
+                                Text(errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red.shade800, fontWeight: FontWeight.bold)),
+                                SizedBox(height: 20),
+                                ElevatedButton.icon(
+                                  onPressed: fetchMatches,
+                                  icon: Icon(Icons.refresh),
+                                  label: Text('Retry'),
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade800, foregroundColor: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
+                      )
+                    ],
+                  )
+                : LayoutBuilder(
+                builder: (context, constraints) {
+                  if (matches.isEmpty) {
+                    return ListView( // ListView for pull-to-refresh on empty
+                      children: [
+                        Container(
+                          height: MediaQuery.of(context).size.height * 0.8,
+                          child: Center(child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.sports_cricket_outlined, size: 80, color: Colors.grey.shade300),
+                              SizedBox(height: 16),
+                              Text(settings.translate('no_matches'), style: TextStyle(color: Colors.grey, fontSize: 18, fontWeight: FontWeight.bold)),
+                              SizedBox(height: 10),
+                              TextButton(onPressed: fetchMatches, child: Text('Refresh'))
+                            ],
+                          )),
+                        )
+                      ],
+                    );
+                  }
+  
+                  int crossAxisCount = constraints.maxWidth > 700 ? 2 : 1;
+  
+                  return SingleChildScrollView(
+                    physics: AlwaysScrollableScrollPhysics(), // Ensure scrollable for RefreshIndicator
+                    padding: EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // LIVE Section
+                        if (matches.any((m) => m['status'] == 'live')) ...[
+                          _buildSectionHeader(settings.translate('live').toUpperCase(), Colors.red, Icons.circle, true),
+                          ..._buildMatchesByDate(matches.where((m) => m['status'] == 'live').toList(), settings),
+                          SizedBox(height: 30),
+                        ],
+  
+                        // COMPLETED Section
+                        if (matches.any((m) => m['status'] == 'completed')) ...[
+                          _buildSectionHeader(settings.translate('completed').toUpperCase(), Colors.green, Icons.emoji_events, false),
+                          ..._buildMatchesByDate(matches.where((m) => m['status'] == 'completed').toList(), settings),
+                          SizedBox(height: 30),
+                        ],
+  
+                        // UPCOMING Section
+                        if (matches.any((m) => m['status'] == 'upcoming')) ...[
+                          _buildSectionHeader(settings.translate('upcoming').toUpperCase(), Colors.blue, Icons.calendar_today, false),
+                          ..._buildMatchesByDate(matches.where((m) => m['status'] == 'upcoming').toList(), settings),
+                          SizedBox(height: 30),
+                        ],
+                        
+                        if (matches.isEmpty) 
+                          _buildEmptySection('No matches available'),
+                        
+                        SizedBox(height: 20),
+                        AppFooter(),
                       ],
                     ),
-                  ),
-                )
-              : LayoutBuilder(
-              builder: (context, constraints) {
-                if (matches.isEmpty) {
-                  return Center(child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.sports_cricket_outlined, size: 80, color: Colors.grey.shade300),
-                      SizedBox(height: 16),
-                      Text(settings.translate('no_matches'), style: TextStyle(color: Colors.grey, fontSize: 18, fontWeight: FontWeight.bold)),
-                      SizedBox(height: 10),
-                      TextButton(onPressed: fetchMatches, child: Text('Refresh'))
-                    ],
-                  ));
-                }
-
-                int crossAxisCount = constraints.maxWidth > 700 ? 2 : 1;
-
-                return SingleChildScrollView(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // LIVE Section
-                      if (matches.any((m) => m['status'] == 'live')) ...[
-                        _buildSectionHeader(settings.translate('live').toUpperCase(), Colors.red, Icons.circle, true),
-                        ..._buildMatchesByDate(matches.where((m) => m['status'] == 'live').toList(), settings),
-                        SizedBox(height: 30),
-                      ],
-
-                      // COMPLETED Section
-                      if (matches.any((m) => m['status'] == 'completed')) ...[
-                        _buildSectionHeader(settings.translate('completed').toUpperCase(), Colors.green, Icons.emoji_events, false),
-                        ..._buildMatchesByDate(matches.where((m) => m['status'] == 'completed').toList(), settings),
-                        SizedBox(height: 30),
-                      ],
-
-                      // UPCOMING Section
-                      if (matches.any((m) => m['status'] == 'upcoming')) ...[
-                        _buildSectionHeader(settings.translate('upcoming').toUpperCase(), Colors.blue, Icons.calendar_today, false),
-                        ..._buildMatchesByDate(matches.where((m) => m['status'] == 'upcoming').toList(), settings),
-                        SizedBox(height: 30),
-                      ],
-                      
-                      if (matches.isEmpty) 
-                        _buildEmptySection('No matches available'),
-                      
-                      SizedBox(height: 20),
-                      AppFooter(),
-                    ],
-                  ),
-                );
-              },
-            );
-  }
-
-  Widget _buildBlastOverlay() {
+                  );
+                },
+              ),
+      );
+    }
+  
+    Widget _buildBlastOverlay() {
     return Container(
       color: Colors.black54,
       child: Center(
@@ -415,12 +441,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     SizedBox(height: 5),
                     Row(
                       children: [
-                        _buildTeamScore(match['teamA'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamA'], settings),
+                        _buildTeamScore(match['teamA'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamA'] || _hasTeamBatted(match, match['teamA']), settings),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 2.0),
                           child: Text('VS', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.bold, fontSize: 10)),
                         ),
-                        _buildTeamScore(match['teamB'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamB'], settings),
+                        _buildTeamScore(match['teamB'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamB'] || _hasTeamBatted(match, match['teamB']), settings),
                       ],
                     ),
                     if (match['status'] == 'completed') 
@@ -446,16 +472,10 @@ class _HomeScreenState extends State<HomeScreen> {
                            ],
                          ),
                        ),
-                    if (match['toss'] != null && match['toss']['winner'] != null && match['status'] != 'completed')
+                    if (match['status'] != 'completed')
                        Padding(
                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                         child: Text(
-                           'Toss: ${match['toss']['winner']} elected to ${match['toss']['decision']}',
-                           style: TextStyle(fontSize: 8, color: Colors.orange.shade900, fontStyle: FontStyle.italic, fontWeight: FontWeight.bold),
-                           textAlign: TextAlign.center,
-                           maxLines: 1,
-                           overflow: TextOverflow.ellipsis,
-                         ),
+                         child: _buildMatchStatusMessage(match, settings),
                        ),
                     if (isLive) ...[
                       _buildLiveStats(match, settings),
@@ -613,5 +633,34 @@ class _HomeScreenState extends State<HomeScreen> {
     if (r1 > r2) return "${inn1['team'].toString().toUpperCase()} WON BY ${r1 - r2} RUNS";
     if (r2 > r1) return "${inn2['team'].toString().toUpperCase()} WON BY ${10 - (inn2['wickets'] as num).toInt()} WICKETS";
     return "MATCH DRAWN";
+  }
+
+  bool _hasTeamBatted(dynamic match, String team) {
+    return (match['innings'] as List?)?.any((inn) => inn['team'] == team) ?? false;
+  }
+
+  Widget _buildMatchStatusMessage(dynamic match, SettingsProvider settings) {
+    if (match['score']?['target'] != null) {
+      int runsNeeded = (match['score']['target'] as int) - (match['score']['runs'] as int);
+      int totalBalls = (match['totalOvers'] as int) * 6;
+      double currentOvers = (match['score']['overs'] as num).toDouble();
+      int ballsBowled = (currentOvers.floor() * 6) + ((currentOvers * 10) % 10).round();
+      int ballsRemaining = totalBalls - ballsBowled;
+
+      return Text(
+        '$runsNeeded runs needed from $ballsRemaining balls',
+        style: TextStyle(fontSize: 9, color: Colors.red.shade900, fontWeight: FontWeight.bold),
+        textAlign: TextAlign.center,
+      );
+    } else if (match['toss'] != null && match['toss']['winner'] != null) {
+      return Text(
+        'Toss: ${match['toss']['winner']} elected to ${match['toss']['decision']}',
+        style: TextStyle(fontSize: 8, color: Colors.orange.shade900, fontStyle: FontStyle.italic, fontWeight: FontWeight.bold),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+    return SizedBox.shrink();
   }
 }
