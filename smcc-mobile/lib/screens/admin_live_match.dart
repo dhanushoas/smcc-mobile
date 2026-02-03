@@ -91,7 +91,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
        }
     }
     
-    setState(() => isSaving = true);
+    // setState(() => isSaving = true); // Removed to prevent deadlock with _saveMatch checking isSaving
     var updatedMatch = Map<String, dynamic>.from(match);
     
     // Ensure score and innings structure exists
