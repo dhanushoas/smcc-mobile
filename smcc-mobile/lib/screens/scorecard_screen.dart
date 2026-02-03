@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'dart:async';
 import '../providers/settings_provider.dart';
+import '../services/api_service.dart';
 import '../widgets/app_footer.dart';
 
 class ScorecardScreen extends StatefulWidget {
@@ -18,19 +20,58 @@ class ScorecardScreen extends StatefulWidget {
 
 class _ScorecardScreenState extends State<ScorecardScreen> {
   int _activeTab = 0; // 0 for Scorecard, 1 for Match Info
+  late dynamic match;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    match = widget.match;
+    if (match['status'] == 'live') {
+      _startPolling();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _timer = Timer.periodic(Duration(seconds: 5), (timer) {
+      _fetchMatchUpdate();
+    });
+  }
+
+  Future<void> _fetchMatchUpdate() async {
+    try {
+      final updatedMatch = await ApiService.getMatch(match['_id'] ?? match['id']);
+      if (mounted) {
+        setState(() {
+          match = updatedMatch;
+        });
+        if (match['status'] != 'live') {
+          _timer?.cancel();
+        }
+      }
+    } catch (e) {
+      print("Error polling match: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
-    List<dynamic> inningsList = widget.match['innings'] ?? [];
+    List<dynamic> inningsList = match['innings'] ?? [];
     
     return Scaffold(
       appBar: AppBar(
         backgroundColor: settings.isDarkMode ? Color(0xFF1E1E1E) : Color(0xFF222222),
         elevation: 0,
-        title: Text(settings.translate('full_scorecard'), style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+        title: Text('${settings.translate('full_scorecard')} ${match['status'] == 'live' ? '• LIVE' : ''}', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
         actions: [
-          if (widget.match['status'] == 'completed')
+          if (match['status'] == 'completed')
             IconButton(
               icon: Icon(Icons.picture_as_pdf),
               onPressed: () => _exportToPDF(settings),
@@ -51,10 +92,10 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${widget.match['teamA'].toString().toUpperCase()} vs ${widget.match['teamB'].toString().toUpperCase()}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  Text('${match['teamA'].toString().toUpperCase()} vs ${match['teamB'].toString().toUpperCase()}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                   SizedBox(height: 4),
-                  Text('${widget.match['series'] ?? 'SMCC League'} | ${widget.match['venue']}', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  if (widget.match['status'] == 'completed')
+                  Text('${match['series'] ?? 'SMCC League'} | ${match['venue']}', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  if (match['status'] == 'completed')
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Text('${settings.translate('completed')}', style: TextStyle(color: Color(0xFF009270), fontWeight: FontWeight.bold, fontSize: 12)),
@@ -79,7 +120,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
                 ],
               ),
             ),
-            if (widget.match['status'] == 'completed')
+            if (match['status'] == 'completed')
               Container(
                 margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 padding: EdgeInsets.all(15),
@@ -92,11 +133,11 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
                 child: Column(
                   children: [
                     Text(
-                      _calculateWinner(widget.match).toUpperCase(),
+                      _calculateWinner(match).toUpperCase(),
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
                       textAlign: TextAlign.center,
                     ),
-                    if (widget.match['manOfTheMatch'] != null) ...[
+                    if (match['manOfTheMatch'] != null) ...[
                       SizedBox(height: 8),
                       Container(
                         padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -111,9 +152,9 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
                 ),
               ),
             if (_activeTab == 0)
-              ...inningsList.asMap().entries.map((entry) => _buildInningsList(entry.value, entry.key, widget.match, settings)).toList()
+              ...inningsList.asMap().entries.map((entry) => _buildInningsList(entry.value, entry.key, match, settings)).toList()
             else
-              _buildMatchInfo(widget.match, settings),
+              _buildMatchInfo(match, settings),
             AppFooter(),
           ],
         ),
@@ -411,7 +452,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
 
   Future<void> _exportToPDF(SettingsProvider settings) async {
     final pdf = pw.Document();
-    final match = widget.match;
+    // final match = widget.match; // Already using local match
     final String result = _calculateWinner(match);
     
     String dateTimeStr = "-";

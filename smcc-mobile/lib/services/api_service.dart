@@ -29,6 +29,16 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> getMatch(String id) async {
+    final response = await http.get(Uri.parse('$baseUrl/matches/$id'))
+        .timeout(Duration(seconds: 90));
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load match');
+    }
+  }
+
   static Future<String> login(String username, String password) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login'),

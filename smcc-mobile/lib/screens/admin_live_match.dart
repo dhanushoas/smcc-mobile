@@ -36,6 +36,11 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
 
   bool _needsSave = false;
 
+  // Manual save for correction panel edits
+  void _saveLocalMatch() async {
+    _saveMatch();
+  }
+
   Future<void> _saveMatch() async {
     if (isSaving) {
        _needsSave = true;
@@ -236,6 +241,12 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
 
       if (type == 'runs') {
         int runs = value;
+        // Validation: Prevent runs if overs finished
+        if ((currentInnings['overs'] as num) >= (match['totalOvers'] as int)) {
+             _showSnackBar('Overs limit reached! Cannot add runs.', isError: true);
+             return;
+        }
+
         currentInnings['batting'][sIdx]['runs'] += runs;
         currentInnings['batting'][sIdx]['balls'] += 1;
         if (runs == 4) currentInnings['batting'][sIdx]['fours'] += 1;
@@ -712,7 +723,47 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                       _handleUpdate('status_override', m);
                   }),
                   
+                  ],
+                    
+                  SizedBox(height: 15),
+                  Text('Current Batters (Correction)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+                  SizedBox(height: 5),
+                  Row(
+                    children: [
+                       Expanded(
+                         child: _buildDropdown(
+                           'Striker', 
+                           (match['currentBatsmen'] as List).isNotEmpty ? match['currentBatsmen'][0]['name'] : '', 
+                           match['score']['battingTeam'] == match['teamA'] ? match['teamASquad'] : match['teamBSquad'], 
+                           (v) {
+                             var m = Map<String, dynamic>.from(match);
+                             List<dynamic> cb = List.from(m['currentBatsmen']);
+                             if (cb.isNotEmpty) cb[0]['name'] = v;
+                             m['currentBatsmen'] = cb;
+                             _handleUpdate('manual', m);
+                           }
+                         )
+                       ),
+                       SizedBox(width: 10),
+                       Expanded(
+                         child: _buildDropdown(
+                           'Non-Striker', 
+                           (match['currentBatsmen'] as List).length > 1 ? match['currentBatsmen'][1]['name'] : '', 
+                           match['score']['battingTeam'] == match['teamA'] ? match['teamASquad'] : match['teamBSquad'], 
+                           (v) {
+                             var m = Map<String, dynamic>.from(match);
+                             List<dynamic> cb = List.from(m['currentBatsmen']);
+                             if (cb.length > 1) cb[1]['name'] = v;
+                             m['currentBatsmen'] = cb;
+                             _handleUpdate('manual', m);
+                           }
+                         )
+                       ),
+                    ],
+                  ),
+
                   if (match['status'] == 'cancelled' || match['status'] == 'abandoned' || match['status'] == 'completed') ...[
+                      SizedBox(height: 10),
                       SizedBox(height: 10),
                       Text('Result / Cancellation Reason', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
                       SizedBox(height: 5),
