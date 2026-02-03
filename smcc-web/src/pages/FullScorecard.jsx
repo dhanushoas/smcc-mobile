@@ -4,8 +4,10 @@ import axios from 'axios';
 import { Container, Card, Table, Nav, Spinner, Button, Row, Col } from 'react-bootstrap';
 import { io } from 'socket.io-client';
 import { useApp } from '../AppContext';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
+import { toCamelCase } from '../utils/formatters';
 import autoTable from 'jspdf-autotable';
+import { toast } from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const socket = io(API_URL);
@@ -119,7 +121,7 @@ const FullScorecard = () => {
             <tbody>
                 {innings.batting.map((b, idx) => (
                     <tr key={idx}>
-                        <td className="ps-4 fw-bold player-name">{b.player}</td>
+                        <td className="ps-4 fw-bold player-name">{toCamelCase(b.player)}</td>
                         <td className="text-muted small">{b.status}</td>
                         <td className="text-center fw-bold">{b.runs}</td>
                         <td className="text-center">{b.balls}</td>
@@ -159,7 +161,7 @@ const FullScorecard = () => {
                             <div className="d-flex flex-wrap gap-2 small text-dark mt-1">
                                 {(innings.fallOfWickets || innings.fow).map((f, i) => (
                                     <span key={i} className="badge bg-white text-dark border fw-bold">
-                                        {f.wicket}-{f.runs} ({f.player}, {f.overs} ov)
+                                        {f.wicket}-{f.runs} ({toCamelCase(f.player)}, {f.overs} ov)
                                     </span>
                                 ))}
                             </div>
@@ -192,7 +194,7 @@ const FullScorecard = () => {
                 <tbody>
                     {bowlingInnings.bowling.map((bowler, idx) => (
                         <tr key={idx}>
-                            <td className="ps-4 fw-bold">{bowler.player}</td>
+                            <td className="ps-4 fw-bold">{toCamelCase(bowler.player)}</td>
                             <td className="text-center">{bowler.overs}</td>
                             <td className="text-center">{bowler.maidens}</td>
                             <td className="text-center fw-bold">{bowler.runs}</td>
@@ -216,6 +218,7 @@ const FullScorecard = () => {
                         <span className="fw-bold fs-5">{t('full_scorecard')}</span>
                     </div>
                     <div className="d-flex gap-2">
+                        <Button variant="outline-light" size="sm" onClick={() => { toast.success('Refreshing...'); fetchMatch(); }} className="fw-bold">↻ Refresh</Button>
                         <Button variant="outline-light" size="sm" onClick={downloadPDF} className="fw-bold">📄 PDF</Button>
                         <Button as={Link} to="/" variant="link" className="text-white text-decoration-none p-0 ps-2">✕ Close</Button>
                     </div>

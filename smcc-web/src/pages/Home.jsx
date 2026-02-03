@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Container, Row, Col, Card, Badge, Spinner, Button } from 'react-bootstrap';
+import { Container, Row, Col, Card, Badge, Spinner, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { io } from 'socket.io-client';
 import { useApp } from '../AppContext';
+import { toCamelCase } from '../utils/formatters';
+import { toast } from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const socket = io(API_URL);
@@ -88,12 +90,12 @@ const Home = () => {
                                         <div className="text-start">
                                             {match.currentBatsmen?.map(b => (
                                                 <div key={b.name} className={`fw-bold small ${b.onStrike ? 'text-primary' : ''}`}>
-                                                    {b.onStrike ? '🏏 ' : ''}{b.name}: {b.runs}({b.balls})
+                                                    {b.onStrike ? '🏏 ' : ''}{toCamelCase(b.name)}: {b.runs}({b.balls})
                                                 </div>
                                             ))}
                                         </div>
                                         <div className="text-end fw-bold">
-                                            ⚾ {match.currentBowler || 'N/A'}
+                                            ⚾ {toCamelCase(match.currentBowler) || 'N/A'}
                                         </div>
                                     </div>
                                 </div>
@@ -133,7 +135,7 @@ const Home = () => {
                                         {match.manOfTheMatch && (
                                             <div className="bg-white rounded-pill px-3 py-1 d-inline-block shadow-sm border">
                                                 <small className="fw-bold text-success">
-                                                    🌟 MOM: {match.manOfTheMatch.toUpperCase()}
+                                                    🌟 MOM: {toCamelCase(match.manOfTheMatch)}
                                                 </small>
                                             </div>
                                         )}
@@ -196,7 +198,15 @@ const Home = () => {
 
     return (
         <Container className="py-5">
-            <header className="text-center mb-5 mt-2">
+            <header className="text-center mb-5 mt-2 position-relative">
+                <Button
+                    variant="outline-light"
+                    size="sm"
+                    className="position-absolute top-0 end-0 m-2 text-muted border-0"
+                    onClick={() => { toast.success('Refreshing...'); fetchMatches(); }}
+                >
+                    ↻
+                </Button>
                 <img src="/logo.png" alt="SMCC Logo" className="mb-3 shadow-sm rounded-circle" style={{ width: '100px', height: 'auto' }} />
                 <h1 className="display-5 fw-bold mb-1 text-primary">SMCC LIVE</h1>
                 <p className="lead text-muted small">{t('real_time_updates')}</p>

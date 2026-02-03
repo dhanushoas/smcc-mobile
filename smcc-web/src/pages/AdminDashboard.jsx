@@ -5,6 +5,7 @@ import { Container, Row, Col, Card, Button, Form, Table, Badge, ListGroup, Modal
 import { Toaster, toast } from 'react-hot-toast';
 import { io } from 'socket.io-client';
 import { jsPDF } from 'jspdf';
+import { toCamelCase } from '../utils/formatters';
 import 'jspdf-autotable';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -54,15 +55,9 @@ const AdminDashboard = () => {
     const [squadB, setSquadB] = useState(Array(11).fill(''));
     const [tossData, setTossData] = useState({ winner: '', decision: 'bat' });
 
-    const capitalizeName = (name) => {
-        if (!name) return '';
-        // Remove numbers and special characters, allow only letters and spaces
-        const cleaned = name.replace(/[^a-zA-Z\s]/g, '');
-        return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-    };
 
     const handleSquadChange = (team, index, value) => {
-        const val = capitalizeName(value);
+        const val = toCamelCase(value);
         if (team === 'A') {
             const newSquad = [...squadA];
             newSquad[index] = val;
@@ -206,7 +201,8 @@ const AdminDashboard = () => {
         syncLocalPlayers(previousState);
 
         try {
-            await axios.put(`${API_URL}/api/matches/${previousState._id || previousState.id}`, previousState, config);
+            const { history, ...payload } = previousState;
+            await axios.put(`${API_URL}/api/matches/${previousState._id || previousState.id}`, payload, config);
             toast.success("Undo successful!");
         } catch (err) {
             toast.error("Undo failed on server");
@@ -357,6 +353,7 @@ const AdminDashboard = () => {
             }
 
             let battingTeam = updatedMatch.score.battingTeam || updatedMatch.teamA;
+            if (!updatedMatch.score.thisOver) updatedMatch.score.thisOver = [];
 
             // Determine index. If team names don't match, fallback to 0/1 safely
             let battingTeamIdx = 0;
@@ -439,6 +436,7 @@ const AdminDashboard = () => {
                 let ballCounts = true;
 
                 if (type === 'runs') {
+                    updatedMatch.score.thisOver.push(value);
                     currentInnings.batting[sIdx].runs += value;
                     currentInnings.batting[sIdx].balls += 1;
                     if (value === 4) currentInnings.batting[sIdx].fours += 1;
@@ -465,17 +463,19 @@ const AdminDashboard = () => {
                     currentInnings.runs += amount;
                     currentBowling.bowling[bIdx].runs += amount;
                     if (value === 'w') {
+                        updatedMatch.score.thisOver.push('wd');
                         currentInnings.extras.wides += amount;
                         currentBowling.bowling[bIdx].wides = (currentBowling.bowling[bIdx].wides || 0) + amount;
                         ballCounts = false;
                     }
                     else if (value === 'nb') {
+                        updatedMatch.score.thisOver.push('nb');
                         currentInnings.extras.noBalls += amount;
                         currentBowling.bowling[bIdx].noBalls = (currentBowling.bowling[bIdx].noBalls || 0) + amount;
                         ballCounts = false;
                     }
-                    else if (value === 'b') { currentInnings.extras.byes = (currentInnings.extras.byes || 0) + amount; }
-                    else if (value === 'lb') { currentInnings.extras.legByes = (currentInnings.extras.legByes || 0) + amount; }
+                    else if (value === 'b') { updatedMatch.score.thisOver.push(0); currentInnings.extras.byes = (currentInnings.extras.byes || 0) + amount; }
+                    else if (value === 'lb') { updatedMatch.score.thisOver.push(0); currentInnings.extras.legByes = (currentInnings.extras.legByes || 0) + amount; }
                     currentInnings.extras.total += amount;
                 } else if (type === 'run_out_striker' || type === 'run_out_nonstriker') {
                     const isStrikerOut = type === 'run_out_striker';
@@ -524,7 +524,10 @@ const AdminDashboard = () => {
                             currentInnings.batting[outIdx].status = outStatus;
 
                             if (wDetail.type !== 'run out') {
+                                updatedMatch.score.thisOver.push('W');
                                 currentBowling.bowling[bIdx].wickets += 1;
+                            } else {
+                                updatedMatch.score.thisOver.push('W'); // Run out is also W
                             }
 
                             if (!currentInnings.fallOfWickets) currentInnings.fallOfWickets = [];
@@ -594,6 +597,7 @@ const AdminDashboard = () => {
                     let bBallCount = Math.round((bOvers * 10) % 10) + 1;
 
                     if (ballCount >= 6) {
+                        updatedMatch.score.thisOver = [];
                         ballCount = 0; overFull += 1;
                         bBallCount = 0; bOverFull += 1;
                         const temp = localStriker; localStriker = localNonStriker; localNonStriker = temp;
@@ -649,7 +653,8 @@ const AdminDashboard = () => {
         }
 
         try {
-            const res = await axios.put(`${API_URL}/api/matches/${selectedMatch._id || selectedMatch.id}`, updatedMatch, config);
+            const { history, ...payload } = updatedMatch;
+            const res = await axios.put(`${API_URL}/api/matches/${selectedMatch._id || selectedMatch.id}`, payload, config);
 
             // Resilience: Prepare new state
             let newMatchState = res.data;
@@ -940,6 +945,9 @@ const AdminDashboard = () => {
                     <Button variant="outline-primary" className="rounded-pill shadow-sm" onClick={() => navigate('/')}>
                         Home
                     </Button>
+                    <Button variant="outline-secondary" className="rounded-pill shadow-sm" onClick={() => { toast.success('Refreshing...'); fetchMatches(); }}>
+                        ↻ Refresh
+                    </Button>
                     <h2 className="fw-bold text-gradient m-0">Admin Panel</h2>
                 </div>
                 <Button variant="primary" className="shadow-sm px-4" onClick={() => { setIsCreating(true); setSelectedMatch(null); }}>+ New Match</Button>
@@ -972,7 +980,19 @@ const AdminDashboard = () => {
                         <Card className="shadow-lg border-0 overflow-hidden">
                             <Card.Header className="bg-dark text-white d-flex justify-content-between align-items-center py-3 px-4"><h5 className="m-0 fw-bold">{selectedMatch.teamA.toUpperCase()} vs {selectedMatch.teamB.toUpperCase()}</h5><Badge bg={selectedMatch.status === 'live' ? 'danger' : 'info'}>{selectedMatch.status.toUpperCase()}</Badge></Card.Header>
                             <Card.Body className="p-4">
-                                <div className="text-center mb-4 bg-light rounded-4 p-4 border"><div className="display-3 fw-bold text-primary">{selectedMatch.score.runs}/{selectedMatch.score.wickets}</div><div className="lead fw-bold">{selectedMatch.score.overs} / {selectedMatch.totalOvers} Overs</div><div className="mt-3"><Badge bg="white" text="dark" className="border px-3 py-2 me-2">CRR: {crr}</Badge>{rrr && <Badge bg="info" text="white" className="px-3 py-2 me-2">RRR: {rrr}</Badge>}{selectedMatch.score.target && <Badge bg="warning" text="dark" className="px-3 py-2">TARGET: {selectedMatch.score.target}</Badge>}</div></div>
+                                <div className="text-center mb-4 bg-light rounded-4 p-4 border">
+                                    <div className="display-3 fw-bold text-primary">{selectedMatch.score.runs}/{selectedMatch.score.wickets}</div>
+                                    <div className="lead fw-bold">{selectedMatch.score.overs} / {selectedMatch.totalOvers} Overs</div>
+
+                                    {/* 1st Innings Display */}
+                                    {selectedMatch.innings && selectedMatch.innings.length > 1 && selectedMatch.score.target && (
+                                        <div className="mt-2 text-muted fw-bold small">
+                                            1st INNINGS: {selectedMatch.innings[0].team} {selectedMatch.innings[0].runs}/{selectedMatch.innings[0].wickets} ({selectedMatch.innings[0].overs})
+                                        </div>
+                                    )}
+
+                                    <div className="mt-3"><Badge bg="white" text="dark" className="border px-3 py-2 me-2">CRR: {crr}</Badge>{rrr && <Badge bg="info" text="white" className="px-3 py-2 me-2">RRR: {rrr}</Badge>}{selectedMatch.score.target && <Badge bg="warning" text="dark" className="px-3 py-2">TARGET: {selectedMatch.score.target}</Badge>}</div>
+                                </div>
                                 <div className="d-flex gap-2 mb-4 justify-content-center flex-wrap">
                                     <Button variant="outline-dark" size="lg" className="px-3 fw-bold" onClick={() => setShowSquadModal(true)}>👥 SQUADS</Button>
                                     {(selectedMatch.status === 'upcoming' || (selectedMatch.status === 'live' && !selectedMatch.toss?.winner)) && <Button variant="warning" size="lg" className="px-5 fw-bold" onClick={() => {
@@ -1065,6 +1085,18 @@ const AdminDashboard = () => {
                                                             {scorecardData.find(inn => inn.team !== selectedMatch.score.battingTeam)?.bowling.find(p => p.player === bowler) ? (b => `${b.overs} ov | ${b.runs} r | ${b.wickets} w`)(scorecardData.find(inn => inn.team !== selectedMatch.score.battingTeam).bowling.find(p => p.player === bowler)) : '0 ov'}
                                                         </div>
                                                     </div>
+                                                    {selectedMatch.score.thisOver && selectedMatch.score.thisOver.length > 0 && (
+                                                        <div className="mt-3">
+                                                            <div className="small fw-bold text-muted text-uppercase mb-2">This Over</div>
+                                                            <div className="d-flex gap-2">
+                                                                {selectedMatch.score.thisOver.map((ball, idx) => (
+                                                                    <div key={idx} className={`rounded-circle d-flex align-items-center justify-content-center fw-bold small ${['W', 'OUT'].includes(ball) ? 'bg-danger text-white' : (['4', '6'].includes(ball.toString()) ? 'bg-success text-white' : 'bg-white border')}`} style={{ width: '25px', height: '25px' }}>
+                                                                        {ball}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </Card.Body>
                                             </Card>
                                         </Col>
