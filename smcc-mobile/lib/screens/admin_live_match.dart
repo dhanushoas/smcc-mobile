@@ -826,7 +826,6 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                       )
                   ]
                   ]
-                ],
               ),
             ),
             SizedBox(height: 10),
@@ -852,7 +851,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
     );
   }
 
-  Widget _buildLiveStatus(bool isWide) {
+  Widget _buildScoreCard(bool isWide) {
     bool isSecondInnings = match['score']['target'] != null;
     int runsNeeded = isSecondInnings ? (match['score']['target'] - match['score']['runs']) : 0;
     int ballsRemaining = isSecondInnings ? ((match['totalOvers'] * 6) - (match['score']['overs'] * 6).round() - ((match['score']['overs'] * 10) % 10)) : 0; // Approx
