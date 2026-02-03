@@ -149,7 +149,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
             child: Column(
               children: [
 
-                 _ruleItem('Pure Bowling Action: Elbow extension < 15 degrees (ICC Regs).'),
+                 _ruleItem('Pure Bowling Only.'),
                  _ruleItem('Wide: 1 Run + Re-bowl (Strict leg-side).'),
                  _ruleItem('No Ball: 1 Run + Re-bowl + Free Hit.'),
                  _ruleItem('Dismissals: Bowled, Caught, Run Out, Stumped, Hit Wicket (No LBW).'),
