@@ -165,7 +165,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
 
     if (type == 'init') {
       // Start Match logic
-      String s = _toCamelCase(value['s']); String ns = _toCamelCase(value['ns']); String b = _toCamelCase(value['b']);
+      String s = value['s']; String ns = value['ns']; String b = value['b'];
       
       if (s == ns) {
         _showSnackBar('Striker and Non-Striker must be different!', isError: true);
