@@ -13,19 +13,27 @@ class ApiService {
   static Future<void> warmup() async {
     try {
       // Hit the base domain (without /api) /ping
-      String pingUrl = baseUrl.replaceAll('/api', '/ping');
+      String pingUrl = baseUrl.replaceAll('/api', '');
       http.get(Uri.parse(pingUrl)).timeout(Duration(seconds: 60));
     } catch (_) {}
   }
 
   static Future<List<dynamic>> getMatches() async {
 
-    final response = await http.get(Uri.parse('$baseUrl/matches'))
-        .timeout(Duration(seconds: 90));
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('Failed to load matches');
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/matches'))
+          .timeout(Duration(seconds: 90));
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Server Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e.toString().contains('Format')) {
+         throw Exception('Invalid Data: Server might be waking up');
+      }
+      rethrow;
     }
   }
 

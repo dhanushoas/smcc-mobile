@@ -97,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (e.toString().contains('TimeoutException')) {
             errorMessage = 'Server is taking too long to respond. It might be waking up.';
           } else {
-            errorMessage = 'Failed to load matches. Please check your connection.';
+            errorMessage = 'Error: ${e.toString().replaceAll('Exception:', '').trim()}';
           }
         });
       }
