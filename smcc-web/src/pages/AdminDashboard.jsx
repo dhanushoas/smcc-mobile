@@ -650,8 +650,17 @@ const AdminDashboard = () => {
 
         try {
             const res = await axios.put(`${API_URL}/api/matches/${selectedMatch._id || selectedMatch.id}`, updatedMatch, config);
-            setSelectedMatch(res.data);
-            setScorecardData(res.data.innings);
+
+            // Resilience: Prepare new state
+            let newMatchState = res.data;
+
+            // If backend didn't return history (e.g. schema outdated), preserve local history
+            if ((!newMatchState.history || newMatchState.history.length === 0) && updatedMatch.history && updatedMatch.history.length > 0) {
+                newMatchState.history = updatedMatch.history;
+            }
+
+            setSelectedMatch(newMatchState);
+            setScorecardData(newMatchState.innings);
             // toast.success("Score Updated!", { id: 'score-toast' }); // Lower noise like mobile
         } catch (err) {
             toast.error("Sync failed");
