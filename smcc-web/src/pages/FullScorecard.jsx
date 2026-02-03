@@ -233,7 +233,6 @@ const FullScorecard = () => {
 
                     <Nav className="tab-menu px-4 border-bottom">
                         <Nav.Link className={activeTab === 'scorecard' ? 'active' : ''} onClick={() => setActiveTab('scorecard')}>{t('full_scorecard')}</Nav.Link>
-                        <Nav.Link as={Link} to="/">{t('live')}</Nav.Link>
                         <Nav.Link className={activeTab === 'info' ? 'active' : ''} onClick={() => setActiveTab('info')}>{t('match_info')}</Nav.Link>
                     </Nav>
 
