@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'squad_screen.dart';
 import '../widgets/app_footer.dart';
+import 'package:intl/intl.dart';
 
 class AdminLiveMatchScreen extends StatefulWidget {
   final Map<String, dynamic> matchData;
@@ -77,8 +78,8 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
   }
 
   Future<void> _handleUpdate(String type, dynamic value, [Map<String, dynamic>? params]) async {
-    // --- Prevent Editing if Match Completed ---
-    if (match['status'] == 'completed') {
+    // --- Prevent Editing if Match Completed (EXCEPT STATUS OVERRIDE) ---
+    if (match['status'] == 'completed' && type != 'status_override') {
        _showSnackBar('Match is completed! No further edits allowed.', isError: true);
        return;
     }
@@ -608,8 +609,11 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
   }
 
   Widget _buildCorrectionPanel(bool isWide) {
-    // Constraint: No modification after 1st innings (target set) OR if match is completed
-    if (match['status'] == 'completed' || (match['score']['target'] != null && match['score']['target'] > 0)) return SizedBox.shrink();
+    // Constraint: No modification after 1st innings (target set) usually, but allow STATUS override always
+    // if (match['status'] == 'completed') return SizedBox.shrink(); // ALLOW View for Override
+    
+    bool isCompleted = match['status'] == 'completed' || match['status'] == 'cancelled' || match['status'] == 'abandoned';
+    bool isSecondInnings = (match['score']['target'] != null && match['score']['target'] > 0);
 
     bool isExpanded = false;
     return StatefulBuilder(builder: (context, setStateLocal) {
@@ -664,11 +668,46 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                       _handleUpdate('manual', m);
                   }),
                   SizedBox(height: 10),
-                  _buildDropdown('Status', match['status'], ['upcoming', 'live', 'completed'], (v) {
+                  _buildDropdown('Status Override', match['status'], ['upcoming', 'live', 'completed', 'cancelled', 'abandoned'], (v) {
                       var m = Map<String, dynamic>.from(match);
                       m['status'] = v;
-                      _handleUpdate('manual', m);
+                      // If cancelled/abandoned, we might want to clear target or specific things, but for now just status
+                      _handleUpdate('status_override', m);
                   }),
+                  
+                  if (match['status'] == 'cancelled' || match['status'] == 'abandoned' || match['status'] == 'completed') ...[
+                      SizedBox(height: 10),
+                      Text('Result / Cancellation Reason', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+                      SizedBox(height: 5),
+                      DropdownButtonFormField<String>(
+                         decoration: InputDecoration(
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            filled: true,
+                            fillColor: Colors.white
+                         ),
+                         value: null, 
+                         hint: Text(match['manOfTheMatch'] != null && (match['manOfTheMatch'] as String).contains('Match') ? match['manOfTheMatch'] : 'Select Reason...'),
+                         items: [
+                           'Rain - Match Cancelled', 
+                           'Wet Outfield - Abandoned', 
+                           'Bad Light - Stopped',
+                           'Walkover - Team A Won',
+                           'Walkover - Team B Won',
+                           'Team Not Arrived',
+                           'Technical Issue',
+                           'Postponed'
+                         ].map((s) => DropdownMenuItem(value: s, child: Text(s, style: TextStyle(fontSize: 12)))).toList(),
+                         onChanged: (v) {
+                            var m = Map<String, dynamic>.from(match);
+                            // We store the reason in manOfTheMatch field temporarily/permanently as "Result Info" since MOM isn't styling relevant for cancelled matches
+                            // OR we can make a dedicated result string. Using MOM field for now as visible on scorecard.
+                            m['manOfTheMatch'] = v; 
+                            if (v!.contains('Walkover')) m['status'] = 'completed'; // Walkover is effectively completed
+                            _handleUpdate('status_override', m);
+                         }
+                      )
+                  ]
                 ],
               ),
             )
