@@ -77,6 +77,13 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
   }
 
   Future<void> _handleUpdate(String type, dynamic value, [Map<String, dynamic>? params]) async {
+    // --- Prevent Editing if Match Completed ---
+    if (match['status'] == 'completed') {
+       _showSnackBar('Match is completed! No further edits allowed.', isError: true);
+       return;
+    }
+    // ------------------------------------------
+
     // --- History Tracking for Undo (Delete Previous Ball) ---
     if (['runs', 'extra', 'wicket', 'retire', 'new_batsman', 'new_bowler'].contains(type)) {
        try {
@@ -597,8 +604,8 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
   }
 
   Widget _buildCorrectionPanel(bool isWide) {
-    // Constraint: No modification after 1st innings (target set)
-    if (match['score']['target'] != null && match['score']['target'] > 0) return SizedBox.shrink();
+    // Constraint: No modification after 1st innings (target set) OR if match is completed
+    if (match['status'] == 'completed' || (match['score']['target'] != null && match['score']['target'] > 0)) return SizedBox.shrink();
 
     bool isExpanded = false;
     return StatefulBuilder(builder: (context, setStateLocal) {

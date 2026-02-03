@@ -322,6 +322,13 @@ const AdminDashboard = () => {
     };
 
     const handleUpdate = async (type, value, params = {}) => {
+        // --- Prevent Editing if Match Completed ---
+        if (selectedMatch.status === 'completed') {
+            toast.error("Match is completed! No further edits allowed.");
+            return;
+        }
+        // ------------------------------------------
+
         setIsUpdating(true);
         // Deep copy for safety and history
         let updatedMatch = JSON.parse(JSON.stringify(selectedMatch));
@@ -1043,20 +1050,20 @@ const AdminDashboard = () => {
                                     <summary className="btn btn-sm btn-link text-decoration-none fw-bold p-0 text-muted">🔧 Correction Panel (Manual Overrides)</summary>
                                     <Card className="mt-2 border-0 bg-light p-3">
                                         <Row className="g-3">
-                                            <Col md={4}><Form.Label className="small fw-bold">Runs</Form.Label><Form.Control size="sm" type="number" min="0" value={selectedMatch.score.runs} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, runs: Math.max(0, parseInt(e.target.value) || 0) } })} /></Col>
-                                            <Col md={4}><Form.Label className="small fw-bold">Wickets</Form.Label><Form.Control size="sm" type="number" min="0" max="10" value={selectedMatch.score.wickets} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, wickets: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) } })} /></Col>
-                                            <Col md={4}><Form.Label className="small fw-bold">Overs</Form.Label><Form.Control size="sm" type="number" step="0.1" min="0" max={selectedMatch.totalOvers} value={selectedMatch.score.overs} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, overs: Math.min(selectedMatch.totalOvers, Math.max(0, parseFloat(e.target.value) || 0)) } })} /></Col>
+                                            <Col md={4}><Form.Label className="small fw-bold">Runs</Form.Label><Form.Control size="sm" type="number" min="0" disabled={selectedMatch.status === 'completed'} value={selectedMatch.score.runs} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, runs: Math.max(0, parseInt(e.target.value) || 0) } })} /></Col>
+                                            <Col md={4}><Form.Label className="small fw-bold">Wickets</Form.Label><Form.Control size="sm" type="number" min="0" max="10" disabled={selectedMatch.status === 'completed'} value={selectedMatch.score.wickets} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, wickets: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) } })} /></Col>
+                                            <Col md={4}><Form.Label className="small fw-bold">Overs</Form.Label><Form.Control size="sm" type="number" step="0.1" min="0" max={selectedMatch.totalOvers} disabled={selectedMatch.status === 'completed'} value={selectedMatch.score.overs} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, overs: Math.min(selectedMatch.totalOvers, Math.max(0, parseFloat(e.target.value) || 0)) } })} /></Col>
 
                                             <Col md={4}>
                                                 <Form.Label className="small fw-bold">Striker</Form.Label>
-                                                <Form.Select size="sm" value={striker} onChange={e => { setStriker(e.target.value); handleUpdate('manual', { ...selectedMatch, currentBatsmen: selectedMatch.currentBatsmen.map((b, i) => i === 0 ? { ...b, name: e.target.value } : b) }); }}>
+                                                <Form.Select size="sm" disabled={selectedMatch.status === 'completed'} value={striker} onChange={e => { setStriker(e.target.value); handleUpdate('manual', { ...selectedMatch, currentBatsmen: selectedMatch.currentBatsmen.map((b, i) => i === 0 ? { ...b, name: e.target.value } : b) }); }}>
                                                     <option value="">Select</option>
                                                     {(selectedMatch.score.battingTeam === selectedMatch.teamA ? squadA : squadB).map(p => <option key={p} value={p}>{p}</option>)}
                                                 </Form.Select>
                                             </Col>
                                             <Col md={4}>
                                                 <Form.Label className="small fw-bold">Non-Striker</Form.Label>
-                                                <Form.Select size="sm" value={nonStriker} onChange={e => { setNonStriker(e.target.value); handleUpdate('manual', { ...selectedMatch, currentBatsmen: selectedMatch.currentBatsmen.map((b, i) => i === 1 ? { ...b, name: e.target.value } : b) }); }}>
+                                                <Form.Select size="sm" disabled={selectedMatch.status === 'completed'} value={nonStriker} onChange={e => { setNonStriker(e.target.value); handleUpdate('manual', { ...selectedMatch, currentBatsmen: selectedMatch.currentBatsmen.map((b, i) => i === 1 ? { ...b, name: e.target.value } : b) }); }}>
                                                     <option value="">Select</option>
                                                     {(selectedMatch.score.battingTeam === selectedMatch.teamA ? squadA : squadB).map(p => <option key={p} value={p}>{p}</option>)}
                                                 </Form.Select>
