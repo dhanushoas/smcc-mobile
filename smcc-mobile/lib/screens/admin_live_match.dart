@@ -172,6 +172,24 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
         return;
       }
 
+      // Auto-detect batting team from striker's squad
+      String derivedBattingTeam = updatedMatch['teamA'];
+      if ((squadB as List).contains(s)) derivedBattingTeam = updatedMatch['teamB'];
+      
+      // Update batting team immediately so innings logic aligns
+      updatedMatch['score']['battingTeam'] = derivedBattingTeam;
+      
+      // Re-fetch current innings based on correct batting team
+      battingTeamName = derivedBattingTeam;
+      battingIdx = inningsList.lastIndexWhere((inn) => inn['team'] == battingTeamName);
+      if (battingIdx == -1) battingIdx = (squadA as List).contains(s) ? 0 : 1;
+      
+      currentInnings = inningsList[battingIdx];
+      // Recalculate bowling innings too
+      bowlingIdx = inningsList.lastIndexWhere((inn) => inn['team'] != battingTeamName);
+      if (bowlingIdx == -1) bowlingIdx = battingIdx == 0 ? 1 : 0;
+      currentBowling = inningsList[bowlingIdx];
+
       if (findBatIndex(s) == -1) (currentInnings['batting'] as List).add({'player': s, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
       if (findBatIndex(ns) == -1) (currentInnings['batting'] as List).add({'player': ns, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
       if (findBowlIndex(b) == -1) (currentBowling['bowling'] as List).add({'player': b, 'overs': 0, 'maidens': 0, 'runs': 0, 'wickets': 0, 'economy': 0});
@@ -182,7 +200,6 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
       ];
       updatedMatch['currentBowler'] = b;
       updatedMatch['status'] = 'live';
-      if (updatedMatch['score']['battingTeam'] == null) updatedMatch['score']['battingTeam'] = updatedMatch['teamA'];
     } 
     else if (type == 'runs' || type == 'extra' || type == 'wicket' || type == 'retire') {
       List<dynamic> curBatsmen = updatedMatch['currentBatsmen'] ?? [];
