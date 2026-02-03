@@ -78,6 +78,13 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
               tooltip: 'Export to PDF',
             ),
           IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () {
+               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Refreshing...'), duration: Duration(milliseconds: 500)));
+               _fetchMatchUpdate();
+            },
+          ),
+          IconButton(
             icon: Icon(Icons.close),
             onPressed: () => Navigator.pop(context),
           )
@@ -280,7 +287,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
             ),
             ...batting.map((b) => TableRow(
               children: [
-                _buildCell('${b['player']}\n${b['status']}', isName: true),
+                _buildCell('${_toCamelCase(b['player'])}\n${b['status']}', isName: true),
                 _buildCell(b['runs'].toString(), isBold: true, align: TextAlign.center),
                 _buildCell(b['balls'].toString(), align: TextAlign.center),
                 _buildCell((b['fours'] ?? 0).toString(), align: TextAlign.center),
@@ -332,7 +339,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
         ),
         
         // Fall of Wickets
-        if (innings['fow'] != null && (innings['fow'] as List).isNotEmpty) ...[
+        if ((innings['fallOfWickets'] != null && (innings['fallOfWickets'] as List).isNotEmpty) || (innings['fow'] != null && (innings['fow'] as List).isNotEmpty)) ...[
           SizedBox(height: 10),
           Container(
             width: double.infinity,
@@ -345,11 +352,11 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: (innings['fow'] as List).map((f) => Container(
+              children: ((innings['fallOfWickets'] ?? innings['fow']) as List).map((f) => Container(
                 padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(5)),
                 child: Text(
-                  '${f['wicket']}-${f['runs']} (${f['player']}, ${f['overs']} ov)',
+                  '${f['wicket']}-${f['runs']} (${_toCamelCase(f['player'])}, ${f['overs']} ov)',
                   style: TextStyle(fontSize: 10),
                 ),
               )).toList(),
@@ -391,7 +398,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
               ),
               ...bowling.map((bowl) => TableRow(
                 children: [
-                  _buildCell(bowl['player'], isBold: true),
+                  _buildCell(_toCamelCase(bowl['player']), isBold: true),
                   _buildCell(bowl['overs'].toString(), align: TextAlign.center),
                   _buildCell(bowl['runs'].toString(), align: TextAlign.center),
                   _buildCell(bowl['wickets'].toString(), isBold: true, align: TextAlign.center, color: Colors.red),
@@ -448,6 +455,15 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
       return "${inn2['team']} won by $wkts wickets";
     }
     return "Match Drawn";
+  }
+
+  String _toCamelCase(String text) {
+    if (text.isEmpty) return text;
+    return text.trim().split(' ').map((word) {
+      if (word.isEmpty) return '';
+      if (word.length == 1) return word.toUpperCase();
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
   }
 
   Future<void> _exportToPDF(SettingsProvider settings) async {

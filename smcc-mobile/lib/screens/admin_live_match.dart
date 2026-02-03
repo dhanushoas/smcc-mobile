@@ -51,7 +51,11 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
     _needsSave = false;
     
     try {
-      await ApiService.updateMatch((match['_id'] ?? match['id']).toString(), match);
+      // Create a copy to avoid sending history (heavy payload)
+      var matchToSend = Map<String, dynamic>.from(match);
+      matchToSend.remove('history');
+      
+      await ApiService.updateMatch((match['_id'] ?? match['id']).toString(), matchToSend);
       // Success - no snackbar needed for every auto-save to avoid spam
     } catch (e) {
       _showSnackBar(e.toString().replaceAll('Exception: ', ''), isError: true);
