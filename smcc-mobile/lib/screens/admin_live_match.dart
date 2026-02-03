@@ -723,7 +723,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                       _handleUpdate('status_override', m);
                   }),
                   
-                  ],
+
                     
                   SizedBox(height: 15),
                   Text('Current Batters (Correction)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
