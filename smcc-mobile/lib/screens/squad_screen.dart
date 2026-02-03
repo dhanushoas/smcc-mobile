@@ -44,33 +44,64 @@ class _SquadScreenState extends State<SquadScreen> with SingleTickerProviderStat
 
   bool _isSaving = false;
 
-   Future<void> _saveSquads() async {
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(isError ? Icons.error_outline : Icons.check_circle_outline, color: Colors.white, size: 28),
+            SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                   Text(isError ? 'Oops!' : 'Success!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                   Text(message, style: TextStyle(fontSize: 13)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isError ? Color(0xFFD32F2F) : Color(0xFF388E3C),
+        behavior: SnackBarBehavior.floating,
+        elevation: 6,
+        margin: EdgeInsets.all(16),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        duration: Duration(seconds: 3),
+      )
+    );
+  }
+
+  Future<void> _saveSquads() async {
     if (_isSaving) return;
     
     List<String> teamA = _controllersA.map((c) => _capitalize(c.text.trim())).where((s) => s.isNotEmpty).toList();
     List<String> teamB = _controllersB.map((c) => _capitalize(c.text.trim())).where((s) => s.isNotEmpty).toList();
 
     if (teamA.length < 11 || teamB.length < 11) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exactly 11 players per team are required!'), backgroundColor: Colors.red));
+      _showSnackBar('Exactly 11 players per team are required!', isError: true);
       return;
     }
 
     // 1. Check for duplicates within Team A
     if (teamA.toSet().length != teamA.length) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Duplicate names found in ${widget.match['teamA']} squad!'), backgroundColor: Colors.red));
+      _showSnackBar('Duplicate names found in ${widget.match['teamA']} squad!', isError: true);
       return;
     }
 
     // 2. Check for duplicates within Team B
     if (teamB.toSet().length != teamB.length) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Duplicate names found in ${widget.match['teamB']} squad!'), backgroundColor: Colors.red));
+      _showSnackBar('Duplicate names found in ${widget.match['teamB']} squad!', isError: true);
       return;
     }
 
     // 3. Check for names in both teams
     var overlap = teamA.toSet().intersection(teamB.toSet());
     if (overlap.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Players cannot play for both teams: ${overlap.join(", ")}'), backgroundColor: Colors.red));
+      _showSnackBar('Players cannot play for both teams: ${overlap.join(", ")}', isError: true);
       return;
     }
 
@@ -88,13 +119,13 @@ class _SquadScreenState extends State<SquadScreen> with SingleTickerProviderStat
       widget.match['teamBSquad'] = teamB;
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Squads Saved Successfully!'), backgroundColor: Colors.green));
+        _showSnackBar('Squads Saved Successfully!');
         Navigator.pop(context, true); 
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save squads: $e'), backgroundColor: Colors.red));
+        _showSnackBar('Failed to save squads: $e', isError: true);
       }
     }
   }
