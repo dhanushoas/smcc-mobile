@@ -80,6 +80,10 @@ const Match = sequelize.define('Match', {
         type: DataTypes.STRING,
         defaultValue: ''
     },
+    history: {
+        type: DataTypes.JSON,
+        defaultValue: []
+    },
     lastUpdated: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
