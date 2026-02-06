@@ -55,6 +55,10 @@ const AdminDashboard = () => {
     const [squadB, setSquadB] = useState(Array(11).fill(''));
     const [tossData, setTossData] = useState({ winner: '', decision: 'bat' });
 
+    // Animation state
+    const [showBlast, setShowBlast] = useState(false);
+    const [blastValue, setBlastValue] = useState(0);
+
 
     const handleSquadChange = (team, index, value) => {
         const val = toCamelCase(value);
@@ -452,6 +456,13 @@ const AdminDashboard = () => {
 
                     currentBowling.bowling[bIdx].runs += value;
                     currentInnings.runs += value;
+
+                    if (value === 4 || value === 6) {
+                        setBlastValue(value);
+                        setShowBlast(true);
+                        setTimeout(() => setShowBlast(false), 2000);
+                    }
+
                     if (value % 2 !== 0) {
                         const temp = localStriker; localStriker = localNonStriker; localNonStriker = temp;
                     }
@@ -1107,30 +1118,51 @@ const AdminDashboard = () => {
                                         🪙 Toss won by {selectedMatch.toss.winner} and elected to {selectedMatch.toss.decision} first.
                                     </Alert>
                                 )}
-                                <details>
+                                {selectedMatch.status === 'live' && (
+                                    <div className="d-flex gap-3 mb-4 justify-content-center">
+                                        <Button variant="outline-danger" className="fw-bold px-3" onClick={() => {
+                                            setRunOutOutType('striker');
+                                            setBatsmanModalType('retired');
+                                            setShowBatsmanModal(true);
+                                        }}>🏥 RETIRE BATSMAN</Button>
+                                        <Button variant="outline-info" className="fw-bold px-3" onClick={() => setShowBowlerModal(true)}>⚾ CHANGE BOWLER</Button>
+                                        <Button variant="outline-primary" className="fw-bold px-3" onClick={fetchMatches}>🔄 MANUAL SYNC</Button>
+                                    </div>
+                                )}
+
+                                <details className="mt-4">
                                     <summary className="btn btn-sm btn-link text-decoration-none fw-bold p-0 text-muted">🔧 Correction Panel (Manual Overrides)</summary>
-                                    <Card className="mt-2 border-0 bg-light p-3">
+                                    <Card className="mt-2 border-0 bg-light p-4 shadow-sm">
                                         <Row className="g-3">
-                                            <Col md={4}><Form.Label className="small fw-bold">Runs</Form.Label><Form.Control size="sm" type="number" min="0" disabled={selectedMatch.status === 'completed'} value={selectedMatch.score.runs} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, runs: Math.max(0, parseInt(e.target.value) || 0) } })} /></Col>
-                                            <Col md={4}><Form.Label className="small fw-bold">Wickets</Form.Label><Form.Control size="sm" type="number" min="0" max="10" disabled={selectedMatch.status === 'completed'} value={selectedMatch.score.wickets} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, wickets: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) } })} /></Col>
-                                            <Col md={4}><Form.Label className="small fw-bold">Overs</Form.Label><Form.Control size="sm" type="number" step="0.1" min="0" max={selectedMatch.totalOvers} disabled={selectedMatch.status === 'completed'} value={selectedMatch.score.overs} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, overs: Math.min(selectedMatch.totalOvers, Math.max(0, parseFloat(e.target.value) || 0)) } })} /></Col>
+                                            <Col md={4}>
+                                                <Form.Label className="small fw-bold text-uppercase text-muted">Runs</Form.Label>
+                                                <Form.Control size="sm" type="number" min="0" value={selectedMatch.score.runs} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, runs: Math.max(0, parseInt(e.target.value) || 0) } })} />
+                                            </Col>
+                                            <Col md={4}>
+                                                <Form.Label className="small fw-bold text-uppercase text-muted">Wickets</Form.Label>
+                                                <Form.Control size="sm" type="number" min="0" max="10" value={selectedMatch.score.wickets} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, wickets: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) } })} />
+                                            </Col>
+                                            <Col md={4}>
+                                                <Form.Label className="small fw-bold text-uppercase text-muted">Overs</Form.Label>
+                                                <Form.Control size="sm" type="number" step="0.1" min="0" max={selectedMatch.totalOvers} value={selectedMatch.score.overs} onChange={e => handleUpdate('manual', { ...selectedMatch, score: { ...selectedMatch.score, overs: Math.min(selectedMatch.totalOvers, Math.max(0, parseFloat(e.target.value) || 0)) } })} />
+                                            </Col>
 
                                             <Col md={4}>
-                                                <Form.Label className="small fw-bold">Striker</Form.Label>
-                                                <Form.Select size="sm" disabled={selectedMatch.status === 'completed'} value={striker} onChange={e => { setStriker(e.target.value); handleUpdate('manual', { ...selectedMatch, currentBatsmen: selectedMatch.currentBatsmen.map((b, i) => i === 0 ? { ...b, name: e.target.value } : b) }); }}>
+                                                <Form.Label className="small fw-bold text-uppercase text-muted">Striker</Form.Label>
+                                                <Form.Select size="sm" value={striker} onChange={e => { setStriker(e.target.value); handleUpdate('manual', { ...selectedMatch, currentBatsmen: selectedMatch.currentBatsmen.map((b, i) => i === 0 ? { ...b, name: e.target.value } : b) }); }}>
                                                     <option value="">Select</option>
                                                     {(selectedMatch.score.battingTeam === selectedMatch.teamA ? squadA : squadB).map(p => <option key={p} value={p}>{p}</option>)}
                                                 </Form.Select>
                                             </Col>
                                             <Col md={4}>
-                                                <Form.Label className="small fw-bold">Non-Striker</Form.Label>
-                                                <Form.Select size="sm" disabled={selectedMatch.status === 'completed'} value={nonStriker} onChange={e => { setNonStriker(e.target.value); handleUpdate('manual', { ...selectedMatch, currentBatsmen: selectedMatch.currentBatsmen.map((b, i) => i === 1 ? { ...b, name: e.target.value } : b) }); }}>
+                                                <Form.Label className="small fw-bold text-uppercase text-muted">Non-Striker</Form.Label>
+                                                <Form.Select size="sm" value={nonStriker} onChange={e => { setNonStriker(e.target.value); handleUpdate('manual', { ...selectedMatch, currentBatsmen: selectedMatch.currentBatsmen.map((b, i) => i === 1 ? { ...b, name: e.target.value } : b) }); }}>
                                                     <option value="">Select</option>
                                                     {(selectedMatch.score.battingTeam === selectedMatch.teamA ? squadA : squadB).map(p => <option key={p} value={p}>{p}</option>)}
                                                 </Form.Select>
                                             </Col>
                                             <Col md={4}>
-                                                <Form.Label className="small fw-bold">Bowler</Form.Label>
+                                                <Form.Label className="small fw-bold text-uppercase text-muted">Bowler</Form.Label>
                                                 <Form.Select size="sm" value={bowler} onChange={e => { setBowler(e.target.value); handleUpdate('manual', { ...selectedMatch, currentBowler: e.target.value }); }}>
                                                     <option value="">Select</option>
                                                     {(selectedMatch.score.battingTeam === selectedMatch.teamA ? squadB : squadA).map(p => <option key={p} value={p}>{p}</option>)}
@@ -1138,7 +1170,7 @@ const AdminDashboard = () => {
                                             </Col>
 
                                             <Col md={6}>
-                                                <Form.Label className="small fw-bold">Batting Team</Form.Label>
+                                                <Form.Label className="small fw-bold text-uppercase text-muted">Batting Team</Form.Label>
                                                 <Form.Select size="sm" value={selectedMatch.score.battingTeam} onChange={e => {
                                                     const nextTeam = e.target.value;
                                                     if (nextTeam !== selectedMatch.score.battingTeam) {
@@ -1155,7 +1187,16 @@ const AdminDashboard = () => {
                                                     <option value={selectedMatch.teamB}>{selectedMatch.teamB}</option>
                                                 </Form.Select>
                                             </Col>
-                                            <Col md={6}><Form.Label className="small fw-bold">Status</Form.Label><Form.Select size="sm" value={selectedMatch.status} onChange={e => handleUpdate('manual', { ...selectedMatch, status: e.target.value })}><option value="upcoming">Upcoming</option><option value="live">Live</option><option value="completed">Completed</option></Form.Select></Col>
+                                            <Col md={6}>
+                                                <Form.Label className="small fw-bold text-uppercase text-muted">Status Override</Form.Label>
+                                                <Form.Select size="sm" value={selectedMatch.status} onChange={e => handleUpdate('manual', { ...selectedMatch, status: e.target.value })}>
+                                                    <option value="upcoming">Upcoming</option>
+                                                    <option value="live">Live</option>
+                                                    <option value="completed">Completed</option>
+                                                    <option value="cancelled">Cancelled</option>
+                                                    <option value="abandoned">Abandoned</option>
+                                                </Form.Select>
+                                            </Col>
                                         </Row>
                                     </Card>
                                 </details>
@@ -1164,6 +1205,14 @@ const AdminDashboard = () => {
                     ) : (<div className="text-center py-5 bg-white rounded-4 shadow-sm d-flex flex-column align-items-center border"><Spinner animation="grow" variant="primary" className="mb-4" /><h4>Ready to Score?</h4><p className="text-muted">Select a match to start updates.</p></div>)}
                 </Col>
             </Row>
+            {showBlast && (
+                <div className="blast-overlay">
+                    <div className="blast-text" style={{ color: blastValue === 6 ? '#28a745' : '#ffc107' }}>
+                        {blastValue}
+                    </div>
+                    <div className="blast-label">{blastValue === 6 ? 'SIX!' : 'FOUR!'}</div>
+                </div>
+            )}
             <style>{`.fw-black { font-weight: 900; } .text-gradient { background: linear-gradient(45deg, #1e3c72, #2a5298); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }`}</style>
         </Container>
     );

@@ -37,8 +37,8 @@ app.use(passport.session());
 // Connect Database
 connectDB();
 
-// Sync Database
-sequelize.sync({ alter: true })
+// Sync Database (avoid automatic ALTER to prevent excessive ALTER statements at startup)
+sequelize.sync()
     .then(() => console.log('MySQL Tables Synced'))
     .catch(err => console.error('Error syncing MySQL tables:', err));
 

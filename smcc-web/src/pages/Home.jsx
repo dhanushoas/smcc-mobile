@@ -15,6 +15,9 @@ const Home = () => {
     const [loading, setLoading] = useState(true);
     const { t, language } = useApp();
 
+    const [showBlast, setShowBlast] = useState(false);
+    const [blastValue, setBlastValue] = useState(0);
+
     const renderMatchesByDate = (filteredMatches) => {
         const groups = {};
         filteredMatches.forEach(m => {
@@ -171,6 +174,17 @@ const Home = () => {
             setMatches(prevMatches => {
                 const index = prevMatches.findIndex(m => m._id === updatedMatch._id || m.id === updatedMatch.id);
                 if (index !== -1) {
+                    const oldMatch = prevMatches[index];
+                    const oldRuns = oldMatch.score?.runs || 0;
+                    const newRuns = updatedMatch.score?.runs || 0;
+                    const diff = newRuns - oldRuns;
+
+                    if ((diff === 4 || diff === 6) && updatedMatch.status === 'live') {
+                        setBlastValue(diff);
+                        setShowBlast(true);
+                        setTimeout(() => setShowBlast(false), 2000);
+                    }
+
                     const newMatches = [...prevMatches];
                     newMatches[index] = updatedMatch;
                     return newMatches;
@@ -263,6 +277,15 @@ const Home = () => {
                         </Card>
                     </Col>
                 </Row>
+            )}
+
+            {showBlast && (
+                <div className="blast-overlay">
+                    <div className="blast-text" style={{ color: blastValue === 6 ? '#28a745' : '#ffc107' }}>
+                        {blastValue}
+                    </div>
+                    <div className="blast-label">{blastValue === 6 ? 'SIX!' : 'FOUR!'}</div>
+                </div>
             )}
 
         </Container>
