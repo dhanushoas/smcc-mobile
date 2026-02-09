@@ -185,7 +185,8 @@ const Home = () => {
             const res = await axios.get(`${API_URL}/api/matches`);
             setMatches(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
-            console.error("Error fetching matches", err);
+            const serverError = err.response?.data?.error || err.response?.data?.msg || err.message;
+            console.error("Error fetching matches:", serverError);
             setMatches([]);
         } finally {
             setLoading(false);
