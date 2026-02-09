@@ -466,11 +466,20 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
         if (findBatIndex(value) == -1) (currentInnings['batting'] as List).add({'player': value, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0});
     }
     else if (type == 'new_bowler') {
-        // value = _toCamelCase(value); // Validation relaxed
-        /*if (!bowlingSquad.contains(value)) {
-           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bowler not in bowling team squad!'), backgroundColor: Colors.red));
+        if (updatedMatch['currentBowler'] == value) {
+           _showSnackBar('A bowler cannot bowl two overs in a row!', isError: true);
            return;
-        }*/
+        }
+
+        int bIdx = findBowlIndex(value);
+        if (bIdx != -1) {
+           var bowlerStats = currentBowling['bowling'][bIdx];
+           if ((bowlerStats['overs'] as num).floor() >= 2) {
+              _showSnackBar('A bowler cannot bowl more than 2 overs!', isError: true);
+              return;
+           }
+        }
+
         updatedMatch['currentBowler'] = value;
         if (findBowlIndex(value) == -1) (currentBowling['bowling'] as List).add({'player': value, 'overs': 0, 'maidens': 0, 'runs': 0, 'wickets': 0, 'economy': 0});
     }

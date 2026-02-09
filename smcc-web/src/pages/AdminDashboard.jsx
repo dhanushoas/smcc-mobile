@@ -400,8 +400,8 @@ const AdminDashboard = () => {
             // Safety: Ensure innings structure exists and has 2 teams
             if (!updatedMatch.innings || updatedMatch.innings.length < 2) {
                 const template = [
-                    { team: updatedMatch.teamA, runs: 0, wickets: 0, overs: 0, batting: [], bowling: [], extras: { total: 0, wides: 0, noBalls: 0 } },
-                    { team: updatedMatch.teamB, runs: 0, wickets: 0, overs: 0, batting: [], bowling: [], extras: { total: 0, wides: 0, noBalls: 0 } }
+                    { team: updatedMatch.teamA, runs: 0, wickets: 0, overs: 0, batting: [], bowling: [], extras: { total: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0 } },
+                    { team: updatedMatch.teamB, runs: 0, wickets: 0, overs: 0, batting: [], bowling: [], extras: { total: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0 } }
                 ];
                 updatedMatch.innings = template;
                 setScorecardData(template); // Fix local state too
@@ -523,21 +523,28 @@ const AdminDashboard = () => {
                 } else if (type === 'extra') {
                     const amount = params?.amount || 1;
                     currentInnings.runs += amount;
-                    currentBowling.bowling[bIdx].runs += amount;
                     if (value === 'w') {
                         updatedMatch.score.thisOver.push('wd');
                         currentInnings.extras.wides += amount;
+                        currentBowling.bowling[bIdx].runs += amount;
                         currentBowling.bowling[bIdx].wides = (currentBowling.bowling[bIdx].wides || 0) + amount;
                         ballCounts = false;
                     }
                     else if (value === 'nb') {
                         updatedMatch.score.thisOver.push('nb');
                         currentInnings.extras.noBalls += amount;
+                        currentBowling.bowling[bIdx].runs += amount;
                         currentBowling.bowling[bIdx].noBalls = (currentBowling.bowling[bIdx].noBalls || 0) + amount;
                         ballCounts = false;
                     }
-                    else if (value === 'b') { updatedMatch.score.thisOver.push(0); currentInnings.extras.byes = (currentInnings.extras.byes || 0) + amount; }
-                    else if (value === 'lb') { updatedMatch.score.thisOver.push(0); currentInnings.extras.legByes = (currentInnings.extras.legByes || 0) + amount; }
+                    else if (value === 'b') {
+                        updatedMatch.score.thisOver.push(0);
+                        currentInnings.extras.byes = (currentInnings.extras.byes || 0) + amount;
+                    }
+                    else if (value === 'lb') {
+                        updatedMatch.score.thisOver.push(0);
+                        currentInnings.extras.legByes = (currentInnings.extras.legByes || 0) + amount;
+                    }
                     currentInnings.extras.total += amount;
                 } else if (type === 'run_out_striker' || type === 'run_out_nonstriker') {
                     const isStrikerOut = type === 'run_out_striker';
@@ -638,6 +645,13 @@ const AdminDashboard = () => {
                         toast.error("A bowler cannot bowl two overs in a row!");
                         return;
                     }
+
+                    const bowlerStats = currentBowling.bowling.find(p => p.player === value);
+                    if (bowlerStats && Math.floor(bowlerStats.overs) >= 2) {
+                        toast.error("A bowler cannot bowl more than 2 overs!");
+                        return;
+                    }
+
                     const bowlingSquad = battingTeam === updatedMatch.teamA ? updatedMatch.teamBSquad : updatedMatch.teamASquad;
                     if (bowlingSquad && !bowlingSquad.includes(value)) {
                         toast.error("Bowler is not in the squad!");

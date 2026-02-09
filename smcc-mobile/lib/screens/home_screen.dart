@@ -234,9 +234,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // LIVE Section
-                        if (matches.any((m) => m['status'] == 'live')) ...[
+                        if (matches.any((m) => m['status'] == 'live' || (m['status'] == 'upcoming' && m['toss'] != null && m['toss']['winner'] != null))) ...[
                           _buildSectionHeader(settings.translate('live').toUpperCase(), Colors.red, Icons.circle, true),
-                          ..._buildMatchesByDate(matches.where((m) => m['status'] == 'live').toList(), settings),
+                          ..._buildMatchesByDate(matches.where((m) => m['status'] == 'live' || (m['status'] == 'upcoming' && m['toss'] != null && m['toss']['winner'] != null)).toList(), settings),
                           SizedBox(height: 30),
                         ],
   
@@ -248,9 +248,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
   
                         // UPCOMING Section
-                        if (matches.any((m) => m['status'] == 'upcoming')) ...[
+                        if (matches.any((m) => m['status'] == 'upcoming' && (m['toss'] == null || m['toss']['winner'] == null))) ...[
                           _buildSectionHeader(settings.translate('upcoming').toUpperCase(), Colors.blue, Icons.calendar_today, false),
-                          ..._buildMatchesByDate(matches.where((m) => m['status'] == 'upcoming').toList(), settings),
+                          ..._buildMatchesByDate(matches.where((m) => m['status'] == 'upcoming' && (m['toss'] == null || m['toss']['winner'] == null)).toList(), settings),
                           SizedBox(height: 30),
                         ],
                         

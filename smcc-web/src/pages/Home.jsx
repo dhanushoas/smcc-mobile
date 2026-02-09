@@ -96,18 +96,23 @@ const Home = () => {
                         <Row className="align-items-center text-center my-4">
                             <Col xs={5}>
                                 <div className="fw-bold fs-5 text-truncate">{match.teamA.toUpperCase()}</div>
-                                {match.status === 'completed' ? getTeamScore(match.teamA) : (match.score?.battingTeam === match.teamA && getTeamScore(match.teamA))}
+                                {getTeamScore(match.teamA)}
                             </Col>
                             <Col xs={2} className="text-muted small fw-bold">VS</Col>
                             <Col xs={5}>
                                 <div className="fw-bold fs-5 text-truncate">{match.teamB.toUpperCase()}</div>
-                                {match.status === 'completed' ? getTeamScore(match.teamB) : (match.score?.battingTeam === match.teamB && getTeamScore(match.teamB))}
+                                {getTeamScore(match.teamB)}
                             </Col>
                         </Row>
 
                         <div className="mt-4 pt-3 border-top text-center">
                             {match.status === 'live' && (
                                 <div className="alert alert-info py-3 mb-0 border-0 rounded-4 shadow-sm mt-3">
+                                    {match.score?.target && (
+                                        <div className="mb-2 fw-bold text-danger border-bottom pb-1">
+                                            🎯 {t('target')}: {match.score.target} | {match.score.target - match.score.runs} {t('runs_needed')}
+                                        </div>
+                                    )}
                                     <div className="d-flex justify-content-between align-items-center mb-2 px-2">
                                         <small className="fw-bold text-uppercase opacity-75">{t('batting')}</small>
                                         <small className="fw-bold text-uppercase opacity-75">{t('bowling')}</small>
@@ -258,8 +263,8 @@ const Home = () => {
                     <span className="text-danger fs-4 animate-pulse">●</span>
                     <h2 className="fw-black m-0 text-uppercase letter-spacing-2 text-danger">{t('live')}</h2>
                 </div>
-                {Array.isArray(matches) && matches.filter(m => m.status === 'live').length > 0 ? (
-                    renderMatchesByDate(matches.filter(m => m.status === 'live'))
+                {Array.isArray(matches) && matches.filter(m => m.status === 'live' || (m.status === 'upcoming' && m.toss?.winner)).length > 0 ? (
+                    renderMatchesByDate(matches.filter(m => m.status === 'live' || (m.status === 'upcoming' && m.toss?.winner)))
                 ) : (
                     <div className="text-muted py-4 text-center border rounded-4 bg-white shadow-sm mb-4">No Live matches</div>
                 )}
@@ -284,8 +289,8 @@ const Home = () => {
                     <span className="text-primary fs-4">📅</span>
                     <h2 className="fw-black m-0 text-uppercase letter-spacing-2 text-primary">{t('upcoming')}</h2>
                 </div>
-                {Array.isArray(matches) && matches.filter(m => m.status === 'upcoming').length > 0 ? (
-                    renderMatchesByDate(matches.filter(m => m.status === 'upcoming'))
+                {Array.isArray(matches) && matches.filter(m => m.status === 'upcoming' && !m.toss?.winner).length > 0 ? (
+                    renderMatchesByDate(matches.filter(m => m.status === 'upcoming' && !m.toss?.winner))
                 ) : (
                     <div className="text-muted py-4 text-center border rounded-4 bg-white shadow-sm mb-4">No Upcoming matches</div>
                 )}
