@@ -51,9 +51,9 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
     _needsSave = false;
     
     try {
-      // Create a copy to avoid sending history (heavy payload)
       var matchToSend = Map<String, dynamic>.from(match);
-      matchToSend.remove('history');
+      // Sending history to enable undo across sessions
+      // No removal of history here
       
       await ApiService.updateMatch((match['_id'] ?? match['id']).toString(), matchToSend);
       // Success - no snackbar needed for every auto-save to avoid spam
@@ -1486,6 +1486,13 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                    ],
                  ),
                   actions: [
+                    TextButton(
+                      child: Text('CANCEL & UNDO', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)), 
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _deleteLastBall();
+                      }
+                    ),
                     ElevatedButton(
                       child: Text('CONFIRM & RESUME'), 
                       style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), 
@@ -1545,8 +1552,14 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                    _buildDropdown('Select Bowler', nextBowl, filteredBowlList, (v) => setState(()=> nextBowl = v)),
                  ],
                ),
-               actions: [
-                 TextButton(child: Text('Cancel'), onPressed: () => Navigator.pop(context)),
+                actions: [
+                  TextButton(
+                    child: Text('CANCEL & UNDO', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)), 
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _deleteLastBall();
+                    }
+                  ),
                  ElevatedButton(
                    child: Text(isRetirement || isMidOver ? 'RESUME OVER' : 'START OVER'), 
                    style: ElevatedButton.styleFrom(

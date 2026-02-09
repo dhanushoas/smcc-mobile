@@ -528,7 +528,7 @@ class _HomeScreenState extends State<HomeScreen> {
             margin: EdgeInsets.only(bottom: 10),
             padding: EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(10)),
-            child: Text(settings.translate('innings_break').toUpperCase(), textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w900, color: Colors.orange.shade900, fontSize: 12, letterSpacing: 2)),
+            child: Text(settings.translate('innings_break'), textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w900, color: Colors.orange.shade900, fontSize: 12, letterSpacing: 2)),
           ),
         Container(
           padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),

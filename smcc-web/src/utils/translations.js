@@ -41,8 +41,12 @@ export const translations = {
         retire: "RETIRE",
         wd: "WD",
         nb: "NB",
-        targets: "TARGET",
-        total_overs: "Total Overs"
+        targets: "Target",
+        total_overs: "Total Overs",
+        runs_needed: "Runs Needed",
+        from: "From",
+        balls_rem: "Balls",
+        innings_break: "Innings Break"
     },
     ta: {
         live_scores: "நேரடி கிரிக்கெட் முடிவுகள்",

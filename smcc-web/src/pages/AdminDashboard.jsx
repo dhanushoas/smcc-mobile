@@ -254,7 +254,7 @@ const AdminDashboard = () => {
         syncLocalPlayers(previousState);
 
         try {
-            const { history, id, _id, lastUpdated, ...payload } = previousState;
+            const { id, _id, lastUpdated, ...payload } = previousState;
             await axios.put(`${API_URL}/api/matches/${previousState._id || previousState.id}`, payload, config);
             toast.success("Undo successful!");
         } catch (err) {
@@ -727,26 +727,32 @@ const AdminDashboard = () => {
                 ];
 
                 setStriker(localStriker); setNonStriker(localNonStriker); setBowler(localBowler);
+
+                // --- Optimistic Update ---
+                // This ensures that history is available IMMEDIATELY for modals (e.g. Undo in Bowler Modal)
+                setSelectedMatch(updatedMatch);
+                setScorecardData(updatedMatch.innings);
             }
         }
 
         try {
-            const { history, id, _id, lastUpdated, ...payload } = updatedMatch;
+            const { id, _id, lastUpdated, ...payload } = updatedMatch;
             const res = await axios.put(`${API_URL}/api/matches/${selectedMatch._id || selectedMatch.id}`, payload, config);
 
-            // Resilience: Prepare new state
+            // Resilience: Prepare new state from server
             let newMatchState = res.data;
 
-            // If backend didn't return history (e.g. schema outdated), preserve local history
+            // Ensure history is preserved if backend didn't return it correctly
             if ((!newMatchState.history || newMatchState.history.length === 0) && updatedMatch.history && updatedMatch.history.length > 0) {
                 newMatchState.history = updatedMatch.history;
             }
 
             setSelectedMatch(newMatchState);
             setScorecardData(newMatchState.innings);
-            // toast.success("Score Updated!", { id: 'score-toast' }); // Lower noise like mobile
         } catch (err) {
             toast.error("Sync failed");
+            // Revert on error
+            fetchMatches();
         } finally {
             setIsUpdating(false);
         }
@@ -1076,7 +1082,7 @@ const AdminDashboard = () => {
                                     {/* Innings Break Announcement */}
                                     {selectedMatch.status === 'live' && selectedMatch.score.target && (!selectedMatch.currentBatsmen || selectedMatch.currentBatsmen.length === 0) && (
                                         <Alert variant="warning" className="fw-black py-2 mb-3 border-0 rounded-pill shadow-sm animate-bounce">
-                                            ☕ INNINGS BREAK
+                                            ☕ {t('innings_break')}
                                         </Alert>
                                     )}
 

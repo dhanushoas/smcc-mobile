@@ -64,9 +64,9 @@ class SettingsProvider with ChangeNotifier {
       'venue': 'Venue',
       'date': 'Date',
       'total_overs': 'Total Overs',
-      'runs_needed': 'runs needed',
-      'from': 'from',
-      'balls_remaining': 'balls',
+      'runs_needed': 'Runs Needed',
+      'from': 'From',
+      'balls_remaining': 'Balls',
       'innings_break': 'Innings Break',
     }
   };
