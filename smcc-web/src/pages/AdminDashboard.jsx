@@ -373,8 +373,13 @@ const AdminDashboard = () => {
 
     const syncLocalPlayers = (match) => {
         if (match.currentBatsmen && match.currentBatsmen.length >= 1) {
-            setStriker(match.currentBatsmen.find(b => b.onStrike)?.name || '');
-            setNonStriker(match.currentBatsmen.find(b => !b.onStrike)?.name || '');
+            const s = match.currentBatsmen.find(b => b.onStrike)?.name || '';
+            const ns = match.currentBatsmen.find(b => !b.onStrike)?.name || '';
+            setStriker(s);
+            setNonStriker(ns);
+        } else {
+            setStriker('');
+            setNonStriker('');
         }
         setBowler(match.currentBowler || '');
 
@@ -745,9 +750,16 @@ const AdminDashboard = () => {
 
                         updatedMatch.score.battingTeam = nextTeam;
                         updatedMatch.score.runs = 0; updatedMatch.score.wickets = 0; updatedMatch.score.overs = 0;
+                        currentInnings.runs = 0; currentInnings.wickets = 0; currentInnings.overs = 0;
+                        currentInnings.batting = []; currentInnings.bowling = [];
+                        currentInnings.extras = { total: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0 };
+                        currentInnings.fallOfWickets = [];
+
                         localStriker = ''; localNonStriker = ''; localBowler = '';
                         setStriker(''); setNonStriker(''); setBowler('');
                         setModalData({ s: '', ns: '', b: '', nextB: '', nextS: '' });
+                        updatedMatch.currentBatsmen = [];
+                        updatedMatch.currentBowler = '';
                         setSelectedMatch({ ...updatedMatch });
                     } else {
                         updatedMatch.status = 'completed';
@@ -764,7 +776,7 @@ const AdminDashboard = () => {
                 updatedMatch.currentBatsmen = [
                     { name: localStriker, onStrike: true, runs: currentInnings.batting.find(p => p.player === localStriker)?.runs || 0, balls: currentInnings.batting.find(p => p.player === localStriker)?.balls || 0 },
                     { name: localNonStriker, onStrike: false, runs: currentInnings.batting.find(p => p.player === localNonStriker)?.runs || 0, balls: currentInnings.batting.find(p => p.player === localNonStriker)?.balls || 0 }
-                ];
+                ].filter(b => b.name && b.name.trim() !== '');
 
                 setStriker(localStriker); setNonStriker(localNonStriker); setBowler(localBowler);
 
@@ -861,7 +873,12 @@ const AdminDashboard = () => {
         return (Math.floor(overs) * 6) + Math.round((overs * 10) % 10);
     };
 
-    const crr = (selectedMatch?.score?.overs > 0) ? (selectedMatch?.score?.runs / selectedMatch?.score?.overs).toFixed(2) : '0.00';
+    const crr = (() => {
+        if (!selectedMatch?.score?.overs) return '0.00';
+        const totalBalls = getOversInBalls(selectedMatch.score.overs);
+        if (totalBalls === 0) return '0.00';
+        return ((selectedMatch.score.runs / totalBalls) * 6).toFixed(2);
+    })();
 
     const calculateRRR = () => {
         if (!selectedMatch?.score?.target) return null;
@@ -1125,12 +1142,16 @@ const AdminDashboard = () => {
 
                                     {/* Innings Break Announcement */}
                                     {selectedMatch.status === 'live' && selectedMatch.score.target && (!selectedMatch.currentBatsmen || selectedMatch.currentBatsmen.length === 0) && (
-                                        <Alert variant="warning" className="fw-black py-2 mb-3 border-0 rounded-pill shadow-sm animate-bounce">
+                                        <Alert variant="warning" className="fw-black py-2 mb-3 border-0 rounded-pill shadow-sm animate-bounce text-center">
                                             ☕ {t('innings_break')}
                                         </Alert>
                                     )}
 
-                                    <div className="mt-3"><Badge bg="white" text="dark" className="border px-3 py-2 me-2">CRR: {crr}</Badge>{rrr && <Badge bg="info" text="white" className="px-3 py-2 me-2">RRR: {rrr}</Badge>}{selectedMatch.score.target && <Badge bg="warning" text="dark" className="px-3 py-2">TARGET: {selectedMatch.score.target}</Badge>}</div>
+                                    <div className="mt-3">
+                                        <Badge bg="white" text="dark" className="border px-3 py-2 me-2">CRR: {crr}</Badge>
+                                        {rrr && (selectedMatch.score.runs > 0 || selectedMatch.score.overs > 0) && <Badge bg="info" text="white" className="px-3 py-2 me-2">RRR: {rrr}</Badge>}
+                                        {selectedMatch.score.target && <Badge bg="warning" text="dark" className="px-3 py-2">TARGET: {selectedMatch.score.target}</Badge>}
+                                    </div>
                                 </div>
                                 <div className="d-flex gap-2 mb-4 justify-content-center flex-wrap">
                                     <Button variant="outline-dark" size="lg" className="px-3 fw-bold" onClick={() => setShowSquadModal(true)}>👥 SQUADS</Button>

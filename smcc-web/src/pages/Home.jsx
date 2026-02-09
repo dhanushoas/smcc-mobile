@@ -110,16 +110,18 @@ const Home = () => {
                                 <div className="alert alert-info py-3 mb-0 border-0 rounded-4 shadow-sm mt-3">
                                     {match.score?.target && (
                                         <div className="mb-2 fw-bold text-danger border-bottom pb-1">
-                                            🎯 {t('targets')}: {match.score.target} | {(() => {
-                                                const runsNeeded = Math.max(0, match.score.target - match.score.runs);
-                                                const totalBalls = (match.totalOvers || 20) * 6;
+                                            🎯 {t('targets')}: {match.score.target}
+                                            {(() => {
+                                                const currentRuns = match.score.runs || 0;
                                                 const currentOvers = match.score.overs || 0;
-                                                // If current innings batsmen are empty, it's the start or break, so balls remaining is total
-                                                const ballsBowled = (!match.currentBatsmen || match.currentBatsmen.length === 0)
-                                                    ? 0
-                                                    : (Math.floor(currentOvers) * 6) + Math.round((currentOvers % 1) * 10);
+                                                // Only show detailed "runs needed" AFTER the first ball is bowled (0.1)
+                                                if (currentRuns === 0 && currentOvers === 0) return "";
+
+                                                const runsNeeded = Math.max(0, match.score.target - currentRuns);
+                                                const totalBalls = (match.totalOvers || 20) * 6;
+                                                const ballsBowled = (Math.floor(currentOvers) * 6) + Math.round((currentOvers % 1) * 10);
                                                 const ballsRemaining = Math.max(0, totalBalls - ballsBowled);
-                                                return `${runsNeeded} ${t('runs_needed')} ${t('from')} ${ballsRemaining} ${t('balls_rem')}`;
+                                                return ` | ${runsNeeded} ${t('runs_needed')} ${t('from')} ${ballsRemaining} ${t('balls_rem')}`;
                                             })()}
                                         </div>
                                     )}

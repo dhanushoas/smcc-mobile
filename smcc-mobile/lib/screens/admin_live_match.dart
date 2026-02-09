@@ -416,14 +416,19 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
               updatedMatch['score']['target'] = (currentInnings['runs'] as int) + 1;
               String nextBatTeam = updatedMatch['score']['battingTeam'] == updatedMatch['teamA'] ? updatedMatch['teamB'] : updatedMatch['teamA'];
               // Auto switch or alert
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Innings Over! Target: ${updatedMatch['score']['target']}')));
+              _showSnackBar('Innings Over! Target: ${updatedMatch['score']['target']}');
               updatedMatch['score']['battingTeam'] = nextBatTeam;
               updatedMatch['score']['runs'] = 0; updatedMatch['score']['wickets'] = 0; updatedMatch['score']['overs'] = 0;
-                updatedMatch['currentBatsmen'] = []; updatedMatch['currentBowler'] = null;
-                // Future.delayed(Duration(seconds: 1), () => _showStartDialog()); 
+              currentInnings['runs'] = 0; currentInnings['wickets'] = 0; currentInnings['overs'] = 0;
+              currentInnings['batting'] = []; currentInnings['bowling'] = [];
+              currentInnings['extras'] = {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0};
+              if (currentInnings.containsKey('fallOfWickets')) currentInnings['fallOfWickets'] = [];
+
+              updatedMatch['currentBatsmen'] = []; updatedMatch['currentBowler'] = null;
             } else {
               updatedMatch['status'] = 'completed';
               updatedMatch['manOfTheMatch'] = _calculateMOM(updatedMatch);
+              _showSnackBar('Match Completed!', isError: false);
           }
       }
     }
@@ -908,14 +913,22 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                 decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
                 child: Text('CRR: ${(match['score']['overs'] > 0 ? (match['score']['runs'] / (match['score']['overs'].floor() + (match['score']['overs'] % 1) * 1.666)).toStringAsFixed(2) : "0.00")}', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isWide ? 16 : 14)),
               ),
-              if (isSecondInnings) ...[
+              if (match['score']['target'] != null && (match['score']['runs'] > 0 || match['score']['overs'] > 0)) ...[
                 SizedBox(width: 10),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(color: Colors.amber.withOpacity(0.3), borderRadius: BorderRadius.circular(20)),
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(color: Colors.orange.shade800, borderRadius: BorderRadius.circular(5)),
                   child: Text('RRR: ${rrr.toStringAsFixed(2)}', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isWide ? 16 : 14)),
                 ),
-              ]
+              ],
+              if (match['score']['target'] != null) ...[
+                SizedBox(width: 10),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(color: Colors.red.shade800, borderRadius: BorderRadius.circular(5)),
+                  child: Text('TARGET: ${match['score']['target']}', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isWide ? 16 : 14)),
+                ),
+              ],
             ],
           )
         ],

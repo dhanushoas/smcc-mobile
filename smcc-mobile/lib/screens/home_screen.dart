@@ -544,15 +544,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Target: ${match['score']['target']}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
-                  Text('RRR: ${rrr.toStringAsFixed(2)}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
+                  if (match['score']['runs'] > 0 || match['score']['overs'] > 0)
+                    Text('RRR: ${rrr.toStringAsFixed(2)}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
                 ],
               ),
-              SizedBox(height: 4),
-              Text(
-                '$runsNeeded ${settings.translate('runs_needed')} ${settings.translate('from')} $ballsRemaining ${settings.translate('balls_remaining')}',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.red.shade900),
-                textAlign: TextAlign.center,
-              ),
+              if (match['score']['runs'] > 0 || match['score']['overs'] > 0) ...[
+                SizedBox(height: 4),
+                Text(
+                  '$runsNeeded ${settings.translate('runs_needed')} ${settings.translate('from')} $ballsRemaining ${settings.translate('balls_remaining')}',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.red.shade900),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ],
           ),
         ),
