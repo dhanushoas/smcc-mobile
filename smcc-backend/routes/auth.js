@@ -76,7 +76,7 @@ router.post('/login', async (req, res) => {
         );
     } catch (err) {
         console.error('DATABASE or SERVER ERROR during login:', err);
-        res.status(500).send('Server error: ' + err.message);
+        res.status(500).json({ msg: 'Server error: ' + err.message });
     }
 });
 
@@ -104,7 +104,7 @@ router.get('/google/callback', passport.authenticate('google', { failureRedirect
         (err, token) => {
             if (err) {
                 console.error('JWT Signing Error (Google):', err);
-                return res.status(500).send('Token generation failed');
+                return res.status(500).json({ msg: 'Token generation failed' });
             }
             // Redirect to frontend with token
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -129,7 +129,7 @@ router.post('/logout', async (req, res) => {
         }
         res.status(404).json({ msg: 'User not found' });
     } catch (err) {
-        res.status(500).send('Server error');
+        res.status(500).json({ msg: 'Server error' });
     }
 });
 
@@ -149,7 +149,7 @@ router.post('/reset-session', async (req, res) => {
         await user.save();
         res.json({ msg: 'Session reset successfully. You can now login.' });
     } catch (err) {
-        res.status(500).send('Server error');
+        res.status(500).json({ msg: 'Server error' });
     }
 });
 

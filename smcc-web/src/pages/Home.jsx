@@ -9,18 +9,23 @@ import { toast } from 'react-hot-toast';
 
 let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-// Robust URL cleaning
+// Strip all existing protocols and clean URL
 if (API_URL.includes('://')) {
     const parts = API_URL.split('://');
-    const host = parts[parts.length - 1];
-    const protocol = API_URL.toLowerCase().startsWith('https') ? 'https://' : 'http://';
-    API_URL = protocol + host;
+    API_URL = parts[parts.length - 1];
 }
 API_URL = API_URL.replace(/\/+$/, '');
 
-// Fail-safe for Render production
-if (typeof window !== 'undefined' && window.location.hostname === 'smcc-web.onrender.com') {
-    if (API_URL.includes('localhost') || API_URL.includes('xn--')) {
+// Enforce correct protocol
+if (API_URL.includes('localhost') || API_URL.includes('127.0.0.1')) {
+    API_URL = 'http://' + API_URL;
+} else {
+    API_URL = 'https://' + API_URL;
+}
+
+// Global fail-safe check based on current environment
+if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
+    if (API_URL.includes('localhost')) {
         API_URL = 'https://smcc-backend.onrender.com';
     }
 }
