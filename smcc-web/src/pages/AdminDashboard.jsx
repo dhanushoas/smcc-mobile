@@ -150,18 +150,20 @@ const AdminDashboard = () => {
 
         if (teamType === 'bowling') return squad.filter(p => p.trim() !== '');
 
-        const currentInn = selectedMatch.innings[isTeamA ? 0 : 1];
+        // Determine correct innings index
+        const battingTeamIdx = selectedMatch.score.battingTeam === selectedMatch.teamB ? 1 : 0;
+        const currentInn = selectedMatch.innings[battingTeamIdx];
         if (!currentInn) return squad.filter(p => p.trim() !== '');
 
         return squad.filter(p => {
             if (p.trim() === '') return false;
-            // Check if player is currently on field
             if (p === striker || p === nonStriker) return false;
-            // Check if player has already batted (is in the batting list)
             const playerStats = currentInn.batting.find(b => b.player === p);
             if (playerStats) {
-                // If they are "not out" but not currently batting, it's an edge case (maybe retired hurt)
-                // For now, if they are in the list, we assume they've had their turn
+                // For regular batting, filter out those who are out or retired
+                if (playerStats.status !== 'not out') return false;
+                // If they are in the list as 'not out' but not active, they might be retired hurt or simply replaced
+                // Usually, if they are in the batting list, they've crossed the boundary
                 return false;
             }
             return true;
@@ -383,14 +385,14 @@ const AdminDashboard = () => {
         let updatedMatch = JSON.parse(JSON.stringify(selectedMatch));
 
         // --- History Logging (Mobile Parity) ---
-        if (['runs', 'extra', 'wicket', 'retire', 'new_batsman', 'new_bowler', 'swap_strike'].includes(type) && type !== 'init') {
+        // CRITICAL FIX: Only push history for SCORING actions (runs, extras, wickets, swap strike)
+        // new_bowler and new_batsman are transitional and shouldn't create undo-points alone
+        if (['runs', 'extra', 'wicket', 'swap_strike'].includes(type) && type !== 'init') {
             if (!updatedMatch.history) updatedMatch.history = [];
-            // Push the *current* (before update) state to history
-            // CRITICAL: Strip the existing history from the snapshot to prevent recursive growth
             const snapshot = JSON.parse(JSON.stringify(selectedMatch));
             delete snapshot.history;
             updatedMatch.history.push(snapshot);
-            if (updatedMatch.history.length > 20) updatedMatch.history.shift(); // Keep last 20
+            if (updatedMatch.history.length > 20) updatedMatch.history.shift();
         }
         // ---------------------------------------
 
@@ -932,7 +934,10 @@ const AdminDashboard = () => {
                         </Form.Select>
                     </Form.Group>
                 </Modal.Body>
-                <Modal.Footer className="border-0 bg-light pb-4 px-4"><Button variant="primary" size="lg" className="w-100 fw-black rounded-pill shadow" onClick={() => { handleUpdate('new_bowler', modalData.nextB); setShowBowlerModal(false); setModalData({ ...modalData, nextB: '' }); }}>START OVER</Button></Modal.Footer>
+                <Modal.Footer className="border-0 bg-light pb-4 px-4 d-flex gap-2">
+                    <Button variant="outline-danger" size="lg" className="flex-grow-1 fw-bold rounded-pill" onClick={() => { setShowBowlerModal(false); undoLastBall(); }}>CANCEL & UNDO</Button>
+                    <Button variant="primary" size="lg" className="flex-grow-2 fw-black rounded-pill shadow" onClick={() => { if (!modalData.nextB) return toast.error("Select a bowler"); handleUpdate('new_bowler', modalData.nextB); setShowBowlerModal(false); setModalData({ ...modalData, nextB: '' }); }}>START OVER</Button>
+                </Modal.Footer>
             </Modal>
 
             <Modal show={showBatsmanModal} onHide={() => setShowBatsmanModal(false)} centered backdrop="static" contentClassName="border-0 shadow-lg rounded-4 overflow-hidden">
@@ -948,8 +953,9 @@ const AdminDashboard = () => {
                         </Form.Select>
                     </Form.Group>
                 </Modal.Body>
-                <Modal.Footer className="border-0 bg-light pb-4 px-4">
-                    <Button variant={batsmanModalType === 'wicket' ? 'danger' : 'info'} size="lg" className="w-100 fw-black rounded-pill shadow" onClick={() => {
+                <Modal.Footer className="border-0 bg-light pb-4 px-4 d-flex gap-2">
+                    <Button variant="outline-danger" size="lg" className="flex-grow-1 fw-bold rounded-pill" onClick={() => { setShowBatsmanModal(false); undoLastBall(); }}>CANCEL & UNDO</Button>
+                    <Button variant={batsmanModalType === 'wicket' ? 'danger' : 'info'} size="lg" className="flex-grow-2 fw-black rounded-pill shadow" onClick={() => {
                         if (!modalData.nextS) return toast.error("Select a player!");
                         const currentOther = selectedMatch.currentBatsmen.find(b => b.name !== (runOutOutType === 'striker' ? striker : nonStriker))?.name;
                         if (modalData.nextS === currentOther) return toast.error("Player already on field!");
@@ -1065,6 +1071,13 @@ const AdminDashboard = () => {
                                         <div className="mt-2 text-muted fw-bold small">
                                             1st INNINGS: {selectedMatch.innings[0].team} {selectedMatch.innings[0].runs}/{selectedMatch.innings[0].wickets} ({selectedMatch.innings[0].overs})
                                         </div>
+                                    )}
+
+                                    {/* Innings Break Announcement */}
+                                    {selectedMatch.status === 'live' && selectedMatch.score.target && (!selectedMatch.currentBatsmen || selectedMatch.currentBatsmen.length === 0) && (
+                                        <Alert variant="warning" className="fw-black py-2 mb-3 border-0 rounded-pill shadow-sm animate-bounce">
+                                            ☕ INNINGS BREAK
+                                        </Alert>
                                     )}
 
                                     <div className="mt-3"><Badge bg="white" text="dark" className="border px-3 py-2 me-2">CRR: {crr}</Badge>{rrr && <Badge bg="info" text="white" className="px-3 py-2 me-2">RRR: {rrr}</Badge>}{selectedMatch.score.target && <Badge bg="warning" text="dark" className="px-3 py-2">TARGET: {selectedMatch.score.target}</Badge>}</div>

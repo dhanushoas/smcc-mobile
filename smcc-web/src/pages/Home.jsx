@@ -110,7 +110,21 @@ const Home = () => {
                                 <div className="alert alert-info py-3 mb-0 border-0 rounded-4 shadow-sm mt-3">
                                     {match.score?.target && (
                                         <div className="mb-2 fw-bold text-danger border-bottom pb-1">
-                                            🎯 {t('target')}: {match.score.target} | {match.score.target - match.score.runs} {t('runs_needed')}
+                                            🎯 {t('target')}: {match.score.target} | {(() => {
+                                                const runsNeeded = match.score.target - match.score.runs;
+                                                const totalBalls = (match.totalOvers || 20) * 6;
+                                                const currentOvers = match.score.overs || 0;
+                                                const ballsBowled = (Math.floor(currentOvers) * 6) + Math.round((currentOvers % 1) * 10);
+                                                const ballsRemaining = Math.max(0, totalBalls - ballsBowled);
+                                                return `${runsNeeded} ${t('runs_needed')} ${t('from')} ${ballsRemaining} ${t('balls')}`;
+                                            })()}
+                                        </div>
+                                    )}
+
+                                    {/* INNINGS BREAK DISPLAY */}
+                                    {match.status === 'live' && match.score?.target && (!match.currentBatsmen || match.currentBatsmen.length === 0) && (
+                                        <div className="alert alert-warning py-2 mb-2 border-0 rounded-4 shadow-sm fw-bold animate-bounce mt-2">
+                                            ⏸️ {t('innings_break').toUpperCase()}
                                         </div>
                                     )}
                                     <div className="d-flex justify-content-between align-items-center mb-2 px-2">

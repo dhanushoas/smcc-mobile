@@ -64,6 +64,10 @@ class SettingsProvider with ChangeNotifier {
       'venue': 'Venue',
       'date': 'Date',
       'total_overs': 'Total Overs',
+      'runs_needed': 'runs needed',
+      'from': 'from',
+      'balls_remaining': 'balls',
+      'innings_break': 'Innings Break',
     }
   };
 }

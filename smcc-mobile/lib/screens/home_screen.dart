@@ -508,8 +508,8 @@ class _HomeScreenState extends State<HomeScreen> {
     int runsNeeded = (match['score']['target'] as int) - (match['score']['runs'] as int);
     int totalBalls = (match['totalOvers'] as int) * 6;
     double currentOvers = (match['score']['overs'] as num).toDouble();
-    int ballsBowled = (currentOvers.floor() * 6) + ((currentOvers * 10) % 10).round();
-    int ballsRemaining = totalBalls - ballsBowled;
+    int ballsBowled = (currentOvers.floor() * 6) + ((currentOvers * 10) % 10).round().toInt();
+    int ballsRemaining = (totalBalls - ballsBowled).clamp(0, totalBalls);
     
     double rrr = 0.0;
     if (ballsRemaining > 0) {
@@ -518,16 +518,40 @@ class _HomeScreenState extends State<HomeScreen> {
        rrr = 99.99;
     }
 
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(5), border: Border.all(color: Colors.orange.shade200)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text('Target: ${match['score']['target']}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
-          Text('RRR: ${rrr.toStringAsFixed(2)}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
-        ],
-      ),
+    bool isInningsBreak = match['status'] == 'live' && match['score']?['target'] != null && (match['currentBatsmen'] == null || (match['currentBatsmen'] as List).isEmpty);
+
+    return Column(
+      children: [
+        if (isInningsBreak)
+          Container(
+            width: double.infinity,
+            margin: EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(10)),
+            child: Text(settings.translate('innings_break').toUpperCase(), textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w900, color: Colors.orange.shade900, fontSize: 12, letterSpacing: 2)),
+          ),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.shade200)),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Target: ${match['score']['target']}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
+                  Text('RRR: ${rrr.toStringAsFixed(2)}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
+                ],
+              ),
+              SizedBox(height: 4),
+              Text(
+                '$runsNeeded ${settings.translate('runs_needed')} ${settings.translate('from')} $ballsRemaining ${settings.translate('balls_remaining')}',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.red.shade900),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

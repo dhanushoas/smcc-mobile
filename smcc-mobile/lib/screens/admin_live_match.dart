@@ -107,7 +107,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
     // ------------------------------------------
 
     // --- History Tracking for Undo (Delete Previous Ball) ---
-    if (['runs', 'extra', 'wicket', 'retire', 'new_batsman', 'new_bowler'].contains(type)) {
+    if (['runs', 'extra', 'wicket', 'swap_strike'].contains(type)) {
        try {
          List<dynamic> history = (match['history'] as List<dynamic>?)?.toList() ?? [];
          // Create a deep copy of the current match state
