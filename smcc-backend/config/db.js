@@ -22,10 +22,20 @@ const connectDB = async () => {
     try {
         await sequelize.authenticate();
         console.log('MySQL Connected...');
+
+        // Manual Schema Migration: Ensure 'history' column exists
+        try {
+            await sequelize.query("ALTER TABLE Matches ADD COLUMN history JSON NULL AFTER manOfTheMatch");
+            console.log('Migration: Added missing "history" column.');
+        } catch (err) {
+            // Error 1060 is "Duplicate column name", safe to ignore
+            if (!err.message.includes('1060') && !err.message.includes('Duplicate')) {
+                console.warn('Migration Note:', err.message);
+            }
+        }
     } catch (err) {
         console.error('CRITICAL: Unable to connect to the database:', err.message);
         console.error('The server will continue to run to maintain port binding, but API calls requiring DB will fail.');
-        // We do legacy logic: keep process alive so Render doesn't loop-crash
     }
 };
 
