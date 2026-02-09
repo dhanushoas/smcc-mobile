@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+if (API_URL.startsWith('https://https://')) {
+    API_URL = API_URL.replace('https://https://', 'https://');
+} else if (API_URL.startsWith('http://http://')) {
+    API_URL = API_URL.replace('http://http://', 'http://');
+}
 
 const Profile = () => {
     const [token, setToken] = useState(localStorage.getItem('token'));

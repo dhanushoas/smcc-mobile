@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
         res.json(matches);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server Error' });
     }
 });
 
@@ -28,7 +28,7 @@ router.get('/:id', async (req, res) => {
         res.json(match);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server Error' });
     }
 });
 
@@ -42,7 +42,7 @@ router.post('/', auth, async (req, res) => {
         res.json(match);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server Error' });
     }
 });
 
@@ -67,7 +67,7 @@ router.put('/:id', auth, async (req, res) => {
         res.json(match);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server Error' });
     }
 });
 
@@ -88,7 +88,7 @@ router.delete('/:id', auth, async (req, res) => {
         res.json({ msg: 'Match removed' });
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server Error' });
     }
 });
 

@@ -8,7 +8,12 @@ import { jsPDF } from 'jspdf';
 import { toCamelCase } from '../utils/formatters';
 import 'jspdf-autotable';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+if (API_URL.startsWith('https://https://')) {
+    API_URL = API_URL.replace('https://https://', 'https://');
+} else if (API_URL.startsWith('http://http://')) {
+    API_URL = API_URL.replace('http://http://', 'http://');
+}
 const socket = io(API_URL);
 
 const AdminDashboard = () => {
@@ -242,10 +247,11 @@ const AdminDashboard = () => {
     const fetchMatches = async () => {
         try {
             const res = await axios.get(`${API_URL}/api/matches`);
-            setMatches(res.data);
+            setMatches(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
             console.error(err);
             toast.error("Failed to load matches");
+            setMatches([]);
         }
     };
 
@@ -255,13 +261,14 @@ const AdminDashboard = () => {
 
         socket.on('matchUpdate', (updatedMatch) => {
             setMatches(prevMatches => {
-                const index = prevMatches.findIndex(m => m._id === updatedMatch._id || m.id === updatedMatch.id);
+                const matchesArr = Array.isArray(prevMatches) ? prevMatches : [];
+                const index = matchesArr.findIndex(m => m._id === updatedMatch._id || m.id === updatedMatch.id);
                 if (index !== -1) {
-                    const newMatches = [...prevMatches];
+                    const newMatches = [...matchesArr];
                     newMatches[index] = updatedMatch;
                     return newMatches;
                 }
-                return [updatedMatch, ...prevMatches];
+                return [updatedMatch, ...matchesArr];
             });
 
             if (selectedMatch && (selectedMatch._id === updatedMatch._id || selectedMatch.id === updatedMatch.id)) {
@@ -272,7 +279,7 @@ const AdminDashboard = () => {
         });
 
         socket.on('matchDeleted', (matchId) => {
-            setMatches(prev => prev.filter(m => m._id !== matchId && m.id !== matchId));
+            setMatches(prev => (Array.isArray(prev) ? prev : []).filter(m => m._id !== matchId && m.id !== matchId));
             if (selectedMatch?._id === matchId || selectedMatch?.id === matchId) setSelectedMatch(null);
         });
 

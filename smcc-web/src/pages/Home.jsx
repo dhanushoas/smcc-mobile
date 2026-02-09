@@ -7,7 +7,12 @@ import { useApp } from '../AppContext';
 import { toCamelCase } from '../utils/formatters';
 import { toast } from 'react-hot-toast';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+if (API_URL.startsWith('https://https://')) {
+    API_URL = API_URL.replace('https://https://', 'https://');
+} else if (API_URL.startsWith('http://http://')) {
+    API_URL = API_URL.replace('http://http://', 'http://');
+}
 const socket = io(API_URL);
 
 const Home = () => {
@@ -160,9 +165,10 @@ const Home = () => {
     const fetchMatches = async () => {
         try {
             const res = await axios.get(`${API_URL}/api/matches`);
-            setMatches(res.data || []);
+            setMatches(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
             console.error("Error fetching matches", err);
+            setMatches([]);
         } finally {
             setLoading(false);
         }
@@ -172,9 +178,10 @@ const Home = () => {
         fetchMatches();
         socket.on('matchUpdate', (updatedMatch) => {
             setMatches(prevMatches => {
-                const index = prevMatches.findIndex(m => m._id === updatedMatch._id || m.id === updatedMatch.id);
+                const matchesArr = Array.isArray(prevMatches) ? prevMatches : [];
+                const index = matchesArr.findIndex(m => m._id === updatedMatch._id || m.id === updatedMatch.id);
                 if (index !== -1) {
-                    const oldMatch = prevMatches[index];
+                    const oldMatch = matchesArr[index];
                     const oldRuns = oldMatch.score?.runs || 0;
                     const newRuns = updatedMatch.score?.runs || 0;
                     const diff = newRuns - oldRuns;
@@ -185,17 +192,17 @@ const Home = () => {
                         setTimeout(() => setShowBlast(false), 2000);
                     }
 
-                    const newMatches = [...prevMatches];
+                    const newMatches = [...matchesArr];
                     newMatches[index] = updatedMatch;
                     return newMatches;
                 } else {
-                    return [updatedMatch, ...prevMatches];
+                    return [updatedMatch, ...matchesArr];
                 }
             });
         });
 
         socket.on('matchDeleted', (matchId) => {
-            setMatches(prevMatches => prevMatches.filter(m => m._id !== matchId && m.id !== matchId));
+            setMatches(prevMatches => (Array.isArray(prevMatches) ? prevMatches : []).filter(m => m._id !== matchId && m.id !== matchId));
         });
 
         return () => {
@@ -232,7 +239,7 @@ const Home = () => {
                     <span className="text-danger fs-4 animate-pulse">●</span>
                     <h2 className="fw-black m-0 text-uppercase letter-spacing-2 text-danger">{t('live')}</h2>
                 </div>
-                {matches.filter(m => m.status === 'live').length > 0 ? (
+                {Array.isArray(matches) && matches.filter(m => m.status === 'live').length > 0 ? (
                     renderMatchesByDate(matches.filter(m => m.status === 'live'))
                 ) : (
                     <div className="text-muted py-4 text-center border rounded-4 bg-white shadow-sm mb-4">No Live matches</div>
@@ -245,7 +252,7 @@ const Home = () => {
                     <span className="text-success fs-4">🏆</span>
                     <h2 className="fw-black m-0 text-uppercase letter-spacing-2 text-success">{t('completed')}</h2>
                 </div>
-                {matches.filter(m => m.status === 'completed').length > 0 ? (
+                {Array.isArray(matches) && matches.filter(m => m.status === 'completed').length > 0 ? (
                     renderMatchesByDate(matches.filter(m => m.status === 'completed'))
                 ) : (
                     <div className="text-muted py-4 text-center border rounded-4 bg-white shadow-sm mb-4">No Completed matches</div>
@@ -258,7 +265,7 @@ const Home = () => {
                     <span className="text-primary fs-4">📅</span>
                     <h2 className="fw-black m-0 text-uppercase letter-spacing-2 text-primary">{t('upcoming')}</h2>
                 </div>
-                {matches.filter(m => m.status === 'upcoming').length > 0 ? (
+                {Array.isArray(matches) && matches.filter(m => m.status === 'upcoming').length > 0 ? (
                     renderMatchesByDate(matches.filter(m => m.status === 'upcoming'))
                 ) : (
                     <div className="text-muted py-4 text-center border rounded-4 bg-white shadow-sm mb-4">No Upcoming matches</div>

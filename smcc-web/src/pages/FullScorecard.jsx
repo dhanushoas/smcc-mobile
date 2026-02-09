@@ -9,7 +9,12 @@ import { toCamelCase } from '../utils/formatters';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'react-hot-toast';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+if (API_URL.startsWith('https://https://')) {
+    API_URL = API_URL.replace('https://https://', 'https://');
+} else if (API_URL.startsWith('http://http://')) {
+    API_URL = API_URL.replace('http://http://', 'http://');
+}
 const socket = io(API_URL);
 
 const FullScorecard = () => {
