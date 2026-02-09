@@ -123,6 +123,7 @@ const Profile = () => {
                                         value={username}
                                         onChange={onChange}
                                         required
+                                        autoComplete="username"
                                     />
                                 </Form.Group>
                                 <Form.Group className="mb-4">
@@ -133,6 +134,7 @@ const Profile = () => {
                                         value={password}
                                         onChange={onChange}
                                         required
+                                        autoComplete="current-password"
                                     />
                                 </Form.Group>
                                 <Button variant="primary" type="submit" className="w-100 py-2 fw-bold">

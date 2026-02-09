@@ -31,15 +31,6 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ msg: 'Invalid Credentials' });
         }
 
-        // Single Admin Session Check
-        if (user.role === 'admin' && user.isLoggedIn) {
-            console.log('Login failed: Admin already logged in elsewhere');
-            return res.status(403).json({
-                msg: 'Another admin is currently active. Only one admin session is allowed at a time.',
-                type: 'ALREADY_LOGGED_IN'
-            });
-        }
-
         // Mark as logged in
         user.isLoggedIn = true;
         await user.save();
