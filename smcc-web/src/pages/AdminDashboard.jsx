@@ -131,12 +131,41 @@ const AdminDashboard = () => {
         const inn2 = innings[1];
 
         if (inn1.runs > inn2.runs) {
-            return `${inn1.team} won by ${inn1.runs - inn2.runs} runs`;
-        } else if (inn2.runs >= inn1.runs) {
+            const diff = inn1.runs - inn2.runs;
+            return `${inn1.team} won by ${diff} ${diff === 1 ? 'run' : 'runs'}`;
+        } else if (inn2.runs > inn1.runs) {
             const wicketsRemaining = 10 - inn2.wickets;
-            return `${inn2.team} won by ${wicketsRemaining} wickets`;
+            return `${inn2.team} won by ${wicketsRemaining} ${wicketsRemaining === 1 ? 'wicket' : 'wickets'}`;
+        } else if (inn2.runs === inn1.runs && inn1.runs > 0) {
+            return "Match Tied";
         }
-        return "Match Drawn";
+        return "Match Completed";
+    };
+
+    const getAvailableBatsmen = (teamType = 'batting') => {
+        if (!selectedMatch) return [];
+        const isTeamA = selectedMatch.score.battingTeam === selectedMatch.teamA;
+        const targetTeam = teamType === 'batting' ? (isTeamA ? 'A' : 'B') : (isTeamA ? 'B' : 'A');
+        const squad = targetTeam === 'A' ? squadA : squadB;
+
+        if (teamType === 'bowling') return squad.filter(p => p.trim() !== '');
+
+        const currentInn = selectedMatch.innings[isTeamA ? 0 : 1];
+        if (!currentInn) return squad.filter(p => p.trim() !== '');
+
+        return squad.filter(p => {
+            if (p.trim() === '') return false;
+            // Check if player is currently on field
+            if (p === striker || p === nonStriker) return false;
+            // Check if player has already batted (is in the batting list)
+            const playerStats = currentInn.batting.find(b => b.player === p);
+            if (playerStats) {
+                // If they are "not out" but not currently batting, it's an edge case (maybe retired hurt)
+                // For now, if they are in the list, we assume they've had their turn
+                return false;
+            }
+            return true;
+        });
     };
 
     const handleDownloadPDF = () => {
@@ -848,14 +877,14 @@ const AdminDashboard = () => {
                         <Form.Label className="fw-bold small text-uppercase text-muted">Striker</Form.Label>
                         <Form.Select size="lg" className="rounded-3 border-0 shadow-sm" value={modalData.s} onChange={e => setModalData({ ...modalData, s: e.target.value })}>
                             <option value="">Select Striker</option>
-                            {(selectedMatch?.score?.battingTeam === selectedMatch?.teamA ? squadA : squadB).map((p, i) => <option key={i} value={p}>{p}</option>)}
+                            {getAvailableBatsmen('batting').map((p, i) => <option key={i} value={p}>{p}</option>)}
                         </Form.Select>
                     </Form.Group>
                     <Form.Group className="mb-3">
                         <Form.Label className="fw-bold small text-uppercase text-muted">Non-Striker</Form.Label>
                         <Form.Select size="lg" className="rounded-3 border-0 shadow-sm" value={modalData.ns} onChange={e => setModalData({ ...modalData, ns: e.target.value })}>
                             <option value="">Select Non-Striker</option>
-                            {(selectedMatch?.score?.battingTeam === selectedMatch?.teamA ? squadA : squadB).map((p, i) => <option key={i} value={p}>{p}</option>)}
+                            {getAvailableBatsmen('batting').map((p, i) => <option key={i} value={p}>{p}</option>)}
                         </Form.Select>
                     </Form.Group>
                     <Form.Group className="mb-3">
@@ -901,7 +930,7 @@ const AdminDashboard = () => {
                         <Form.Label className="fw-bold small text-uppercase text-muted">Select New Batsman:</Form.Label>
                         <Form.Select size="lg" className="rounded-3 border-0 shadow-sm" value={modalData.nextS} onChange={e => setModalData({ ...modalData, nextS: e.target.value })}>
                             <option value="">Select Batsman</option>
-                            {(selectedMatch?.score?.battingTeam === selectedMatch?.teamA ? squadA : squadB).map((p, i) => <option key={i} value={p}>{p}</option>)}
+                            {getAvailableBatsmen('batting').map((p, i) => <option key={i} value={p}>{p}</option>)}
                         </Form.Select>
                     </Form.Group>
                 </Modal.Body>
