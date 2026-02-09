@@ -506,9 +506,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (match['score']?['target'] == null) return SizedBox.shrink();
 
     int runsNeeded = (match['score']['target'] as int) - (match['score']['runs'] as int);
+    if (runsNeeded < 0) runsNeeded = 0;
     int totalBalls = (match['totalOvers'] as int) * 6;
     double currentOvers = (match['score']['overs'] as num).toDouble();
-    int ballsBowled = (currentOvers.floor() * 6) + ((currentOvers * 10) % 10).round().toInt();
+    
+    // If no batsmen are on field, it's eitherinnings break or start of innings 2
+    bool isTransition = (match['currentBatsmen'] == null || (match['currentBatsmen'] as List).isEmpty);
+    
+    int ballsBowled = isTransition ? 0 : (currentOvers.floor() * 6) + ((currentOvers * 10) % 10).round().toInt();
     int ballsRemaining = (totalBalls - ballsBowled).clamp(0, totalBalls);
     
     double rrr = 0.0;

@@ -68,32 +68,15 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Icon(isError ? Icons.error_outline : Icons.check_circle_outline, color: Colors.white, size: 28),
-            SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                   Text(isError ? 'Oops!' : 'Success!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                   Text(message, style: TextStyle(fontSize: 13)),
-                ],
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: isError ? Color(0xFFD32F2F) : Color(0xFF388E3C),
+        content: Text(message, style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: isError ? Colors.red.shade800 : Colors.green.shade800,
         behavior: SnackBarBehavior.floating,
-        elevation: 6,
-        margin: EdgeInsets.all(16),
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        margin: EdgeInsets.all(20),
+        duration: Duration(seconds: 2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        duration: Duration(seconds: 3),
       )
     );
   }

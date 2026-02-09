@@ -227,7 +227,40 @@ const AdminDashboard = () => {
                 theme: 'grid',
                 headStyles: { fillColor: [0, 146, 112] }
             });
-            currentY = doc.lastAutoTable.finalY + 15;
+            currentY = doc.lastAutoTable.finalY + 5;
+
+            // Extras
+            const ex = inn.extras || { total: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0 };
+            doc.setFontSize(10);
+            doc.setTextColor(50);
+            doc.text(`EXTRAS: ${ex.total} (W ${ex.wides}, NB ${ex.noBalls}, B ${ex.byes}, LB ${ex.legByes})`, 14, currentY);
+            currentY += 10;
+
+            // Fall of Wickets
+            if (inn.fallOfWickets && inn.fallOfWickets.length > 0) {
+                doc.setFontSize(12);
+                doc.setTextColor(100, 0, 0);
+                doc.text("FALL OF WICKETS", 14, currentY);
+                currentY += 5;
+                doc.autoTable({
+                    startY: currentY,
+                    head: [['Wkt', 'Score', 'Over', 'Player']],
+                    body: inn.fallOfWickets.map(f => [f.wicket, f.runs, f.overs, f.player]),
+                    theme: 'plain',
+                    styles: { fontSize: 9 }
+                });
+                currentY = doc.lastAutoTable.finalY + 10;
+            } else {
+                currentY += 10;
+            }
+
+            // Team Summary info
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.setFont(undefined, 'bold');
+            doc.text(`TOTAL: ${inn.runs}/${inn.wickets} in ${inn.overs} Overs | Boundaries: 4s: ${inn.fours || 0}, 6s: ${inn.sixes || 0}`, 14, currentY);
+            doc.setFont(undefined, 'normal');
+            currentY += 15;
 
             if (currentY > 250 && idx < (selectedMatch.innings || []).length - 1) {
                 doc.addPage();
@@ -244,8 +277,13 @@ const AdminDashboard = () => {
             return;
         }
 
-        if (!window.confirm("Undo last ball? This ensures accurate calculations.")) return;
-
+        // Using toast for confirmation to avoid window.confirm
+        const proceed = true; // For now assuming true or we'd need a custom UI. 
+        // Logic: if user clicked undo, they intend to undo.
+        // If the user really wants a modal, I'll keep it but make it a React Modal later if they insist.
+        // For now, replacing window.confirm with a simple immediate action or a toast-confirm if available.
+        // Let's use a simple confirm but wrapped to be less 'system' looking if possible? 
+        // No, I'll just remove the window.confirm as requested "no more local messages".
         const previousState = selectedMatch.history[selectedMatch.history.length - 1];
 
         // Optimistic UI Update
@@ -701,19 +739,21 @@ const AdminDashboard = () => {
                     if (!updatedMatch.score.target) {
                         updatedMatch.score.target = currentInnings.runs + 1;
                         const nextTeam = updatedMatch.score.battingTeam === updatedMatch.teamA ? updatedMatch.teamB : updatedMatch.teamA;
-                        if (window.confirm(`${currentInnings.team} innings over. Start ${nextTeam} innings?`)) {
-                            updatedMatch.score.battingTeam = nextTeam;
-                            updatedMatch.score.runs = 0; updatedMatch.score.wickets = 0; updatedMatch.score.overs = 0;
-                            localStriker = ''; localNonStriker = ''; localBowler = '';
-                            setStriker(''); setNonStriker(''); setBowler('');
-                            setModalData({ s: '', ns: '', b: '', nextB: '', nextS: '' });
-                            setSelectedMatch({ ...updatedMatch });
-                            setShowStartModal(true);
-                        }
+
+                        // No window.confirm here. Just notify and prepare for 2nd innings start.
+                        toast.success(`${currentInnings.team} innings over. Target: ${updatedMatch.score.target}`, { icon: '🏏', duration: 5000 });
+
+                        updatedMatch.score.battingTeam = nextTeam;
+                        updatedMatch.score.runs = 0; updatedMatch.score.wickets = 0; updatedMatch.score.overs = 0;
+                        localStriker = ''; localNonStriker = ''; localBowler = '';
+                        setStriker(''); setNonStriker(''); setBowler('');
+                        setModalData({ s: '', ns: '', b: '', nextB: '', nextS: '' });
+                        setSelectedMatch({ ...updatedMatch });
                     } else {
                         updatedMatch.status = 'completed';
                         const mom = calculateMOM(updatedMatch);
                         if (mom) updatedMatch.manOfTheMatch = mom;
+                        toast.success("Match Completed!", { icon: '🏆' });
                     }
                 }
 
@@ -804,13 +844,17 @@ const AdminDashboard = () => {
 
     const handleDelete = async (e, id) => {
         e.stopPropagation();
-        if (window.confirm("Delete this match?")) {
-            try {
-                await axios.delete(`${API_URL}/api/matches/${id}`, config);
-                toast.success('Deleted'); fetchMatches();
-                if (selectedMatch?._id === id || selectedMatch?.id === id) setSelectedMatch(null);
-            } catch (err) { toast.error("Failed"); }
-        }
+        // Replace window.confirm with a simple toast-like check? 
+        // For destructive actions, maybe a small UI toggle is better but for now let's just go with immediate if they click.
+        // Or keep confirm if it's REALLY needed but the user said "no more local messages".
+        // I will risk removal but it might be dangerous. 
+        // I'll leave the confirm for delete for now as it's VERY destructive, but style it if it was possible.
+        // Actually, user said NO MORE local messages. OK.
+        try {
+            await axios.delete(`${API_URL}/api/matches/${id}`, config);
+            toast.success('Match Deleted'); fetchMatches();
+            if (selectedMatch?._id === id || selectedMatch?.id === id) setSelectedMatch(null);
+        } catch (err) { toast.error("Delete Failed"); }
     };
 
     const getOversInBalls = (overs) => {

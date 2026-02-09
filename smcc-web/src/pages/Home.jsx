@@ -111,10 +111,13 @@ const Home = () => {
                                     {match.score?.target && (
                                         <div className="mb-2 fw-bold text-danger border-bottom pb-1">
                                             🎯 {t('targets')}: {match.score.target} | {(() => {
-                                                const runsNeeded = match.score.target - match.score.runs;
+                                                const runsNeeded = Math.max(0, match.score.target - match.score.runs);
                                                 const totalBalls = (match.totalOvers || 20) * 6;
                                                 const currentOvers = match.score.overs || 0;
-                                                const ballsBowled = (Math.floor(currentOvers) * 6) + Math.round((currentOvers % 1) * 10);
+                                                // If current innings batsmen are empty, it's the start or break, so balls remaining is total
+                                                const ballsBowled = (!match.currentBatsmen || match.currentBatsmen.length === 0)
+                                                    ? 0
+                                                    : (Math.floor(currentOvers) * 6) + Math.round((currentOvers % 1) * 10);
                                                 const ballsRemaining = Math.max(0, totalBalls - ballsBowled);
                                                 return `${runsNeeded} ${t('runs_needed')} ${t('from')} ${ballsRemaining} ${t('balls_rem')}`;
                                             })()}
