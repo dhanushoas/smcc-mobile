@@ -8,12 +8,24 @@ import { toCamelCase } from '../utils/formatters';
 import { toast } from 'react-hot-toast';
 
 let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+// Robust URL cleaning
 if (API_URL.includes('://')) {
     const parts = API_URL.split('://');
-    const protocol = parts[0].toLowerCase() + '://';
-    API_URL = protocol + parts[parts.length - 1];
+    const host = parts[parts.length - 1];
+    const protocol = API_URL.toLowerCase().startsWith('https') ? 'https://' : 'http://';
+    API_URL = protocol + host;
 }
-console.log("Using API_URL:", API_URL);
+API_URL = API_URL.replace(/\/+$/, '');
+
+// Fail-safe for Render production
+if (typeof window !== 'undefined' && window.location.hostname === 'smcc-web.onrender.com') {
+    if (API_URL.includes('localhost') || API_URL.includes('xn--')) {
+        API_URL = 'https://smcc-backend.onrender.com';
+    }
+}
+
+console.log("Cric-Live API URL:", API_URL);
 const socket = io(API_URL);
 
 const Home = () => {
