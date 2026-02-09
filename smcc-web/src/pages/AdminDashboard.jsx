@@ -223,7 +223,7 @@ const AdminDashboard = () => {
         syncLocalPlayers(previousState);
 
         try {
-            const { history, ...payload } = previousState;
+            const { history, id, _id, lastUpdated, ...payload } = previousState;
             await axios.put(`${API_URL}/api/matches/${previousState._id || previousState.id}`, payload, config);
             toast.success("Undo successful!");
         } catch (err) {
@@ -357,8 +357,10 @@ const AdminDashboard = () => {
         if (['runs', 'extra', 'wicket', 'retire', 'new_batsman', 'new_bowler', 'swap_strike'].includes(type) && type !== 'init') {
             if (!updatedMatch.history) updatedMatch.history = [];
             // Push the *current* (before update) state to history
-            const currentState = JSON.parse(JSON.stringify(selectedMatch));
-            updatedMatch.history.push(currentState);
+            // CRITICAL: Strip the existing history from the snapshot to prevent recursive growth
+            const snapshot = JSON.parse(JSON.stringify(selectedMatch));
+            delete snapshot.history;
+            updatedMatch.history.push(snapshot);
             if (updatedMatch.history.length > 20) updatedMatch.history.shift(); // Keep last 20
         }
         // ---------------------------------------
@@ -684,7 +686,7 @@ const AdminDashboard = () => {
         }
 
         try {
-            const { history, ...payload } = updatedMatch;
+            const { history, id, _id, lastUpdated, ...payload } = updatedMatch;
             const res = await axios.put(`${API_URL}/api/matches/${selectedMatch._id || selectedMatch.id}`, payload, config);
 
             // Resilience: Prepare new state

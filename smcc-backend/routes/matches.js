@@ -42,7 +42,7 @@ router.post('/', auth, async (req, res) => {
         res.json(match);
     } catch (err) {
         console.error(err.message);
-        res.status(500).json({ msg: 'Server Error' });
+        res.status(500).json({ msg: 'Server Error', error: err.message });
     }
 });
 
@@ -67,7 +67,7 @@ router.put('/:id', auth, async (req, res) => {
         res.json(match);
     } catch (err) {
         console.error(err.message);
-        res.status(500).json({ msg: 'Server Error' });
+        res.status(500).json({ msg: 'Server Error', error: err.message });
     }
 });
 
