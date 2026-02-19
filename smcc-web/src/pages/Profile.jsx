@@ -2,31 +2,19 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap';
-let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { motion } from 'framer-motion';
+import API_URL from '../utils/api';
 
-if (API_URL.includes('://')) {
-    const parts = API_URL.split('://');
-    API_URL = parts[parts.length - 1];
-}
-API_URL = API_URL.replace(/\/+$/, '');
-
-if (API_URL.includes('localhost') || API_URL.includes('127.0.0.1')) {
-    API_URL = 'http://' + API_URL;
-} else {
-    API_URL = 'https://' + API_URL;
-}
-
-if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
-    if (API_URL.includes('localhost')) {
-        API_URL = 'https://smcc-backend.onrender.com';
-    }
-}
 
 const Profile = () => {
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [formData, setFormData] = useState({ username: '', password: '' });
     const [error, setError] = useState('');
     const navigate = useNavigate();
+
+    useEffect(() => {
+        document.title = 'SMCC | Profile';
+    }, []);
 
     const { username, password } = formData;
 
@@ -51,7 +39,7 @@ const Profile = () => {
     const handleResetSession = async () => {
         try {
             await axios.post(`${API_URL}/api/auth/reset-session`, formData);
-            onSubmit({ preventDefault: () => { } }); // Retry login
+            onSubmit({ preventDefault: () => { } });
         } catch (err) {
             setError({ msg: 'Reset failed. Check credentials.' });
         }
@@ -68,86 +56,111 @@ const Profile = () => {
         navigate('/');
     };
 
-    if (token) {
-        return (
-            <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
-                <Row className="w-100">
-                    <Col md={{ span: 6, offset: 3 }} lg={{ span: 4, offset: 4 }}>
-                        <Card className="shadow-lg border-0">
-                            <Card.Body className="p-5 text-center">
-                                <h2 className="fw-bold mb-4 text-primary">Profile</h2>
-                                <div className="mb-4">
-                                    <p className="lead">Welcome, Admin!</p>
-                                    <p className="text-muted small">You have full access to manage matches and scorecards.</p>
-                                </div>
-                                <div className="d-grid gap-3">
-                                    <Button variant="primary" size="lg" onClick={() => navigate('/admin')}>
-                                        Go to Admin Dashboard
-                                    </Button>
-                                    <Button variant="outline-danger" onClick={handleLogout}>
-                                        Logout
-                                    </Button>
-                                </div>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                </Row>
-            </Container>
-        );
-    }
-
     return (
-        <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
-            <Row className="w-100">
-                <Col md={{ span: 6, offset: 3 }} lg={{ span: 4, offset: 4 }}>
-                    <Card className="shadow-lg border-0">
-                        <Card.Body className="p-5 text-center">
-                            <h2 className="fw-bold mb-4 text-primary">Admin Login</h2>
-                            <p className="text-muted small mb-4">Public users do not need to login to view matches.</p>
-                            {error && (
-                                <Alert variant={error.type === 'ALREADY_LOGGED_IN' ? 'warning' : 'danger'} className="py-3 shadow-sm text-start">
-                                    <div className="fw-bold mb-1">{error.msg}</div>
-                                    {error.type === 'ALREADY_LOGGED_IN' && (
-                                        <Button variant="warning" size="sm" className="mt-2 fw-black text-uppercase" onClick={handleResetSession}>
-                                            Force Reset Session & Login
-                                        </Button>
-                                    )}
-                                </Alert>
-                            )}
-                            <Form onSubmit={onSubmit} className="text-start">
-                                <Form.Group className="mb-3">
-                                    <Form.Label className="small fw-bold">Username</Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        name="username"
-                                        value={username}
-                                        onChange={onChange}
-                                        required
-                                        autoComplete="username"
-                                    />
-                                </Form.Group>
-                                <Form.Group className="mb-4">
-                                    <Form.Label className="small fw-bold">Password</Form.Label>
-                                    <Form.Control
-                                        type="password"
-                                        name="password"
-                                        value={password}
-                                        onChange={onChange}
-                                        required
-                                        autoComplete="current-password"
-                                    />
-                                </Form.Group>
-                                <Button variant="primary" type="submit" className="w-100 py-2 fw-bold">
-                                    Sign In
+        <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '85vh' }}>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-100"
+                style={{ maxWidth: '450px' }}
+            >
+                <Card className="glass-card border-0 shadow-lg p-3">
+                    <Card.Body className="p-4 p-md-5 text-center">
+                        <div className="mb-4">
+                            <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="bg-primary bg-opacity-10 d-inline-flex p-4 rounded-circle mb-3"
+                            >
+                                <i className="bi bi-shield-lock-fill fs-1 text-primary"></i>
+                            </motion.div>
+                            <h2 className="fw-black premium-gradient-text mb-2">
+                                {token ? 'Admin Access' : 'Administrator'}
+                            </h2>
+                            <p className="text-muted small">
+                                {token ? 'Welcome back! Your dashboard is ready.' : 'Secure gateway for match officials'}
+                            </p>
+                        </div>
+
+                        {token ? (
+                            <div className="d-grid gap-3 pt-3">
+                                <Button
+                                    variant="primary"
+                                    size="lg"
+                                    className="rounded-pill fw-bold py-3 shadow-sm d-flex align-items-center justify-content-center gap-2"
+                                    onClick={() => navigate('/admin')}
+                                >
+                                    <i className="bi bi-speedometer2"></i>
+                                    Go to Dashboard
                                 </Button>
-                            </Form>
-                        </Card.Body>
-                    </Card>
-                    <div className="text-center mt-3 text-muted small">
-                        &copy; 2026 S Mettur Cricket Council
-                    </div>
-                </Col>
-            </Row>
+                                <Button
+                                    variant="outline-danger"
+                                    className="rounded-pill fw-bold border-2"
+                                    onClick={handleLogout}
+                                >
+                                    Sign Out
+                                </Button>
+                            </div>
+                        ) : (
+                            <>
+                                {error && (
+                                    <Alert variant={error.type === 'ALREADY_LOGGED_IN' ? 'warning' : 'danger'} className="py-3 shadow-sm text-start rounded-4 border-0 mb-4">
+                                        <div className="d-flex gap-2">
+                                            <i className={`bi ${error.type === 'ALREADY_LOGGED_IN' ? 'bi-exclamation-triangle' : 'bi-x-circle'}-fill`}></i>
+                                            <span className="small fw-bold">{error.msg}</span>
+                                        </div>
+                                        {error.type === 'ALREADY_LOGGED_IN' && (
+                                            <Button variant="warning" size="sm" className="mt-2 w-100 fw-black text-uppercase rounded-pill" onClick={handleResetSession}>
+                                                Reset Session
+                                            </Button>
+                                        )}
+                                    </Alert>
+                                )}
+                                <Form onSubmit={onSubmit} className="text-start">
+                                    <Form.Group className="mb-4">
+                                        <Form.Label className="small fw-bold ps-2 opacity-75">USERNAME</Form.Label>
+                                        <Form.Control
+                                            type="text"
+                                            name="username"
+                                            value={username}
+                                            onChange={onChange}
+                                            required
+                                            className="rounded-pill py-2 px-4 border-2"
+                                            placeholder="Admin user"
+                                        />
+                                    </Form.Group>
+                                    <Form.Group className="mb-4">
+                                        <Form.Label className="small fw-bold ps-2 opacity-75">PASSWORD</Form.Label>
+                                        <Form.Control
+                                            type="password"
+                                            name="password"
+                                            value={password}
+                                            onChange={onChange}
+                                            required
+                                            className="rounded-pill py-2 px-4 border-2"
+                                            placeholder="••••••••"
+                                        />
+                                    </Form.Group>
+                                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                                        <Button variant="primary" type="submit" className="w-100 py-3 rounded-pill fw-bold shadow-sm border-0">
+                                            Authorize Access
+                                        </Button>
+                                    </motion.div>
+                                </Form>
+                            </>
+                        )}
+
+                        {!token && (
+                            <div className="mt-5 pt-3 border-top text-center">
+                                <p className="text-muted x-small mb-0">
+                                    Viewer access does not require authentication.<br />
+                                    &copy; 2026 S Mettur Cricket Council
+                                </p>
+                            </div>
+                        )}
+                    </Card.Body>
+                </Card>
+            </motion.div>
         </Container>
     );
 };

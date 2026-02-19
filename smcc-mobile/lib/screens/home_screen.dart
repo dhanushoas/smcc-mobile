@@ -20,9 +20,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String? errorMessage;
   late IO.Socket socket;
 
-  bool _showBlast = false;
   int _blastValue = 0;
-  String _blastMatchTitle = "";
+  String? _blastMatchId;
 
   @override
   void initState() {
@@ -48,10 +47,10 @@ class _HomeScreenState extends State<HomeScreen> {
             int diff = newRuns - oldRuns;
             if ((diff == 4 || diff == 6) && data['status'] == 'live') {
                _blastValue = diff;
-               _blastMatchTitle = data['title'] ?? "${data['teamA']} vs ${data['teamB']}";
+               _blastMatchId = data['_id'] ?? data['id'];
                _showBlast = true;
                Future.delayed(Duration(seconds: 3), () {
-                  if (mounted) setState(() => _showBlast = false);
+                  if (mounted) setState(() => _blastMatchId = null);
                });
             }
             matches[index] = data;
@@ -140,23 +139,10 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             tooltip: 'Profile',
           ),
-          IconButton(
-            icon: Icon(Icons.refresh, color: Colors.blue.shade800),
-            onPressed: () {
-               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Refreshing...'), duration: Duration(milliseconds: 500)));
-               fetchMatches();
-            },
-            tooltip: 'Refresh',
-          ),
           SizedBox(width: 4),
         ],
       ),
-      body: Stack(
-        children: [
-          _buildMainContent(settings),
-          if (_showBlast) Positioned.fill(child: IgnorePointer(child: _buildBlastOverlay())),
-        ],
-      ),
+      body: _buildMainContent(settings),
     );
   }
 
@@ -235,7 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         // LIVE Section
                         if (matches.any((m) => m['status'] == 'live' || (m['status'] == 'upcoming' && m['toss'] != null && m['toss']['winner'] != null))) ...[
-                          _buildSectionHeader(settings.translate('live').toUpperCase(), Colors.red, Icons.circle, true),
+                          _buildSectionHeader(settings.translate('live').toUpperCase(), Colors.red, false),
                           ..._buildMatchesByDate(matches.where((m) => m['status'] == 'live' || (m['status'] == 'upcoming' && m['toss'] != null && m['toss']['winner'] != null)).toList(), settings),
                           SizedBox(height: 30),
                         ],
@@ -269,7 +255,10 @@ class _HomeScreenState extends State<HomeScreen> {
   
     Widget _buildBlastOverlay() {
     return Container(
-      color: Colors.black54,
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Center(
         child: TweenAnimationBuilder<double>(
           duration: Duration(milliseconds: 1000),
@@ -278,20 +267,14 @@ class _HomeScreenState extends State<HomeScreen> {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
-                  child: Text(_blastMatchTitle, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800, fontSize: 12)),
-                ),
-                SizedBox(height: 20),
                 Transform.scale(
                   scale: 0.5 + value * 1.5,
                   child: Opacity(
                     opacity: (1.0 - value).clamp(0.0, 1.0),
-                    child: Text(_blastValue.toString(), style: TextStyle(fontSize: 150, fontWeight: FontWeight.w900, color: _blastValue == 6 ? Colors.green : Colors.orange, shadows: [Shadow(color: Colors.black, blurRadius: 20)])),
+                    child: Text(_blastValue.toString(), style: TextStyle(fontSize: 80, fontWeight: FontWeight.w900, color: _blastValue == 6 ? Colors.green : Colors.orange, shadows: [Shadow(color: Colors.black, blurRadius: 20)])),
                   ),
                 ),
-                Text(_blastValue == 6 ? 'SIX!' : 'FOUR!', style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 5)),
+                Text(_blastValue == 6 ? 'SIX!' : 'FOUR!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 5)),
               ],
             );
           }
@@ -300,13 +283,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title, Color color, IconData icon, bool animate) {
+  Widget _buildSectionHeader(String title, Color color, bool animate) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12, left: 4),
       child: Row(
         children: [
-          Icon(icon, size: 14, color: color),
-          SizedBox(width: 8),
           Text(title, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: color, letterSpacing: 1.2)),
           Spacer(),
           Container(height: 1, width: 40, color: color.withOpacity(0.2)),
@@ -404,100 +385,111 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildMatchCard(dynamic match, SettingsProvider settings) {
     bool isLive = match['status'] == 'live';
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ScorecardScreen(match: match))),
-      child: Card(
+    String matchId = match['_id'] ?? match['id'];
+    bool isCompleted = ['completed', 'abandoned', 'cancelled'].contains(match['status']);
+
+    return Card(
       elevation: 2,
       margin: EdgeInsets.all(0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Column(
-          children: [
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: isLive ? Colors.red.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                   Expanded(child: Text(match['title'] ?? 'Match', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isLive ? Colors.red.shade900 : Colors.blue.shade900), overflow: TextOverflow.ellipsis)),
-                  if (match['status'] != 'upcoming') 
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: isLive ? Colors.red : Colors.grey, borderRadius: BorderRadius.circular(20)),
-                      child: Text(settings.translate(match['status']), style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                    ),
-                ],
-              ),
-            ),
-            
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.all(12),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('${match['date']?.toString().split('T')[0] ?? ''} | ${match['venue']}', style: TextStyle(color: Colors.grey, fontSize: 9)),
-                    SizedBox(height: 5),
-                    Row(
-                      children: [
-                        _buildTeamScore(match['teamA'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamA'] || _hasTeamBatted(match, match['teamA']), settings),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                          child: Text('VS', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.bold, fontSize: 10)),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Column(
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: isLive ? Colors.red.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                       Expanded(child: Text(match['title'] ?? 'Match', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isLive ? Colors.red.shade900 : Colors.blue.shade900), overflow: TextOverflow.ellipsis)),
+                      if (match['status'] != 'upcoming') 
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: isLive ? Colors.red : Colors.grey, borderRadius: BorderRadius.circular(20)),
+                          child: Text(settings.translate(match['status']), style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                         ),
-                        _buildTeamScore(match['teamB'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamB'] || _hasTeamBatted(match, match['teamB']), settings),
+                    ],
+                  ),
+                ),
+                
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('${match['date']?.toString().split('T')[0] ?? ''} | ${match['venue']}', style: TextStyle(color: Colors.grey, fontSize: 9)),
+                        SizedBox(height: 5),
+                        Row(
+                          children: [
+                            _buildTeamScore(match['teamA'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamA'] || _hasTeamBatted(match, match['teamA']), settings),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                              child: Text('VS', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.bold, fontSize: 10)),
+                            ),
+                            _buildTeamScore(match['teamB'], match, match['status'] == 'completed' || match['score']?['battingTeam'] == match['teamB'] || _hasTeamBatted(match, match['teamB']), settings),
+                          ],
+                        ),
+                        if (match['status'] == 'completed') 
+                           Container(
+                             width: double.infinity,
+                             padding: EdgeInsets.all(8),
+                             decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green.shade100)),
+                             child: Column(
+                               children: [
+                                  Text(
+                                    _calculateWinnerInfo(match),
+                                    style: TextStyle(fontSize: 10, color: Colors.green.shade900, fontWeight: FontWeight.bold),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  if (match['manOfTheMatch'] != null) ...[
+                                    SizedBox(height: 4),
+                                    Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green.shade200)),
+                                      child: Text('🏅 MOM: ${match['manOfTheMatch'].toString().toUpperCase()}', style: TextStyle(fontSize: 8, color: Colors.green.shade700, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ]
+                               ],
+                             ),
+                           ),
+                        if (match['status'] != 'completed')
+                           Padding(
+                             padding: const EdgeInsets.symmetric(vertical: 4.0),
+                             child: _buildMatchStatusMessage(match, settings),
+                           ),
+                        if (isLive) ...[
+                          _buildLiveStats(match, settings),
+                          if (match['score']?['target'] != null) ...[
+                            SizedBox(height: 5),
+                            _buildRRRDisplay(match, settings),
+                          ]
+                        ],
+                        if (isCompleted) ...[
+                          SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ScorecardScreen(match: match))),
+                            child: Text('FULL SCORECARD', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade800,
+                              foregroundColor: Colors.white,
+                              minimumSize: Size(double.infinity, 36),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+                            ),
+                          )
+                        ],
                       ],
                     ),
-                    if (match['status'] == 'completed') 
-                       Container(
-                         width: double.infinity,
-                         padding: EdgeInsets.all(8),
-                         decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green.shade100)),
-                         child: Column(
-                           children: [
-                              Text(
-                                _calculateWinnerInfo(match),
-                                style: TextStyle(fontSize: 10, color: Colors.green.shade900, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                              ),
-                              if (match['manOfTheMatch'] != null) ...[
-                                SizedBox(height: 4),
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green.shade200)),
-                                  child: Text('🏅 MOM: ${match['manOfTheMatch'].toString().toUpperCase()}', style: TextStyle(fontSize: 8, color: Colors.green.shade700, fontWeight: FontWeight.bold)),
-                                ),
-                              ]
-                           ],
-                         ),
-                       ),
-                    if (match['status'] != 'completed')
-                       Padding(
-                         padding: const EdgeInsets.symmetric(vertical: 4.0),
-                         child: _buildMatchStatusMessage(match, settings),
-                       ),
-                    if (isLive) ...[
-                      _buildLiveStats(match, settings),
-                      if (match['score']?['target'] != null) ...[
-                        SizedBox(height: 5),
-                        _buildRRRDisplay(match, settings),
-                      ]
-                    ],
-                    SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      alignment: Alignment.center,
-                      padding: EdgeInsets.only(top: 8),
-                      child: Text('Tap card for full details', style: TextStyle(color: Colors.grey.shade400, fontSize: 8, fontStyle: FontStyle.italic)),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+          if (_blastMatchId == matchId) Positioned.fill(child: IgnorePointer(child: _buildBlastOverlay())),
+        ],
       ),
     );
   }

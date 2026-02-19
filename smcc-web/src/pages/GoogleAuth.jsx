@@ -6,6 +6,7 @@ const GoogleAuth = () => {
     const location = useLocation();
 
     useEffect(() => {
+        document.title = 'SMCC | Authenticating...';
         const params = new URLSearchParams(location.search);
         const token = params.get('token');
 

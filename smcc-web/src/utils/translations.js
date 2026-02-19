@@ -1,7 +1,8 @@
 export const translations = {
     en: {
         live_scores: "Live Cricket Scores",
-        real_time_updates: "Real-time updates from S Mettur Cricket Council",
+        real_time_updates: "Real-time updates from SMCC LIVE",
+        real_time_intelligence: "Real-time Cricket Intelligence",
         home: "Home",
         admin: "Admin",
         login: "Login",
@@ -50,7 +51,8 @@ export const translations = {
     },
     ta: {
         live_scores: "நேரடி கிரிக்கெட் முடிவுகள்",
-        real_time_updates: "எஸ் மேட்டூர் கிரிக்கெட் கவுன்சிலின் நேரடி அறிவிப்புகள்",
+        real_time_updates: "SMCC LIVE-இன் நேரடி அறிவிப்புகள்",
+        real_time_intelligence: "நிகழ்நேர கிரிக்கெட் நுண்ணறிவு",
         home: "முகப்பு",
         admin: "நிர்வாகி",
         login: "உள்நுழை",

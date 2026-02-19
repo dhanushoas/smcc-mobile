@@ -1,36 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Container, Row, Col, Card, Badge, Spinner, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Container, Row, Col, Card, Badge, Spinner, Button } from 'react-bootstrap';
 import { io } from 'socket.io-client';
 import { useApp } from '../AppContext';
-import { toCamelCase } from '../utils/formatters';
+import { toCamelCase, formatTime } from '../utils/formatters';
 import { toast } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+import API_URL from '../utils/api';
 
-let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-// Strip all existing protocols and clean URL
-if (API_URL.includes('://')) {
-    const parts = API_URL.split('://');
-    API_URL = parts[parts.length - 1];
-}
-API_URL = API_URL.replace(/\/+$/, '');
-
-// Enforce correct protocol
-if (API_URL.includes('localhost') || API_URL.includes('127.0.0.1')) {
-    API_URL = 'http://' + API_URL;
-} else {
-    API_URL = 'https://' + API_URL;
-}
-
-// Global fail-safe check based on current environment
-if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
-    if (API_URL.includes('localhost')) {
-        API_URL = 'https://smcc-backend.onrender.com';
-    }
-}
-
-console.log("Cric-Live API URL:", API_URL);
 const socket = io(API_URL);
 
 const Home = () => {
@@ -38,8 +17,8 @@ const Home = () => {
     const [loading, setLoading] = useState(true);
     const { t, language } = useApp();
 
-    const [showBlast, setShowBlast] = useState(false);
     const [blastValue, setBlastValue] = useState(0);
+    const [blastMatchId, setBlastMatchId] = useState(null);
 
     const renderMatchesByDate = (filteredMatches) => {
         const groups = {};
@@ -50,120 +29,244 @@ const Home = () => {
         });
 
         return Object.keys(groups).map(dateKey => (
-            <div key={dateKey} className="mb-4">
-                <div className="mb-3 px-3 py-2 bg-light border-start border-primary border-4 rounded-end shadow-sm d-inline-block">
-                    <h6 className="m-0 fw-black text-uppercase text-primary" style={{ letterSpacing: '1px' }}>
-                        📅 {new Date(dateKey).toLocaleDateString([], { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-                    </h6>
+            <motion.div
+                key={dateKey}
+                className="mb-5"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
+                <div className="mb-4 d-flex align-items-center">
+                    <div className="px-3 py-1 bg-primary text-white rounded-pill shadow-sm d-inline-flex align-items-center gap-2">
+                        <i className="bi bi-calendar3"></i>
+                        <small className="fw-bold text-uppercase" style={{ letterSpacing: '1px' }}>
+                            {new Date(dateKey).toLocaleDateString([], { weekday: 'long', day: '2-digit', month: 'long' })}
+                        </small>
+                    </div>
+                    <div className="flex-grow-1 ms-3 border-bottom opacity-25"></div>
                 </div>
                 <Row className="g-4">
                     {groups[dateKey].map(match => renderMatchCard(match, 12))}
                 </Row>
-            </div>
+            </motion.div>
         ));
     };
 
     const renderMatchCard = (match, colSize = 6) => {
         const getTeamScore = (teamName) => {
-            const innings = match.innings?.find(inn => inn.team === teamName);
-            if (!innings) return null;
+            const isBatting = match.status === 'live' && match.score?.battingTeam?.toLowerCase() === teamName.toLowerCase();
+            const innings = match.innings?.find(inn => inn.team?.toLowerCase() === teamName.toLowerCase());
+
+            if (!innings && !isBatting) return <div className="text-muted small opacity-50 mt-2">Yet to bat</div>;
+
+            const runs = isBatting ? (match.score?.runs || 0) : (innings?.runs || 0);
+            const wickets = isBatting ? (match.score?.wickets || 0) : (innings?.wickets || 0);
+            const overs = isBatting ? (match.score?.overs || 0) : (innings?.overs || 0);
+
             return (
-                <div className="text-primary fs-3 fw-bold mt-1">
-                    {innings.runs}/{innings.wickets}
-                    <div className="fs-6 text-muted fw-normal">({innings.overs} {t('overs')})</div>
+                <div className="mt-2">
+                    <div className="score-text text-primary">
+                        {runs}/{wickets}
+                    </div>
+                    <div className="small opacity-75">({overs} ov)</div>
                 </div>
             );
         };
 
         return (
             <Col key={match._id || match.id} xs={12} lg={colSize}>
-                <Card className="h-100 shadow-sm border-0 position-relative overflow-hidden">
-                    {match.status === 'live' && (
-                        <Badge bg="danger" className="position-absolute top-0 end-0 m-3 px-3 py-2 animate-pulse">
-                            ● {t('live')}
-                        </Badge>
-                    )}
+                <motion.div
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    layout
+                >
+                    <Card className="glass-card h-100 border-0 overflow-hidden">
+                        {match.status === 'live' && (
+                            <div className="position-absolute top-0 end-0 m-3 z-3">
+                                <Badge className="badge-live px-3 py-2 animate-pulse d-flex align-items-center gap-2">
+                                    <span className="dot bg-white rounded-circle" style={{ width: 6, height: 6 }}></span>
+                                    {t('live').toUpperCase()}
+                                </Badge>
+                            </div>
+                        )}
 
-                    <Card.Body className="p-4">
-                        <div className="mb-3">
-                            <h5 className="fw-bold m-0">{match.title}</h5>
-                            <small className="text-muted">
-                                {new Date(match.date).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}{' '}
-                                {new Date(match.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} | {match.venue}
-                            </small>
-                        </div>
+                        <AnimatePresence>
+                            {blastMatchId === (match._id || match.id) && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="blast-overlay rounded-4"
+                                >
+                                    <motion.div
+                                        initial={{ scale: 0.5, y: 50 }}
+                                        animate={{ scale: 1, y: 0 }}
+                                        exit={{ scale: 1.2, opacity: 0 }}
+                                        className="blast-text"
+                                        style={{ color: blastValue === 6 ? '#10b981' : '#f59e0b' }}
+                                    >
+                                        {blastValue}
+                                    </motion.div>
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="blast-label"
+                                    >
+                                        {blastValue === 6 ? 'SIX!' : 'FOUR!'}
+                                    </motion.div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
-                        <Row className="align-items-center text-center my-4">
-                            <Col xs={5}>
-                                <div className="fw-bold fs-5 text-truncate">{match.teamA.toUpperCase()}</div>
-                                {getTeamScore(match.teamA)}
-                            </Col>
-                            <Col xs={2} className="text-muted small fw-bold">VS</Col>
-                            <Col xs={5}>
-                                <div className="fw-bold fs-5 text-truncate">{match.teamB.toUpperCase()}</div>
-                                {getTeamScore(match.teamB)}
-                            </Col>
-                        </Row>
-
-                        <div className="mt-4 pt-3 border-top text-center">
-                            {match.status === 'live' && (
-                                <div className="alert alert-info py-3 mb-0 border-0 rounded-4 shadow-sm mt-3">
-                                    {match.score?.target && (
-                                        <div className="mb-2 fw-bold text-danger border-bottom pb-1">
-                                            🎯 {t('targets')}: {match.score.target}
-                                            {(() => {
-                                                const currentRuns = match.score.runs || 0;
-                                                const currentOvers = match.score.overs || 0;
-                                                // Only show detailed "runs needed" AFTER the first ball is bowled (0.1)
-                                                if (currentRuns === 0 && currentOvers === 0) return "";
-
-                                                const runsNeeded = Math.max(0, match.score.target - currentRuns);
-                                                const totalBalls = (match.totalOvers || 20) * 6;
-                                                const ballsBowled = (Math.floor(currentOvers) * 6) + Math.round((currentOvers % 1) * 10);
-                                                const ballsRemaining = Math.max(0, totalBalls - ballsBowled);
-                                                return ` | ${runsNeeded} ${t('runs_needed')} ${t('from')} ${ballsRemaining} ${t('balls_rem')}`;
-                                            })()}
-                                        </div>
-                                    )}
-
-                                    {/* INNINGS BREAK DISPLAY */}
-                                    {match.status === 'live' && match.score?.target && (!match.currentBatsmen || match.currentBatsmen.length === 0) && (
-                                        <div className="alert alert-warning py-2 mb-2 border-0 rounded-4 shadow-sm fw-bold animate-bounce mt-2">
-                                            ⏸️ {t('innings_break')}
-                                        </div>
-                                    )}
-                                    <div className="d-flex justify-content-between align-items-center mb-2 px-2">
-                                        <small className="fw-bold text-uppercase opacity-75">{t('batting')}</small>
-                                        <small className="fw-bold text-uppercase opacity-75">{t('bowling')}</small>
+                        <Card.Body className="p-4 p-md-5">
+                            <div className="text-center mb-4">
+                                <h4 className="fw-black m-0 mb-2 letter-spacing-1">{match.title}</h4>
+                                <div className="d-flex justify-content-center align-items-center gap-3 text-muted">
+                                    <div className="d-flex align-items-center gap-1 small fw-bold">
+                                        <i className="bi bi-geo-alt-fill text-primary"></i>
+                                        <span>{match.venue.toUpperCase()}</span>
                                     </div>
-                                    <div className="d-flex justify-content-between">
-                                        <div className="text-start">
-                                            {match.currentBatsmen?.map(b => (
-                                                <div key={b.name} className={`fw-bold small ${b.onStrike ? 'text-primary' : ''}`}>
-                                                    {b.onStrike ? '🏏 ' : ''}{toCamelCase(b.name)}: {b.runs}({b.balls})
+                                    <div className="d-flex align-items-center gap-1 small fw-bold">
+                                        <i className="bi bi-clock-fill text-primary"></i>
+                                        <span>{formatTime(match.date)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Row className="align-items-center text-center gy-4">
+                                <Col xs={5}>
+                                    <div className="team-name fs-5 text-truncate mb-2 text-uppercase fw-black">{match.teamA}</div>
+                                    {getTeamScore(match.teamA)}
+                                </Col>
+                                <Col xs={2}>
+                                    <div className="d-flex flex-column align-items-center">
+                                        <div className="bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-circle p-2 shadow-sm mb-1" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <span className="fw-black x-small">VS</span>
+                                        </div>
+                                    </div>
+                                </Col>
+                                <Col xs={5}>
+                                    <div className="team-name fs-5 text-truncate mb-2 text-uppercase fw-black">{match.teamB}</div>
+                                    {getTeamScore(match.teamB)}
+                                </Col>
+                            </Row>
+
+                            <div className="mt-5">
+                                {match.status === 'live' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="bg-primary bg-opacity-10 p-4 rounded-4 border border-primary border-opacity-20 shadow-sm"
+                                    >
+                                        {match.score?.target && (
+                                            <div className="mb-4 text-center border-bottom border-primary border-opacity-10 pb-3">
+                                                <div className="text-danger fw-black fs-5 d-flex align-items-center justify-content-center gap-2">
+                                                    <i className="bi bi-flag-fill"></i>
+                                                    <span>TARGET: {match.score.target}</span>
                                                 </div>
-                                            ))}
-                                        </div>
-                                        <div className="text-end fw-bold">
-                                            ⚾ {toCamelCase(match.currentBowler) || 'N/A'}
+                                                {(() => {
+                                                    const currentRuns = match.score.runs || 0;
+                                                    const currentOvers = match.score.overs || 0;
+                                                    if (currentRuns === 0 && currentOvers === 0) return null;
+
+                                                    const runsNeeded = Math.max(0, match.score.target - currentRuns);
+                                                    const totalBalls = match.totalOvers * 6;
+                                                    const ballsBowled = (Math.floor(currentOvers) * 6) + Math.round((currentOvers % 1) * 10);
+                                                    const ballsRemaining = Math.max(0, totalBalls - ballsBowled);
+                                                    return (
+                                                        <div className="small fw-black text-muted text-uppercase mt-2 letter-spacing-1">
+                                                            {runsNeeded} runs needed from {ballsRemaining} balls
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
+
+                                        {(!match.currentBatsmen || match.currentBatsmen.length === 0) ? (
+                                            <div className="py-4 text-center w-100">
+                                                <div className="text-muted fw-black text-uppercase letter-spacing-2 animate-pulse">
+                                                    ☕ Innings Break
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="d-flex justify-content-between align-items-center w-100">
+                                                <div className="flex-grow-1">
+                                                    {match.currentBatsmen.map(b => (
+                                                        <div key={b.name} className={`d-flex align-items-center gap-2 mb-2 ${b.onStrike ? 'text-primary fw-black' : 'text-muted fw-bold small'}`}>
+                                                            {b.onStrike && <motion.i animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity }} className="bi bi-lightning-fill"></motion.i>}
+                                                            <span>{toCamelCase(b.name)}</span>
+                                                            <span className="ms-auto text-dark">{b.runs}*({b.balls})</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="ms-4 ps-4 border-start border-primary border-opacity-10 text-end">
+                                                    <div className="x-small fw-black text-muted text-uppercase mb-1" style={{ letterSpacing: '1px' }}>Bowling</div>
+                                                    <div className="fw-black text-primary d-flex align-items-center gap-2 justify-content-end">
+                                                        <span className="small text-uppercase">{toCamelCase(match.currentBowler) || 'N/A'}</span>
+                                                        <i className="bi bi-circle-fill" style={{ fontSize: '8px' }}></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {match.score?.thisOver && match.score.thisOver.length > 0 && (
+                                            <div className="mt-4 pt-4 border-top border-primary border-opacity-10">
+                                                <div className="d-flex align-items-center gap-2 mb-3">
+                                                    <span className="x-small fw-black text-muted text-uppercase letter-spacing-2">THIS OVER</span>
+                                                    <div className="flex-grow-1 border-bottom border-primary border-opacity-10 opacity-25"></div>
+                                                </div>
+                                                <div className="d-flex gap-2 flex-wrap">
+                                                    {match.score.thisOver.map((ball, idx) => {
+                                                        const isWicket = ['W', 'OUT'].includes(ball.toString().toUpperCase());
+                                                        const isFour = ball.toString() === '4';
+                                                        const isSix = ball.toString() === '6';
+                                                        const isExtra = ['WD', 'NB'].includes(ball.toString().toUpperCase());
+
+                                                        return (
+                                                            <motion.div
+                                                                key={idx}
+                                                                initial={{ scale: 0 }}
+                                                                animate={{ scale: 1 }}
+                                                                className={`
+                                                                    rounded-circle d-flex align-items-center justify-content-center fw-black
+                                                                    ${isWicket ? 'bg-danger text-white shadow-danger' :
+                                                                        isSix ? 'bg-success text-white shadow-success' :
+                                                                            isFour ? 'bg-warning text-dark shadow-warning' :
+                                                                                isExtra ? 'bg-info bg-opacity-25 text-info border border-info border-opacity-50' :
+                                                                                    'bg-white border text-dark'}
+                                                                `}
+                                                                style={{
+                                                                    width: '32px',
+                                                                    height: '32px',
+                                                                    fontSize: '13px',
+                                                                    boxShadow: (isWicket || isSix || isFour) ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
+                                                                }}
+                                                            >
+                                                                {ball}
+                                                            </motion.div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </motion.div>
+                                )}
+
+
+                                {match.status === 'upcoming' && match.toss?.winner && (
+                                    <div className="alert bg-warning bg-opacity-10 border-warning border-opacity-25 rounded-4 shadow-sm mb-0 p-3 text-center">
+                                        <div className="fw-black d-flex align-items-center justify-content-center gap-2 text-dark">
+                                            <i className="bi bi-coin text-warning fs-4"></i>
+                                            <span>TOSS: <span className="text-primary">{match.toss.winner.toUpperCase()}</span> WON & ELECTED TO {match.toss.decision.toUpperCase()}</span>
                                         </div>
                                     </div>
-                                </div>
-                            )}
-                            {/* LIVE TOSS DISPLAY */}
-                            {match.status === 'upcoming' && match.toss?.winner && (
-                                <div className="alert alert-warning py-2 mb-0 border-0 rounded-4 shadow-sm mt-3 text-center">
-                                    <small className="fw-bold text-dark">
-                                        🪙 Toss won by <span className="text-primary">{match.toss.winner}</span> elected to {match.toss.decision}
-                                    </small>
-                                </div>
-                            )}
-                            {match.status === 'completed' && (
-                                <div className="mt-3">
-                                    <div className="alert alert-success py-3 mb-0 border-0 rounded-4 shadow-sm">
-                                        <div className="d-flex align-items-center justify-content-center gap-2 mb-1">
-                                            <span className="fs-4">🏆</span>
-                                            <h5 className="fw-black mb-0 text-success text-uppercase" style={{ letterSpacing: '1px' }}>
+                                )}
+
+                                {match.status === 'completed' && (
+                                    <div className="bg-success bg-opacity-10 p-4 rounded-4 border border-success border-opacity-20 text-center shadow-sm">
+                                        <div className="d-flex align-items-center justify-content-center gap-2 mb-2">
+                                            <i className="bi bi-trophy-fill text-success fs-3"></i>
+                                            <h4 className="fw-black mb-0 text-success text-uppercase letter-spacing-1">
                                                 {match.innings && match.innings.length >= 2 ? (
                                                     match.innings[0].runs > match.innings[1].runs
                                                         ? `${match.innings[0].team} WON`
@@ -171,35 +274,36 @@ const Home = () => {
                                                             ? `${match.innings[1].team} WON`
                                                             : "MATCH DRAWN"
                                                 ) : "MATCH COMPLETED"}
-                                            </h5>
+                                            </h4>
                                         </div>
-                                        {match.innings && match.innings.length >= 2 && (
-                                            <div className="small fw-bold text-muted mb-2">
-                                                {match.innings[0].runs > match.innings[1].runs
-                                                    ? `By ${match.innings[0].runs - match.innings[1].runs} runs`
-                                                    : match.innings[1].runs > match.innings[0].runs
-                                                        ? `By ${10 - match.innings[1].wickets} wickets`
-                                                        : ""}
-                                            </div>
-                                        )}
                                         {match.manOfTheMatch && (
-                                            <div className="bg-white rounded-pill px-3 py-1 d-inline-block shadow-sm border">
-                                                <small className="fw-bold text-success">
-                                                    🌟 MOM: {toCamelCase(match.manOfTheMatch)}
-                                                </small>
+                                            <div className="mt-3">
+                                                <Badge bg="success" className="rounded-pill px-4 py-2 border-0 shadow-sm fw-black">
+                                                    <i className="bi bi-star-fill me-2"></i>
+                                                    MOM: {toCamelCase(match.manOfTheMatch)}
+                                                </Badge>
                                             </div>
                                         )}
                                     </div>
-                                </div>
-                            )}
-                            <div className="mt-3">
-                                <Button as={Link} to={`/match/${match._id || match.id}`} variant="outline-success" size="sm" className="w-100 fw-bold rounded-pill">
-                                    {t('full_scorecard')} →
-                                </Button>
+                                )}
+
+                                {['completed', 'abandoned', 'cancelled'].includes(match.status) && (
+                                    <div className="mt-4">
+                                        <Button
+                                            as={Link}
+                                            to={`/match/${match._id || match.id}`}
+                                            variant="outline-primary"
+                                            className="premium-btn w-100 border-2 py-3 d-flex align-items-center justify-content-center gap-3"
+                                        >
+                                            <span className="letter-spacing-1">Full Scorecard</span>
+                                            <i className="bi bi-chevron-right fs-5"></i>
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                    </Card.Body>
-                </Card>
+                        </Card.Body>
+                    </Card>
+                </motion.div>
             </Col>
         );
     };
@@ -209,8 +313,7 @@ const Home = () => {
             const res = await axios.get(`${API_URL}/api/matches`);
             setMatches(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
-            const serverError = err.response?.data?.error || err.response?.data?.msg || err.message;
-            console.error("Error fetching matches:", serverError);
+            console.error("Error fetching matches:", err);
             setMatches([]);
         } finally {
             setLoading(false);
@@ -218,6 +321,7 @@ const Home = () => {
     };
 
     useEffect(() => {
+        document.title = 'SMCC LIVE | Real-time Cricket';
         fetchMatches();
         socket.on('matchUpdate', (updatedMatch) => {
             setMatches(prevMatches => {
@@ -231,8 +335,8 @@ const Home = () => {
 
                     if ((diff === 4 || diff === 6) && updatedMatch.status === 'live') {
                         setBlastValue(diff);
-                        setShowBlast(true);
-                        setTimeout(() => setShowBlast(false), 2000);
+                        setBlastMatchId(updatedMatch._id || updatedMatch.id);
+                        setTimeout(() => setBlastMatchId(null), 2500);
                     }
 
                     const newMatches = [...matchesArr];
@@ -255,87 +359,118 @@ const Home = () => {
     }, []);
 
     if (loading) return (
-        <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
-            <Spinner animation="border" variant="success" />
+        <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
+            <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            >
+                <Spinner animation="border" variant="primary" style={{ width: '3rem', height: '3rem' }} />
+            </motion.div>
         </Container>
     );
 
     return (
-        <Container className="py-5">
-            <header className="text-center mb-5 mt-2 position-relative">
-                <Button
-                    variant="outline-light"
-                    size="sm"
-                    className="position-absolute top-0 end-0 m-2 text-muted border-0"
-                    onClick={() => { toast.success('Refreshing...'); fetchMatches(); }}
+        <Container fluid="lg" className="py-5 px-3 px-md-4">
+            <header className="text-center mb-5 position-relative">
+                <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 20 }}
                 >
-                    ↻
-                </Button>
-                <img src="/logo.png" alt="SMCC Logo" className="mb-3 shadow-sm rounded-circle" style={{ width: '100px', height: 'auto' }} />
-                <h1 className="display-5 fw-bold mb-1 text-primary">SMCC LIVE</h1>
-                <p className="lead text-muted small">{t('real_time_updates')}</p>
+                    <img src="/logo.png" alt="SMCC Logo" className="mb-4 shadow-lg rounded-circle border border-4 border-white" style={{ width: '120px', height: 'auto' }} />
+                </motion.div>
+                <motion.h1
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="display-3 fw-black mb-1 premium-gradient-text"
+                >
+                    SMCC LIVE
+                </motion.h1>
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                    className="lead text-muted fw-black d-flex align-items-center justify-content-center gap-3 mt-3"
+                >
+                    <motion.span
+                        animate={{ scale: [1, 1.5, 1] }}
+                        transition={{ repeat: Infinity, duration: 2 }}
+                        className="dot bg-danger rounded-circle"
+                        style={{ width: 12, height: 12 }}
+                    ></motion.span>
+                    <span className="text-uppercase letter-spacing-2 fs-5">{t('real_time_intelligence') || 'Real-time Cricket Intelligence'}</span>
+                </motion.p>
             </header>
 
             {/* LIVE SECTION */}
             <div className="mb-5">
-                <div className="d-flex align-items-center gap-2 mb-4 border-bottom pb-2">
-                    <span className="text-danger fs-4 animate-pulse">●</span>
-                    <h2 className="fw-black m-0 text-uppercase letter-spacing-2 text-danger">{t('live')}</h2>
+                <div className="mb-4">
+                    <h2 className="fw-black m-0 text-uppercase letter-spacing-2 text-danger">Live Matches</h2>
                 </div>
                 {Array.isArray(matches) && matches.filter(m => m.status === 'live' || (m.status === 'upcoming' && m.toss?.winner)).length > 0 ? (
                     renderMatchesByDate(matches.filter(m => m.status === 'live' || (m.status === 'upcoming' && m.toss?.winner)))
                 ) : (
-                    <div className="text-muted py-4 text-center border rounded-4 bg-white shadow-sm mb-4">No Live matches</div>
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-center py-5 glass-card mb-5 border-dashed"
+                    >
+                        <i className="bi bi-cup-hot fs-1 text-muted opacity-25 d-block mb-3"></i>
+                        <span className="text-muted fw-medium small">No matches currently in progress</span>
+                    </motion.div>
                 )}
             </div>
 
             {/* COMPLETED SECTION */}
             <div className="mb-5">
-                <div className="d-flex align-items-center gap-2 mb-4 border-bottom pb-2">
-                    <span className="text-success fs-4">🏆</span>
-                    <h2 className="fw-black m-0 text-uppercase letter-spacing-2 text-success">{t('completed')}</h2>
+                <div className="d-flex align-items-center gap-3 mb-4">
+                    <div className="bg-success p-2 rounded-3 shadow-sm d-flex align-items-center justify-content-center text-white">
+                        <i className="bi bi-check-circle-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <h2 className="fw-black m-0 text-uppercase letter-spacing-2 text-success">Recently Completed</h2>
+                        <small className="text-muted">Final results and highlights</small>
+                    </div>
                 </div>
                 {Array.isArray(matches) && matches.filter(m => m.status === 'completed').length > 0 ? (
                     renderMatchesByDate(matches.filter(m => m.status === 'completed'))
                 ) : (
-                    <div className="text-muted py-4 text-center border rounded-4 bg-white shadow-sm mb-4">No Completed matches</div>
+                    <div className="text-center py-5 glass-card mb-5 opacity-75">
+                        <span className="text-muted small">No recently completed matches found</span>
+                    </div>
                 )}
             </div>
 
             {/* UPCOMING SECTION */}
             <div className="mb-5">
-                <div className="d-flex align-items-center gap-2 mb-4 border-bottom pb-2">
-                    <span className="text-primary fs-4">📅</span>
-                    <h2 className="fw-black m-0 text-uppercase letter-spacing-2 text-primary">{t('upcoming')}</h2>
+                <div className="d-flex align-items-center gap-3 mb-4">
+                    <div className="bg-primary p-2 rounded-3 shadow-sm d-flex align-items-center justify-content-center text-white">
+                        <i className="bi bi-calendar-event-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <h2 className="fw-black m-0 text-uppercase letter-spacing-2 text-primary">Scheduled Matches</h2>
+                        <small className="text-muted">Gear up for upcoming action</small>
+                    </div>
                 </div>
                 {Array.isArray(matches) && matches.filter(m => m.status === 'upcoming' && !m.toss?.winner).length > 0 ? (
                     renderMatchesByDate(matches.filter(m => m.status === 'upcoming' && !m.toss?.winner))
                 ) : (
-                    <div className="text-muted py-4 text-center border rounded-4 bg-white shadow-sm mb-4">No Upcoming matches</div>
+                    <div className="text-center py-5 glass-card mb-5 opacity-75">
+                        <span className="text-muted small">No scheduled matches at the moment</span>
+                    </div>
                 )}
             </div>
 
             {matches.length === 0 && (
-                <Row className="justify-content-center mt-5">
-                    <Col md={6}>
-                        <Card className="text-center py-5 border-0 shadow-sm rounded-4">
-                            <Card.Body>
-                                <div className="fs-1 mb-3">🏏</div>
-                                <h3 className="fw-bold">{t('no_matches')}</h3>
-                                <p className="text-muted">{t('check_back')}</p>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                </Row>
-            )}
-
-            {showBlast && (
-                <div className="blast-overlay">
-                    <div className="blast-text" style={{ color: blastValue === 6 ? '#28a745' : '#ffc107' }}>
-                        {blastValue}
-                    </div>
-                    <div className="blast-label">{blastValue === 6 ? 'SIX!' : 'FOUR!'}</div>
-                </div>
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="text-center py-5"
+                >
+                    <div className="fs-1 mb-3">🏏</div>
+                    <h3 className="fw-bold">Welcome to SMCC</h3>
+                    <p className="text-muted">We're getting ready for the next tournament!</p>
+                </motion.div>
             )}
 
         </Container>

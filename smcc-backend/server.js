@@ -8,7 +8,6 @@ require('./config/passport')(passport);
 const { Server } = require('socket.io');
 const { connectDB, sequelize } = require('./config/db');
 require('dotenv').config();
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -37,15 +36,16 @@ app.use(passport.session());
 // Connect Database
 connectDB();
 
-// Sync Database (using alter: true to ensure columns like 'history' are added if missing)
-sequelize.sync({ alter: true })
-    .then(() => console.log('MySQL Tables Synced with Alter'))
+// Sync Database (Maintenance migration handled in db.js)
+sequelize.sync()
+    .then(() => console.log('MySQL Tables Synced'))
     .catch(err => console.error('Error syncing MySQL tables:', err));
 
 // Routes
 app.get('/ping', (req, res) => res.status(200).send('pong'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/matches', require('./routes/matches'));
+app.use('/api/misc', require('./routes/misc'));
 
 // Socket.io connection
 io.on('connection', (socket) => {

@@ -72,19 +72,12 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
         elevation: 0,
         title: Text('${settings.translate('full_scorecard')} ${match['status'] == 'live' ? '• LIVE' : ''}', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
         actions: [
-          if (match['status'] == 'completed')
+          if (['completed', 'abandoned', 'cancelled'].contains(match['status']))
             IconButton(
               icon: Icon(Icons.picture_as_pdf),
               onPressed: () => _exportToPDF(settings),
               tooltip: 'Export to PDF',
             ),
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: () {
-               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Refreshing...'), duration: Duration(milliseconds: 500)));
-               _fetchMatchUpdate();
-            },
-          ),
           IconButton(
             icon: Icon(Icons.close),
             onPressed: () => Navigator.pop(context),
