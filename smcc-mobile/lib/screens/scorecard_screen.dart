@@ -433,22 +433,30 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
     );
   }
   String _calculateWinner(dynamic match) {
-    List<dynamic> innings = match['innings'] ?? [];
+    List innings = match['innings'] ?? [];
     if (innings.length < 2) return "Match Completed";
-    
-    var inn1 = innings[0];
-    var inn2 = innings[1];
-    
-    int runs1 = inn1['runs'] ?? 0;
-    int runs2 = inn2['runs'] ?? 0;
-    
-    if (runs1 > runs2) {
-      return "${inn1['team']} won by ${runs1 - runs2} runs";
-    } else if (runs2 >= runs1) {
-      int wkts = 10 - ((inn2['wickets'] ?? 0) as num).toInt();
-      return "${inn2['team']} won by $wkts wickets";
+
+    dynamic inn1, inn2;
+    if (innings.length >= 4) {
+      inn2 = innings[innings.length - 1];
+      inn1 = innings[innings.length - 2];
+    } else {
+      inn1 = innings[0];
+      inn2 = innings[1];
     }
-    return "Match Drawn";
+
+    int r1 = (inn1['runs'] as num).toInt();
+    int r2 = (inn2['runs'] as num).toInt();
+
+    if (r1 > r2) {
+      if (innings.length > 2) return "${inn1['team'].toString().toUpperCase()} WON (SUPER OVER)";
+      return "${inn1['team'].toString().toUpperCase()} WON BY ${r1 - r2} RUNS";
+    } else if (r2 > r1) {
+      if (innings.length > 2) return "${inn2['team'].toString().toUpperCase()} WON (SUPER OVER)";
+      int wickets = 10 - (inn2['wickets'] as num).toInt();
+      return "${inn2['team'].toString().toUpperCase()} WON BY $wickets WICKETS";
+    }
+    return "MATCH TIED";
   }
 
   String _toCamelCase(String text) {

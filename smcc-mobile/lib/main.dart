@@ -4,8 +4,13 @@ import 'screens/home_screen.dart';
 import 'providers/settings_provider.dart';
 import 'services/api_service.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'services/notification_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  await NotificationService.initialize();
   ApiService.warmup(); // Start waking up the server instantly
   await ApiService.init();
   runApp(

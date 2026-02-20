@@ -22,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   int _blastValue = 0;
   String? _blastMatchId;
+  bool _showBlast = false;
 
   @override
   void initState() {
@@ -50,7 +51,12 @@ class _HomeScreenState extends State<HomeScreen> {
                _blastMatchId = data['_id'] ?? data['id'];
                _showBlast = true;
                Future.delayed(Duration(seconds: 3), () {
-                  if (mounted) setState(() => _blastMatchId = null);
+                  if (mounted) {
+                    setState(() {
+                      _blastMatchId = null;
+                      _showBlast = false;
+                    });
+                  }
                });
             }
             matches[index] = data;
@@ -114,14 +120,51 @@ class _HomeScreenState extends State<HomeScreen> {
         toolbarHeight: 80,
         title: Row(
           children: [
-            Image.asset('assets/logo.png', height: 40),
-            SizedBox(width: 10),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.blue.shade800, width: 2),
+                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(25),
+                    child: Image.asset('assets/logo.png', height: 45, width: 45),
+                  ),
+                ),
+                Positioned(
+                  bottom: -2,
+                  right: -2,
+                  child: Container(
+                    padding: EdgeInsets.all(2),
+                    decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 2)]),
+                    child: Text('🏏', style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('SMCC LIVE', style: TextStyle(color: Colors.blue.shade800, fontWeight: FontWeight.w900, fontSize: 18)),
-                  Text(settings.translate('live_scores'), style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  Row(
+                    children: [
+                      Text('S METTUR CRICKET COUNCIL', 
+                        style: TextStyle(
+                          color: Colors.blue.shade900, 
+                          fontWeight: FontWeight.w900, 
+                          fontSize: 14, 
+                          letterSpacing: 0.5
+                        )
+                      ),
+                      SizedBox(width: 6),
+                      _PulseIndicator(),
+                    ],
+                  ),
+                  Text(settings.translate('live_scores'), style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 ],
               ),
             ),
@@ -144,6 +187,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: _buildMainContent(settings),
     );
+  }
+
+  Widget _PulseIndicator() {
+    return _PulsingDot();
   }
 
   Widget _buildMainContent(SettingsProvider settings) {
@@ -211,8 +258,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }
   
-                  int crossAxisCount = constraints.maxWidth > 700 ? 2 : 1;
-  
                   return SingleChildScrollView(
                     physics: AlwaysScrollableScrollPhysics(), // Ensure scrollable for RefreshIndicator
                     padding: EdgeInsets.all(16),
@@ -221,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         // LIVE Section
                         if (matches.any((m) => m['status'] == 'live' || (m['status'] == 'upcoming' && m['toss'] != null && m['toss']['winner'] != null))) ...[
-                          _buildSectionHeader(settings.translate('live').toUpperCase(), Colors.red, false),
+                          _buildSectionHeader(settings.translate('live').toUpperCase(), Colors.red, null, false),
                           ..._buildMatchesByDate(matches.where((m) => m['status'] == 'live' || (m['status'] == 'upcoming' && m['toss'] != null && m['toss']['winner'] != null)).toList(), settings),
                           SizedBox(height: 30),
                         ],
@@ -283,11 +328,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title, Color color, bool animate) {
+  Widget _buildSectionHeader(String title, Color color, IconData? icon, bool animate) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12, left: 4),
       child: Row(
         children: [
+          if (icon != null) ...[
+            Icon(icon, size: 16, color: color),
+            SizedBox(width: 8),
+          ],
           Text(title, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: color, letterSpacing: 1.2)),
           Spacer(),
           Container(height: 1, width: 40, color: color.withOpacity(0.2)),
@@ -368,7 +417,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _formatDateHeadline(String dateStr) {
     try {
       DateTime dt = DateTime.parse(dateStr);
-      // Format: Monday, 02 February 2026
       return "${_getWeekday(dt.weekday)}, ${dt.day.toString().padLeft(2, '0')} ${_getMonthName(dt.month)} ${dt.year}";
     } catch (e) {
       return dateStr;
@@ -497,14 +545,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildRRRDisplay(dynamic match, SettingsProvider settings) {
     if (match['score']?['target'] == null) return SizedBox.shrink();
 
-    int runsNeeded = (match['score']['target'] as int) - (match['score']['runs'] as int);
+    num runsScored = match['score']?['runs'] ?? 0;
+    int target = (match['score']['target'] as num).toInt();
+    int runsNeeded = target - runsScored.toInt();
     if (runsNeeded < 0) runsNeeded = 0;
+    
     int totalBalls = (match['totalOvers'] as int) * 6;
     double currentOvers = (match['score']['overs'] as num).toDouble();
     
-    // If no batsmen are on field, it's eitherinnings break or start of innings 2
     bool isTransition = (match['currentBatsmen'] == null || (match['currentBatsmen'] as List).isEmpty);
-    
     int ballsBowled = isTransition ? 0 : (currentOvers.floor() * 6) + ((currentOvers * 10) % 10).round().toInt();
     int ballsRemaining = (totalBalls - ballsBowled).clamp(0, totalBalls);
     
@@ -535,12 +584,12 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Target: ${match['score']['target']}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
-                  if (match['score']['runs'] > 0 || match['score']['overs'] > 0)
+                  Text('Target: $target', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
+                  if (runsScored > 0 || currentOvers > 0)
                     Text('RRR: ${rrr.toStringAsFixed(2)}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
                 ],
               ),
-              if (match['score']['runs'] > 0 || match['score']['overs'] > 0) ...[
+              if (runsScored > 0 || currentOvers > 0) ...[
                 SizedBox(height: 4),
                 Text(
                   '$runsNeeded ${settings.translate('runs_needed')} ${settings.translate('from')} $ballsRemaining ${settings.translate('balls_remaining')}',
@@ -576,7 +625,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: (match['currentBatsmen'] as List? ?? []).map((b) => Text(
+                  children: (match['currentBatsmen'] as List? ?? []).map<Widget>((b) => Text(
                     '${b['onStrike'] == true ? "🏏 " : ""}${b['name']}: ${b['runs']}(${b['balls']})',
                     style: TextStyle(fontSize: 10, fontWeight: b['onStrike'] == true ? FontWeight.bold : FontWeight.normal),
                   )).toList(),
@@ -598,7 +647,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: (match['score']['thisOver'] as List).map((ball) => Container(
+                      children: (match['score']['thisOver'] as List).map<Widget>((ball) => Container(
                         margin: EdgeInsets.symmetric(horizontal: 2),
                         padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
@@ -642,14 +691,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _calculateWinnerInfo(dynamic match) {
-    if (match['innings'] == null || (match['innings'] as List).length < 2) return "MATCH COMPLETED";
-    var inn1 = match['innings'][0];
-    var inn2 = match['innings'][1];
+    List innings = match['innings'] ?? [];
+    if (innings.length < 2) return "MATCH COMPLETED";
+
+    dynamic inn1, inn2;
+    if (innings.length >= 4) {
+      inn2 = innings[innings.length - 1];
+      inn1 = innings[innings.length - 2];
+    } else {
+      inn1 = innings[0];
+      inn2 = innings[1];
+    }
+
     int r1 = (inn1['runs'] as num).toInt();
     int r2 = (inn2['runs'] as num).toInt();
-    if (r1 > r2) return "${inn1['team'].toString().toUpperCase()} WON BY ${r1 - r2} RUNS";
-    if (r2 > r1) return "${inn2['team'].toString().toUpperCase()} WON BY ${10 - (inn2['wickets'] as num).toInt()} WICKETS";
-    return "MATCH DRAWN";
+
+    if (r1 > r2) {
+      if (innings.length > 2) return "${inn1['team'].toString().toUpperCase()} WON (SUPER OVER)";
+      return "${inn1['team'].toString().toUpperCase()} WON BY ${r1 - r2} RUNS";
+    } else if (r2 > r1) {
+      if (innings.length > 2) return "${inn2['team'].toString().toUpperCase()} WON (SUPER OVER)";
+      int wickets = 10 - (inn2['wickets'] as num).toInt();
+      return "${inn2['team'].toString().toUpperCase()} WON BY $wickets WICKETS";
+    }
+    return "MATCH TIED";
   }
 
   bool _hasTeamBatted(dynamic match, String team) {
@@ -658,10 +723,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildMatchStatusMessage(dynamic match, SettingsProvider settings) {
     if (match['score']?['target'] != null) {
-      int runsNeeded = (match['score']['target'] as int) - (match['score']['runs'] as int);
+      num runsScored = match['score']?['runs'] ?? 0;
+      int target = (match['score']['target'] as num).toInt();
+      int runsNeeded = target - runsScored.toInt();
       int totalBalls = (match['totalOvers'] as int) * 6;
       double currentOvers = (match['score']['overs'] as num).toDouble();
-      int ballsBowled = (currentOvers.floor() * 6) + ((currentOvers * 10) % 10).round();
+      int ballsBowled = (currentOvers.floor() * 6) + ((currentOvers * 10) % 10).round().toInt();
       int ballsRemaining = totalBalls - ballsBowled;
 
       return Text(
@@ -679,5 +746,38 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     return SizedBox.shrink();
+  }
+}
+
+class _PulsingDot extends StatefulWidget {
+  @override
+  __PulsingDotState createState() => __PulsingDotState();
+}
+
+class __PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: Duration(seconds: 1))..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _controller,
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+      ),
+    );
   }
 }
