@@ -310,6 +310,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
          String outPlayerName = wDetail?['whoOut'] ?? striker;
          bool crossed = wDetail?['crossed'] ?? false;
          int completedRuns = wDetail?['runs'] ?? 0;
+         String ballType = wDetail?['ballStatus'] ?? 'normal'; // normal, wide, nb, mankad
 
          if (completedRuns > 0) {
             currentInnings['runs'] += completedRuns;
@@ -317,6 +318,22 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
             currentBowling['bowling'][bIdx]['runs'] += completedRuns;
          }
          
+         if (ballType == 'wide') {
+            currentInnings['runs'] += 1;
+            currentInnings['extras']['wides'] = (currentInnings['extras']['wides'] ?? 0) + 1;
+            currentInnings['extras']['total'] = (currentInnings['extras']['total'] ?? 0) + 1;
+            currentBowling['bowling'][bIdx]['runs'] += 1;
+            ballCounts = false;
+         } else if (ballType == 'no-ball') {
+            currentInnings['runs'] += 1;
+            currentInnings['extras']['noBalls'] = (currentInnings['extras']['noBalls'] ?? 0) + 1;
+            currentInnings['extras']['total'] = (currentInnings['extras']['total'] ?? 0) + 1;
+            currentBowling['bowling'][bIdx]['runs'] += 1;
+            ballCounts = false;
+         } else if (ballType == 'mankad') {
+            ballCounts = false;
+         }
+
          if (wDetail != null) {
             String t = wDetail['type'];
             String f = wDetail['fielder'] ?? '';
@@ -333,16 +350,19 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
 
          currentInnings['batting'][targetIdx]['status'] = outStatus;
          if (wDetail?['type'] != 'run out') currentBowling['bowling'][bIdx]['wickets'] += 1;
-         currentInnings['batting'][sIdx]['balls'] += 1; 
+         
+         if (ballType != 'mankad' && (ballType == 'normal' || wDetail?['type'] != 'stumped')) {
+            // Regular wickets count as balls unless wide/nb/mankad
+            // Stumped on a wide is already handled by ballCounts=false
+            if (ballCounts) currentInnings['batting'][sIdx]['balls'] += 1;
+         }
 
          // Update currentBatsmen: mark out player slot as empty
          List<dynamic> cb = List<dynamic>.from(updatedMatch['currentBatsmen'] ?? []);
          for (int i = 0; i < cb.length; i++) {
             if (cb[i]['name'] == outPlayerName) {
                cb[i]['name'] = ''; 
-               // If run out, the one who is out might be the onStrike one or not.
-               // We need to keep one slot empty for the new batsman.
-            } else if (crossed) {
+            } else if (crossed && ballType != 'mankad') {
                cb[i]['onStrike'] = !cb[i]['onStrike'];
             }
          }
@@ -361,7 +381,6 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
           });
       } else if (type == 'retire') {
          currentInnings['batting'][sIdx]['status'] = 'retired hurt';
-         // Ball doesn't count if retired? Depends on rules, usually treated as not out but replaced.
       }
 
       if (ballCounts) {
@@ -369,6 +388,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
          int balls = ((overs.floor() * 6) + ((overs * 10) % 10).round()).toInt() + 1;
          if (balls % 6 == 0) {
              currentInnings['overs'] = (balls / 6).toDouble();
+             updatedMatch['score']['lastOverBowler'] = bowler; // Track for Law 17.8
              var t = curBatsmen[0]['onStrike'];
              curBatsmen[0]['onStrike'] = curBatsmen[1]['onStrike'];
              curBatsmen[1]['onStrike'] = t;
@@ -407,28 +427,44 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
       updatedMatch['score']['overs'] = currentInnings['overs'];
 
       // Completion Logic
-      bool isAllOut = currentInnings['wickets'] >= 10;
-      bool isOversCompleted = currentInnings['overs'] >= updatedMatch['totalOvers'];
+      bool isSuperOver = inningsList.length > 2;
+      bool isAllOut = currentInnings['wickets'] >= (isSuperOver ? 2 : 10);
+      bool isOversCompleted = currentInnings['overs'] >= (isSuperOver ? 1 : updatedMatch['totalOvers']);
       bool targetChased = updatedMatch['score']['target'] != null && currentInnings['runs'] >= updatedMatch['score']['target'];
 
       if (isAllOut || isOversCompleted || targetChased) {
           if (updatedMatch['score']['target'] == null) {
               updatedMatch['score']['target'] = (currentInnings['runs'] as int) + 1;
               String nextBatTeam = updatedMatch['score']['battingTeam'] == updatedMatch['teamA'] ? updatedMatch['teamB'] : updatedMatch['teamA'];
-              // Auto switch or alert
+              
               _showSnackBar('Innings Over! Target: ${updatedMatch['score']['target']}');
+              
+              // Push new innings if SO first half ended
+              if (isSuperOver && inningsList.length % 2 != 0) {
+                 inningsList.add({
+                   'team': nextBatTeam, 'runs': 0, 'wickets': 0, 'overs': 0, 'batting': [], 'bowling': [], 
+                   'extras': {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0}
+                 });
+              }
+
               updatedMatch['score']['battingTeam'] = nextBatTeam;
               updatedMatch['score']['runs'] = 0; updatedMatch['score']['wickets'] = 0; updatedMatch['score']['overs'] = 0;
-              currentInnings['runs'] = 0; currentInnings['wickets'] = 0; currentInnings['overs'] = 0;
-              currentInnings['batting'] = []; currentInnings['bowling'] = [];
-              currentInnings['extras'] = {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0};
-              if (currentInnings.containsKey('fallOfWickets')) currentInnings['fallOfWickets'] = [];
-
+              updatedMatch['score']['thisOver'] = [];
+              
               updatedMatch['currentBatsmen'] = []; updatedMatch['currentBowler'] = null;
             } else {
-              updatedMatch['status'] = 'completed';
-              updatedMatch['manOfTheMatch'] = _calculateMOM(updatedMatch);
-              _showSnackBar('Match Completed!', isError: false);
+              // Pair of innings just ended (2nd, 4th, 6th...)
+              var prevInnings = inningsList[battingIdx - 1];
+              if (currentInnings['runs'] == prevInnings['runs']) {
+                 // TIE
+                 updatedMatch['status'] = 'live'; 
+                 _showSuperOverDialog();
+                 _showSnackBar('Scores are Level! Match Tied.', isError: false);
+              } else {
+                 updatedMatch['status'] = 'completed';
+                 updatedMatch['manOfTheMatch'] = _calculateMOM(updatedMatch);
+                 _showSnackBar('Match Completed!', isError: false);
+              }
           }
       }
     }
@@ -455,7 +491,11 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
     }
     else if (type == 'new_bowler') {
         if (updatedMatch['currentBowler'] == value) {
-           _showSnackBar('A bowler cannot bowl two overs in a row!', isError: true);
+           _showSnackBar('This bowler was already bowling! Select a different replacement.', isError: true);
+           return;
+        }
+        if (updatedMatch['score']['lastOverBowler'] == value) {
+           _showSnackBar('A bowler cannot bowl two overs in a row! This player bowled the previous over.', isError: true);
            return;
         }
 
@@ -490,23 +530,109 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
   String? _calculateMOM(Map<String, dynamic> m) {
     try {
       if (m['innings'] == null || (m['innings'] as List).length < 2) return null;
-      var inn1 = m['innings'][0]; var inn2 = m['innings'][1];
-      String? winner;
-      if (inn1['runs'] > inn2['runs']) winner = inn1['team'];
-      else if (inn2['runs'] > inn1['runs']) winner = inn2['team'];
-      if (winner == null) return null;
-
-      var winInn = m['innings'].firstWhere((i) => i['team'] == winner);
-      var loseInn = m['innings'].firstWhere((i) => i['team'] != winner);
-
+      
       Map<String, double> scores = {};
-      (winInn['batting'] as List).forEach((p) => scores[p['player']] = (p['runs'] as num).toDouble());
-      (winInn['bowling'] as List).forEach((p) => scores[p['player']] = (scores[p['player']] ?? 0) + (p['wickets'] as num) * 20); // Web used 25, I'll use 20 here or match web
+      
+      for (var inn in (m['innings'] as List)) {
+        for (var p in (inn['batting'] as List)) {
+          String name = p['player'];
+          scores[name] = (scores[name] ?? 0) + (p['runs'] as num).toDouble();
+        }
+        for (var p in (inn['bowling'] as List)) {
+          String name = p['player'];
+          scores[name] = (scores[name] ?? 0) + (p['wickets'] as num).toDouble() * 25.0; // Matching web (25)
+        }
+      }
       
       String? best; double max = -1;
       scores.forEach((name, s) { if (s > max) { max = s; best = name; } });
       return best;
     } catch (_) { return null; }
+  }
+
+  void _showSuperOverDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.flash_on, color: Colors.orange),
+            SizedBox(width: 10),
+            Text('SUPER OVER', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('The scores are level! A Super Over is required to decide the winner.', style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 15),
+            Text('• 1 Over per side\n• 2 Wickets per side\n• Chasing team bats first', style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            child: Text('DECLARE TIE', style: TextStyle(color: Colors.grey[600])),
+            onPressed: () {
+              Navigator.pop(context);
+              _handleDeclareTie();
+            },
+          ),
+          ElevatedButton(
+            child: Text('START SUPER OVER'),
+            style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            onPressed: () {
+              Navigator.pop(context);
+              _startSuperOver();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startSuperOver() {
+    var updatedMatch = Map<String, dynamic>.from(match);
+    List<dynamic> inningsList = List<dynamic>.from(updatedMatch['innings']);
+    
+    String nextBattingTeam;
+    if (inningsList.length == 2) {
+      // End of main match
+      nextBattingTeam = inningsList[0]['team'];
+    } else {
+      // End of previous SO
+      nextBattingTeam = inningsList[inningsList.length - 2]['team'];
+    }
+    
+    // Add first innings of SO pair
+    inningsList.add({
+      'team': nextBattingTeam, 'runs': 0, 'wickets': 0, 'overs': 0, 'batting': [], 'bowling': [], 
+      'extras': {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0}
+    });
+    
+    updatedMatch['innings'] = inningsList;
+    updatedMatch['score'] = {
+      'battingTeam': nextBattingTeam,
+      'runs': 0, 'wickets': 0, 'overs': 0,
+      'thisOver': [],
+      'target': null
+    };
+    updatedMatch['isSuperOver'] = true;
+    updatedMatch['currentBatsmen'] = [];
+    updatedMatch['currentBowler'] = null;
+    updatedMatch['status'] = 'live';
+    
+    _handleUpdate('manual', updatedMatch);
+    _showSnackBar('Super Over Started! ${nextBattingTeam} batting first.', isError: false);
+  }
+
+  void _handleDeclareTie() {
+    var updatedMatch = Map<String, dynamic>.from(match);
+    updatedMatch['status'] = 'completed';
+    updatedMatch['manOfTheMatch'] = _calculateMOM(updatedMatch);
+    _handleUpdate('manual', updatedMatch);
+    _showSnackBar('Match declared as a TIE!');
   }
 
   // --- UI COMPONENTS ---
@@ -1398,6 +1524,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
     String whoOut = strikerName;
     bool crossed = false;
     int runsCompleted = 0;
+    String ballStatus = 'normal';
 
     showDialog(context: context, builder: (context) {
        return StatefulBuilder(builder: (context, setState) {
@@ -1412,19 +1539,31 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                  SizedBox(height: 15),
                  if (['caught', 'run out', 'stumped'].contains(type.toLowerCase()))
                     _buildDropdown('Fielder', fielder.isEmpty && fieldSquad.isNotEmpty ? (fielder = fieldSquad[0]) : fielder, fieldSquad, (v) => setState(() => fielder = v)),
-                 
+                 if (['run out', 'stumped'].contains(type.toLowerCase())) ... [
+                    SizedBox(height: 15),
+                    _buildDropdown('Ball Category', ballStatus.toUpperCase(), ['NORMAL', 'WIDE', if (type.toLowerCase() == 'run out') 'NO-BALL', if (type.toLowerCase() == 'run out') 'MANKAD'], (v) => setState(() => ballStatus = v.toLowerCase())),
+                 ],
+
                  if (type.toLowerCase() == 'run out') ...[
                     SizedBox(height: 15),
-                    _buildDropdown('Who is Out?', whoOut, [strikerName, nonStrikerName].where((n) => n.isNotEmpty).toList(), (v) => setState(() => whoOut = v)),
-                    SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Batters Crossed?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        Switch(value: crossed, activeColor: primaryColor, onChanged: (v) => setState(() => crossed = v)),
-                      ],
-                    ),
-                    _buildDropdown('Runs Completed', runsCompleted.toString(), ['0', '1', '2', '3'], (v) => setState(() => runsCompleted = int.parse(v))),
+                    _buildDropdown('Who is Out?', whoOut, [strikerName, nonStrikerName].where((n) => n.isNotEmpty).toList(), (v) {
+                       if (ballStatus == 'mankad' && v == strikerName) {
+                         _showSnackBar('Mankad only applies to non-striker!', isError: true);
+                         return;
+                       }
+                       setState(() => whoOut = v);
+                    }),
+                    if (ballStatus != 'mankad') ...[
+                       SizedBox(height: 10),
+                       Row(
+                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                         children: [
+                           Text('Batters Crossed?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                           Switch(value: crossed, activeColor: primaryColor, onChanged: (v) => setState(() => crossed = v)),
+                         ],
+                       ),
+                       _buildDropdown('Runs Completed', runsCompleted.toString(), ['0', '1', '2', '3'], (v) => setState(() => runsCompleted = int.parse(v))),
+                    ]
                  ]
                ],
              ),
@@ -1437,7 +1576,8 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                   'fielder': fielder,
                   'whoOut': whoOut,
                   'crossed': crossed,
-                  'runs': runsCompleted
+                  'runs': runsCompleted,
+                  'ballStatus': ballStatus
                 });
                 Navigator.pop(context);
                 _showNewBatsmanDialog();
@@ -1458,8 +1598,12 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
         List<dynamic> bStats = batIdx != -1 ? (inningsList[batIdx]['batting'] ?? []) : [];
         List<String> alreadyBatted = bStats.map((p) => p['player'].toString()).toList();
         
-        // Players who haven't come to bat yet
-        List<dynamic> availableBatsmen = squad.where((p) => !alreadyBatted.contains(p)).toList();
+        // Players who haven't come to bat yet OR retired hurt players (Law 25.4)
+        List<dynamic> availableBatsmen = squad.where((p) {
+           var stats = bStats.firstWhere((s) => s['player'] == p, orElse: () => null);
+           if (stats == null) return true; // Hasn't batted
+           return stats['status'] == 'retired hurt'; // Can return to bat
+        }).toList();
         
         if (availableBatsmen.isEmpty) {
           _showSnackBar('No more batsmen available in the squad!', isError: true);
@@ -1604,55 +1748,4 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
      );
   }
 
-
-  void _showSuperOverDialog() {
-    showDialog(context: context, builder: (context) {
-      return AlertDialog(
-        title: Text('⚔️ Start Super Over', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('This will start a 1-over tie-breaker match. The current score history will be preserved.\n\nAre you sure?'),
-        actions: [
-          TextButton(child: Text('Cancel'), onPressed: () => Navigator.pop(context)),
-          ElevatedButton(
-            child: Text('START SUPER OVER'), 
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white), 
-            onPressed: () {
-               Navigator.pop(context);
-               _initSuperOver();
-            }
-          )
-        ],
-      );
-    });
-  }
-
-  void _initSuperOver() {
-    var newMatch = Map<String, dynamic>.from(match);
-    
-    // Archive previous innings to preserve history
-    newMatch['previousInnings'] = newMatch['innings'];
-    
-    // Reset for fresh start (Super Over)
-    newMatch['innings'] = [];
-    newMatch['status'] = 'live'; 
-    newMatch['totalOvers'] = 1;
-    newMatch['isSuperOver'] = true;
-    newMatch['manOfTheMatch'] = null;
-    
-    // Force toss/choice for Super Over to trigger "Conduct Toss"
-    newMatch['toss'] = null; 
-    
-    newMatch['score'] = {
-        'battingTeam': '', 
-        'runs': 0,
-        'wickets': 0,
-        'overs': 0,
-        'target': null,
-        'thisOver': []
-    };
-    newMatch['currentBatsmen'] = [];
-    newMatch['currentBowler'] = null;
-
-    setState(() { match = newMatch; });
-    _saveMatch();
-  }
 }

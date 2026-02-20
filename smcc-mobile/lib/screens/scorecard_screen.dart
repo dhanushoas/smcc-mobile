@@ -195,9 +195,9 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
                  _ruleItem('Wide: 1 Run + Re-bowl (Strict leg-side).'),
                  _ruleItem('No Ball: 1 Run + Re-bowl + Free Hit.'),
                  _ruleItem('Dismissals: Bowled, Caught, Run Out, Stumped, Hit Wicket (No LBW).'),
-                 _ruleItem('Tie Breaker: Super Over.'),
-                 _ruleItem('Substitutes: Concussion substitute allowed.'),
-                 _ruleItem('Umpire Decision: Umpire decision is final, no more arguments.'),
+                 _ruleItem('Super Over Rules: 1 Over, 2 Wickets.'),
+                 _ruleItem('SO Batting: Chasing team bats first in SO 1.'),
+                 _ruleItem('Umpire Decision: Umpire decision is final.'),
               ],
             ),
           ),
@@ -235,11 +235,11 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
     List<dynamic> batting = innings['batting'] ?? [];
     
     // Find bowling for this innings
-    // The bowling team is the OTHER team in the match
-    int bowlingInningsIdx = inningsIdx == 0 ? 1 : 0;
+    // Pairings: 0-1, 2-3, 4-5...
+    int bowlingInningsIdx = inningsIdx % 2 == 0 ? inningsIdx + 1 : inningsIdx - 1;
     List<dynamic> bowling = [];
-    if (match['innings'] != null && match['innings'].length > bowlingInningsIdx) {
-       bowling = match['innings'][bowlingInningsIdx]['bowling'] ?? [];
+    if (match['innings'] != null && (match['innings'] as List).length > bowlingInningsIdx) {
+       bowling = (match['innings'] as List)[bowlingInningsIdx]['bowling'] ?? [];
     }
     
     return Column(
@@ -251,7 +251,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(innings['team'], style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text(inningsIdx >= 2 ? 'SUPER OVER (${innings['team']})' : innings['team'].toUpperCase(), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               Text('${innings['runs']}/${innings['wickets']} (${innings['overs']})', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
             ],
           ),

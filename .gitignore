@@ -1,1 +1,9 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+smcc-web/node_modules/
+smcc-web/dist/
+smcc-backend/node_modules/
 smcc-backend/.env

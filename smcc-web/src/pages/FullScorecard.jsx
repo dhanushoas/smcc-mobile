@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Container, Card, Table, Nav, Spinner, Button, Row, Col } from 'react-bootstrap';
+import { Container, Card, Table, Nav, Spinner, Button, Row, Col, Badge } from 'react-bootstrap';
 import { io } from 'socket.io-client';
 import { useApp } from '../AppContext';
 import { jsPDF } from 'jspdf';
@@ -26,9 +26,18 @@ const FullScorecard = () => {
         try {
             const res = await axios.get(`${API_URL}/api/matches/${id}`);
             setMatch(res.data);
-            if (res.data.status === 'live') {
-                const idx = res.data.innings.findIndex(inn => inn.team === res.data.score.battingTeam);
-                if (idx !== -1) setActiveInnings(idx);
+            if (res.data.status === 'live' || res.data.status === 'completed') {
+                const bTeam = res.data.score?.battingTeam;
+                if (bTeam) {
+                    const reversed = [...res.data.innings].map((inn, i) => ({ ...inn, idx: i })).reverse();
+                    const activeInn = reversed.find(inn =>
+                        inn.team?.trim().toLowerCase() === bTeam.trim().toLowerCase()
+                    );
+                    if (activeInn) setActiveInnings(activeInn.idx);
+                    else setActiveInnings(res.data.innings.length - 1);
+                } else {
+                    setActiveInnings(res.data.innings.length - 1);
+                }
             }
         } catch (err) {
             console.error("Error fetching match", err);
@@ -49,28 +58,51 @@ const FullScorecard = () => {
     const downloadPDF = () => {
         const doc = new jsPDF();
         doc.setFontSize(18);
-        doc.text(`${match.teamA} vs ${match.teamB} - Full Scorecard`, 14, 20);
+        doc.setFont(undefined, 'bold');
+        doc.text(`${match.teamA.toUpperCase()} VS ${match.teamB.toUpperCase()} - FULL SCORECARD`, 14, 20);
         doc.setFontSize(10);
-        doc.text(`Series: ${match.series || 'SMCC'} | Venue: ${match.venue} | Date: ${new Date(match.date).toDateString()} ${formatTime(match.date)}`, 14, 30);
+        doc.setFont(undefined, 'normal');
+        doc.text(`SERIES: ${(match.series || 'SMCC').toUpperCase()} | VENUE: ${match.venue.toUpperCase()} | DATE: ${new Date(match.date).toDateString().toUpperCase()} ${formatTime(match.date).toUpperCase()}`, 14, 30);
 
         (match.innings || []).forEach((inn, idx) => {
-            const startY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 15 : 40;
-            doc.setFontSize(14);
-            doc.text(`${inn.team} Innings: ${inn.runs}/${inn.wickets} (${inn.overs} Ov)`, 14, startY);
+            if (idx >= 2 && inn.runs === 0 && inn.wickets === 0 && (!inn.batting || inn.batting.length === 0)) {
+                return;
+            }
 
-            const battingData = (inn.batting || []).map(b => [b.player, b.status, b.runs, b.balls, b.fours, b.sixes, b.strikeRate]);
+            let startY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 15 : 40;
+
+            if (idx === 2) {
+                // Force super over cleanly onto page 2
+                doc.addPage();
+                startY = 20;
+            } else if (idx !== 2 && startY > 260) {
+                // Emergency break if content is way too long
+                doc.addPage();
+                startY = 20;
+            }
+
+            const getOrdinal = (n) => { const s = ["th", "st", "nd", "rd"]; const v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+            const title = `${inn.team.toUpperCase()} ${getOrdinal(idx + 1).toUpperCase()} INNINGS${idx >= 2 ? ' (SUPER OVER)' : ''}`;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text(`${title}: ${inn.runs}/${inn.wickets} (${inn.overs} OV)`, 14, startY);
+            doc.setFont(undefined, 'normal');
+
+            const battingData = (inn.batting || []).map(b => [b.player.toUpperCase(), b.status.toUpperCase(), b.runs, b.balls, b.fours, b.sixes, b.strikeRate]);
             const extras = inn.extras || { total: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0 };
 
-            autoTable(doc, {
-                startY: startY + 5,
-                head: [['Batter', 'Status', 'R', 'B', '4s', '6s', 'SR']],
-                body: [
-                    ...battingData,
-                    ['Extras', '', extras.total, `(wd ${extras.wides}, nb ${extras.noBalls}, b ${extras.byes}, lb ${extras.legByes})`, '', '', '']
-                ],
-                theme: 'grid',
-                headStyles: { fillColor: [0, 146, 112] }
-            });
+            if (battingData.length > 0 || extras.total > 0) {
+                autoTable(doc, {
+                    startY: startY + 8,
+                    head: [['Batter', 'Status', 'R', 'B', '4s', '6s', 'SR']],
+                    body: [
+                        ...battingData,
+                        ['Extras', '', extras.total, `(wd ${extras.wides}, nb ${extras.noBalls}, b ${extras.byes}, lb ${extras.legByes})`, '', '', '']
+                    ],
+                    theme: 'grid',
+                    headStyles: { fillColor: [0, 146, 112] }
+                });
+            }
 
             const breakdown = [
                 `Dots: ${inn.dots || 0}`, `1s: ${inn.ones || 0}`, `2s: ${inn.twos || 0}`,
@@ -78,23 +110,103 @@ const FullScorecard = () => {
             ].join(' | ');
             doc.setFontSize(9);
             doc.setTextColor(100);
-            doc.text(`Hit Breakdown: ${breakdown}`, 14, doc.lastAutoTable.finalY + 7);
+            doc.setFont(undefined, 'bold');
+            doc.text(`HIT BREAKDOWN: `, 14, doc.lastAutoTable.finalY + 8);
+            doc.setFont(undefined, 'normal');
+            doc.text(breakdown, 45, doc.lastAutoTable.finalY + 8);
 
-            const bowlingTeam = idx === 0 ? match.innings[1]?.bowling : match.innings[0]?.bowling;
-            if (bowlingTeam && bowlingTeam.length > 0) {
+            const bowlingTeamIdx = idx % 2 === 0 ? idx + 1 : idx - 1;
+            const bowlingInn = match.innings[bowlingTeamIdx];
+            if (bowlingInn && bowlingInn.bowling && bowlingInn.bowling.length > 0) {
                 autoTable(doc, {
-                    startY: doc.lastAutoTable.finalY + 12,
+                    startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 16 : startY + 16,
                     head: [['Bowler', 'O', 'M', 'R', 'W', 'WD', 'NB', 'ECO']],
-                    body: bowlingTeam.map(b => [b.player, b.overs, b.maidens, b.runs, b.wickets, b.wides || 0, b.noBalls || 0, b.economy]),
+                    body: bowlingInn.bowling.map(b => [b.player.toUpperCase(), b.overs, b.maidens, b.runs, b.wickets, b.wides || 0, b.noBalls || 0, b.economy]),
                     theme: 'grid',
                     headStyles: { fillColor: [34, 34, 34] }
                 });
             }
+
+            // Fall of Wickets
+            if (inn.fallOfWickets && inn.fallOfWickets.length > 0) {
+                doc.setFontSize(10);
+                doc.setTextColor(150, 0, 0);
+                doc.setFont(undefined, 'bold');
+                doc.text("FALL OF WICKETS", 14, doc.lastAutoTable ? doc.lastAutoTable.finalY + 14 : startY + 14);
+                doc.setFont(undefined, 'normal');
+                autoTable(doc, {
+                    startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 18 : startY + 18,
+                    head: [['Wkt', 'Score', 'Over', 'Player']],
+                    body: inn.fallOfWickets.map(f => [f.wicket, f.runs, f.overs, f.player.toUpperCase()]),
+                    theme: 'plain',
+                    styles: { fontSize: 9 }
+                });
+            }
+
+            // Did not bat
+            const battingTeamName = inn.team;
+            const squad = battingTeamName === match.teamA ? match.teamASquad : match.teamBSquad;
+            if (squad && squad.length > 0) {
+                const battedPlayers = (inn.batting || []).map(b => b.player);
+                const yetToBat = squad.filter(p => p && p.trim() !== '' && !battedPlayers.includes(p));
+                if (yetToBat.length > 0) {
+                    const didNotBatY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 12 : startY + 12;
+                    doc.setFontSize(9);
+                    doc.setTextColor(100);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`DID NOT BAT: `, 14, didNotBatY);
+                    doc.setFont(undefined, 'normal');
+                    const textLines = doc.splitTextToSize(`${yetToBat.map(p => p.toUpperCase()).join(', ')}`, 150);
+                    doc.text(textLines, 40, didNotBatY);
+                    if (doc.lastAutoTable) {
+                        doc.lastAutoTable.finalY = didNotBatY + (textLines.length * 4);
+                    }
+                }
+            }
         });
 
-        if (match.manOfTheMatch) {
-            doc.setFontSize(12);
-            doc.text(`Man of the Match: ${match.manOfTheMatch}`, 14, doc.lastAutoTable.finalY + 15);
+        if (match.status === 'completed') {
+            const winnerString = (() => {
+                const innings = match.innings || [];
+                if (innings.length < 2) return null;
+                let inn1, inn2;
+                if (innings.length >= 4) {
+                    const lastIdx = innings.length - 1;
+                    inn2 = innings[lastIdx];
+                    inn1 = innings[lastIdx - 1];
+                } else {
+                    inn1 = innings[0];
+                    inn2 = innings[1];
+                }
+                if (inn1.runs > inn2.runs) {
+                    const diff = inn1.runs - inn2.runs;
+                    if (innings.length > 2) return `${inn1.team.toUpperCase()} WON (SUPER OVER)`;
+                    return `${inn1.team.toUpperCase()} WON BY ${diff} ${diff === 1 ? 'RUN' : 'RUNS'}`;
+                } else if (inn2.runs > inn1.runs) {
+                    const wicketsRemaining = (innings.length > 2 ? 2 : 10) - inn2.wickets;
+                    if (innings.length > 2) return `${inn2.team.toUpperCase()} WON (SUPER OVER)`;
+                    return `${inn2.team.toUpperCase()} WON BY ${wicketsRemaining} ${wicketsRemaining === 1 ? 'WICKET' : 'WICKETS'}`;
+                } else if (inn1.runs === inn2.runs && inn1.runs > 0) {
+                    return "MATCH TIED";
+                }
+                return null;
+            })();
+
+            if (winnerString) {
+                doc.addPage();
+                doc.setFontSize(16);
+                doc.setTextColor(0, 146, 112);
+                doc.setFont(undefined, 'bold');
+                doc.text("MATCH RESULT", 105, 100, { align: 'center' });
+                doc.setFontSize(22);
+                doc.text(winnerString.toUpperCase(), 105, 120, { align: 'center' });
+
+                if (match.manOfTheMatch) {
+                    doc.setFontSize(14);
+                    doc.setTextColor(100);
+                    doc.text(`MAN OF THE MATCH: ${match.manOfTheMatch.toUpperCase()}`, 105, 140, { align: 'center' });
+                }
+            }
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16).replace('T', '_');
@@ -172,13 +284,41 @@ const FullScorecard = () => {
                                         <div className="bg-success bg-opacity-10 p-3 rounded-4 border border-success border-opacity-20">
                                             <div className="fw-bold text-success small mb-1">FINAL RESULT</div>
                                             <div className="fw-black text-success">
-                                                {match.innings && match.innings.length >= 2 ? (
-                                                    match.innings[0].runs > match.innings[1].runs
-                                                        ? `${match.innings[0].team} WON`
-                                                        : match.innings[1].runs > match.innings[0].runs
-                                                            ? `${match.innings[1].team} WON`
-                                                            : "MATCH DRAWN"
-                                                ) : "COMPLETED"}
+                                                {match.innings && match.innings.length >= 2 ? (() => {
+                                                    const innings = match.innings;
+                                                    let inn1, inn2;
+                                                    if (innings.length >= 4) {
+                                                        const lastIdx = innings.length - 1;
+                                                        inn2 = innings[lastIdx];
+                                                        inn1 = innings[lastIdx - 1];
+                                                    } else {
+                                                        inn1 = innings[0];
+                                                        inn2 = innings[1];
+                                                    }
+                                                    if (inn1.runs > inn2.runs) {
+                                                        const diff = inn1.runs - inn2.runs;
+                                                        if (innings.length > 2) return `${inn1.team.toUpperCase()} WON (SUPER OVER)`;
+                                                        return `${inn1.team.toUpperCase()} WON BY ${diff} ${diff === 1 ? 'RUN' : 'RUNS'}`;
+                                                    }
+                                                    if (inn2.runs > inn1.runs) {
+                                                        const wicketsRemaining = (innings.length > 2 ? 2 : 10) - inn2.wickets;
+                                                        if (innings.length > 2) return `${inn2.team.toUpperCase()} WON (SUPER OVER)`;
+                                                        return `${inn2.team.toUpperCase()} WON BY ${wicketsRemaining} ${wicketsRemaining === 1 ? 'WICKET' : 'WICKETS'}`;
+                                                    }
+
+                                                    // Add Boundary Count Check for Super Over Tie
+                                                    if (innings.length > 2) {
+                                                        const countBoundaries = (inn) => (inn.batting || []).reduce((acc, p) => acc + (p.fours || 0) + (p.sixes || 0), 0);
+
+                                                        const b1 = countBoundaries(inn1);
+                                                        const b2 = countBoundaries(inn2);
+
+                                                        if (b1 > b2) return `${inn1.team.toUpperCase()} WON ON BOUNDARY COUNT (${b1}-${b2})`;
+                                                        if (b2 > b1) return `${inn2.team.toUpperCase()} WON ON BOUNDARY COUNT (${b2}-${b1})`;
+                                                        return "MATCH TIED (SUPER OVER DRAW)";
+                                                    }
+                                                    return "MATCH DRAWN";
+                                                })() : "COMPLETED"}
                                             </div>
                                         </div>
                                     )}
@@ -218,21 +358,53 @@ const FullScorecard = () => {
                                     >
                                         {match.innings && match.innings.length > 0 ? (
                                             <>
-                                                <div className="d-flex flex-wrap gap-3 mb-4">
-                                                    {match.innings.map((inn, idx) => (
-                                                        <Button
-                                                            key={idx}
-                                                            variant={activeInnings === idx ? 'primary' : 'light'}
-                                                            className={`premium-btn px-4 ${activeInnings === idx ? 'shadow-lg border-0' : 'text-muted border-secondary border-opacity-25'}`}
-                                                            onClick={() => setActiveInnings(idx)}
-                                                            style={{ minWidth: '180px' }}
-                                                        >
-                                                            <div className="d-flex flex-column align-items-center">
-                                                                <span className="small text-uppercase opacity-75">{inn.team} Innings</span>
-                                                                <span className="fw-black fs-5">{inn.runs}/{inn.wickets} <small className="fs-6 opacity-75">({inn.overs})</small></span>
-                                                            </div>
-                                                        </Button>
-                                                    ))}
+                                                <div className="bg-light p-3 rounded-4 mb-4 border shadow-inner">
+                                                    <div className="fw-black text-uppercase x-small text-muted letter-spacing-2 mb-3 px-1">Match Phases</div>
+                                                    <div className="d-flex flex-wrap gap-2">
+                                                        {match.innings.map((inn, idx) => {
+                                                            // Hide empty ghost innings (abandoned/glitched middle innings)
+                                                            if (idx >= 2 && inn.runs === 0 && inn.wickets === 0 && (!inn.batting || inn.batting.length === 0)) return null;
+
+                                                            const getOrdinal = (n) => { const s = ["th", "st", "nd", "rd"]; const v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+                                                            const phaseLabel = `${getOrdinal(idx + 1)} Innings${idx >= 2 ? ' (SO)' : ''}`;
+                                                            return (
+                                                                <Button
+                                                                    key={idx}
+                                                                    variant={activeInnings === idx ? 'primary' : 'white'}
+                                                                    className={`flex-fill py-2 px-3 transition-all border shadow-sm ${activeInnings === idx ? 'bg-primary text-white border-primary shadow-lg' : 'text-primary bg-white border-primary border-opacity-10'}`}
+                                                                    onClick={() => setActiveInnings(idx)}
+                                                                    style={{ minWidth: '140px' }}
+                                                                >
+                                                                    <div className="d-flex flex-column align-items-center">
+                                                                        <span className="fw-black text-uppercase x-small letter-spacing-1">{inn.team}</span>
+                                                                        <span className="fw-bold x-small opacity-75" style={{ fontSize: '0.65rem' }}>{phaseLabel}</span>
+                                                                        <span className="fw-black mt-1" style={{ fontSize: '0.85rem' }}>{inn.runs}/{inn.wickets} <small className="opacity-75">({inn.overs} ov)</small></span>
+                                                                    </div>
+                                                                </Button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                <div className="mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                                                    <div className="d-flex flex-column">
+                                                        <h3 className="fw-black text-uppercase premium-gradient-text mb-1">
+                                                            {match.innings[activeInnings].team} {(() => {
+                                                                const n = activeInnings + 1; const s = ["th", "st", "nd", "rd"]; const v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]);
+                                                            })()} Innings {activeInnings >= 2 ? '(Super Over)' : ''}
+                                                        </h3>
+                                                        <div className="text-muted small fw-bold text-uppercase letter-spacing-1">
+                                                            {activeInnings < 2 ? `(Total ${match.totalOvers} overs)` : `(Total 1 over)`}
+                                                        </div>
+                                                    </div>
+                                                    {activeInnings % 2 !== 0 && match.innings[activeInnings - 1] && (
+                                                        <div className="d-flex flex-column align-items-end">
+                                                            <div className="text-muted x-small fw-black text-uppercase mb-1">Target Score</div>
+                                                            <Badge bg="danger" className="px-3 py-2 fs-5 shadow-sm border border-white border-opacity-25">
+                                                                T: {match.score?.target || (match.innings[activeInnings - 1].runs + 1)} runs from {activeInnings >= 2 ? '1' : match.totalOvers} ovs
+                                                            </Badge>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {match.innings[activeInnings] ? (
@@ -266,20 +438,22 @@ const FullScorecard = () => {
                                                                         <td colSpan={2} className="ps-4 text-muted fw-bold">EXTRAS</td>
                                                                         <td colSpan={5} className="ps-3 fw-black fs-5">
                                                                             {match.innings[activeInnings].extras?.total || 0}
-                                                                            <small className="ms-3 text-muted fw-bold">(W {match.innings[activeInnings].extras?.wides || 0}, NB {match.innings[activeInnings].extras?.noBalls || 0}, B {match.innings[activeInnings].extras?.byes || 0}, LB {match.innings[activeInnings].extras?.legByes || 0})</small>
+                                                                            <small className="ms-3 text-muted fw-bold">
+                                                                                (b {match.innings[activeInnings].extras?.byes || 0},
+                                                                                lb {match.innings[activeInnings].extras?.legByes || 0},
+                                                                                w {match.innings[activeInnings].extras?.wides || 0},
+                                                                                nb {match.innings[activeInnings].extras?.noBalls || 0})
+                                                                            </small>
                                                                         </td>
                                                                     </tr>
                                                                     <tr className="bg-primary bg-opacity-10 border-top border-primary border-opacity-25">
-                                                                        <td colSpan={2} className="ps-4 fw-black fs-4 py-4 text-uppercase">Total</td>
+                                                                        <td colSpan={2} className="ps-4 fw-black fs-4 py-4 text-uppercase text-primary">Total</td>
                                                                         <td colSpan={5} className="ps-3 py-4">
                                                                             <div className="d-flex align-items-baseline gap-3">
                                                                                 <span className="fw-black fs-2 text-primary">{match.innings[activeInnings].runs}/{match.innings[activeInnings].wickets}</span>
                                                                                 <span className="text-muted fs-5 fw-bold">({match.innings[activeInnings].overs} Ov)</span>
                                                                                 <span className="small fw-black text-muted ms-auto pe-4">RR: {(match.innings[activeInnings].runs / (Math.floor(match.innings[activeInnings].overs) + (match.innings[activeInnings].overs % 1) / 0.6 || 1)).toFixed(2)}</span>
                                                                             </div>
-                                                                            {activeInnings === 1 && match.score?.target && (
-                                                                                <div className="text-danger fw-black x-small mt-1">(T: {match.score.target} runs from {match.totalOvers} ovs)</div>
-                                                                            )}
                                                                         </td>
                                                                     </tr>
                                                                     {(() => {
@@ -312,7 +486,12 @@ const FullScorecard = () => {
                                                         <div className="border rounded-4 overflow-hidden shadow-sm bg-white">
                                                             <div className="bg-dark text-white px-4 py-3 fw-black text-uppercase letter-spacing-1 d-flex align-items-center gap-2">
                                                                 <i className="bi bi-bullseye text-primary"></i>
-                                                                Bowling Summary
+                                                                Bowling Summary: {(() => {
+                                                                    const currentInn = match.innings[activeInnings];
+                                                                    // Bowling team is the one NOT batting
+                                                                    if (currentInn.team === match.teamA) return match.teamB;
+                                                                    return match.teamA;
+                                                                })()}
                                                             </div>
                                                             <Table hover responsive className="mb-0">
                                                                 <thead className="bg-light">
@@ -330,7 +509,14 @@ const FullScorecard = () => {
                                                                 </thead>
                                                                 <tbody>
                                                                     {(() => {
-                                                                        const bowlingTeamIdx = activeInnings === 0 ? 1 : 0;
+                                                                        let bowlingTeamIdx;
+                                                                        if (activeInnings >= 2) {
+                                                                            // Super Over: Co-located data. Batting & Bowling in SAME innings object.
+                                                                            bowlingTeamIdx = activeInnings;
+                                                                        } else {
+                                                                            // Main Match: Split data. Batting in 0, Bowling in 1.
+                                                                            bowlingTeamIdx = activeInnings % 2 === 0 ? activeInnings + 1 : activeInnings - 1;
+                                                                        }
                                                                         const bowlingInnings = match.innings[bowlingTeamIdx];
                                                                         if (!bowlingInnings || !bowlingInnings.bowling) return (
                                                                             <tr><td colSpan={6} className="text-center py-4 text-muted fw-bold">No bowling data for this innings yet</td></tr>
@@ -416,11 +602,15 @@ const FullScorecard = () => {
                                             <Col md={6}>
                                                 <h6 className="fw-bold text-primary mb-3">TOURNAMENT RULES</h6>
                                                 <div className="bg-dark text-white p-4 rounded-4 shadow-sm">
-                                                    <ul className="small mb-0 list-unstyled" style={{ lineHeight: '2' }}>
+                                                    <ul className="small mb-0 list-unstyled" style={{ lineHeight: '1.6' }}>
                                                         <li><i className="bi bi-check-circle-fill text-success me-2"></i>Pure Bowling Format</li>
                                                         <li><i className="bi bi-check-circle-fill text-success me-2"></i>Free Hit on all No Balls</li>
-                                                        <li><i className="bi bi-check-circle-fill text-success me-2"></i>Super Over for Tie Matches</li>
-                                                        <li><i className="bi bi-check-circle-fill text-success me-2"></i>Umpire Decision is Final</li>
+                                                        <li className="mt-2 fw-bold text-info"><i className="bi bi-star-fill me-2"></i>SUPER OVER RULES:</li>
+                                                        <li className="ms-4 opacity-75">1. Chasing team from main match always bats first in SO 1.</li>
+                                                        <li className="ms-4 opacity-75">2. If SO is tied, team batting 2nd in previous SO bats 1st in next.</li>
+                                                        <li className="ms-4 opacity-75">3. 1 Over (6 balls) and 2 Wickets per side in SO.</li>
+                                                        <li className="ms-4 opacity-75">4. Dismissed batters in previous SO cannot play again.</li>
+                                                        <li className="mt-2"><i className="bi bi-check-circle-fill text-success me-2"></i>Umpire Decision is Final</li>
                                                     </ul>
                                                 </div>
                                             </Col>
