@@ -946,7 +946,7 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                       ),
                       ]
                   ]
-                  ]
+                  )
               ),
             ),
             SizedBox(height: 10),
