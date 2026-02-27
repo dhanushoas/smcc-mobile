@@ -580,10 +580,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // ── Match List View ────────────────────────────────────────────────────────
   Widget _buildMatchList() {
-    final seriesList = ['ALL', ..._matches.map((m) => (m['series'] ?? 'SMCC LIVE').toString()).toSet()];
-    final filtered = _activeSeries == 'ALL'
-        ? _matches
-        : _matches.where((m) => (m['series'] ?? 'SMCC LIVE').toString() == _activeSeries).toList();
+    final filtered = _matches;
 
     final live = filtered.where((m) => m['status'] == 'live' || m['status'] == 'upcoming').toList();
     final completed = filtered.where((m) => m['status'] == 'completed').toList();
@@ -592,14 +589,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       onRefresh: _fetchMatches,
       child: CustomScrollView(
         slivers: [
-          // Series filter tabs
-          if (seriesList.length > 1)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 14, bottom: 4),
-                child: _buildSeriesFilter(seriesList),
-              ),
-            ),
           // LIVE section header
           SliverToBoxAdapter(
             child: Padding(
@@ -657,7 +646,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _buildMatchList(),
     PointsTableScreen(),
     ScheduleScreen(),
-    AchievementsScreen(),
     const AdminScreen(),
   ];
 
@@ -668,31 +656,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Row(children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(4))),
-          const SizedBox(width: 8),
-          Text('SMCC LIVE', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)),
-        ]),
+        title: Image.asset('assets/logo.png', height: 36),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
-            onSelected: (val) {
-              Widget screen;
-              switch (val) {
-                case 'join': screen = JoinCouncilScreen(); break;
-                case 'improve': screen = ImprovementsScreen(); break;
-                case 'sponsor': screen = SponsorshipScreen(); break;
-                case 'privacy': screen = PrivacyScreen(); break;
-                default: return;
-              }
-              Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'join', child: Text('Join Council')),
-              PopupMenuItem(value: 'improve', child: Text('Suggest Improvements')),
-              PopupMenuItem(value: 'sponsor', child: Text('Sponsorship')),
-              PopupMenuItem(value: 'privacy', child: Text('Privacy Policy')),
-            ],
+            itemBuilder: (_) => const [],
           )
         ],
       ),
@@ -708,7 +676,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home, color: _primary), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.leaderboard_outlined), selectedIcon: Icon(Icons.leaderboard, color: _primary), label: 'Standings'),
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month, color: _primary), label: 'Schedule'),
-          NavigationDestination(icon: Icon(Icons.emoji_events_outlined), selectedIcon: Icon(Icons.emoji_events, color: _primary), label: 'Achievements'),
           NavigationDestination(icon: Icon(Icons.terminal_outlined), selectedIcon: Icon(Icons.terminal, color: _danger), label: 'Console'),
         ],
       ),
