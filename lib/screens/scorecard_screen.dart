@@ -1,545 +1,707 @@
+/// scorecard_screen.dart — Full port of smcc-web/src/pages/FullScorecard.jsx
+/// Innings tabs, batting/bowling/extras/FoW tables, target badge (singular/plural),
+/// match result, Man of the Match, and PDF download.
+
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'dart:async';
-import 'package:flutter/services.dart';
-import '../providers/settings_provider.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../services/api_service.dart';
-import '../widgets/app_footer.dart';
+import '../utils/formatters.dart';
+import '../utils/calculations.dart';
 
 class ScorecardScreen extends StatefulWidget {
-  final dynamic match;
-
-  ScorecardScreen({required this.match});
+  final String matchId;
+  const ScorecardScreen({Key? key, required this.matchId}) : super(key: key);
 
   @override
-  _ScorecardScreenState createState() => _ScorecardScreenState();
+  State<ScorecardScreen> createState() => _ScorecardScreenState();
 }
 
-class _ScorecardScreenState extends State<ScorecardScreen> {
-  int _activeTab = 0; // 0 for Scorecard, 1 for Match Info
-  late dynamic match;
-  Timer? _timer;
+class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProviderStateMixin {
+  // ── State ──────────────────────────────────────────────────────────────────
+  Map<String, dynamic>? _match;
+  bool _loading = true;
+  int _activeInnings = 0;
+  String _activeTab = 'scorecard'; // 'scorecard' | 'info'
 
+  // Boundary animation (mirrors FullScorecard.jsx)
+  int _blastValue = 0;
+  bool _showBlast = false;
+
+  late io.Socket _socket;
+
+  // ── Theme ──────────────────────────────────────────────────────────────────
+  static const Color _primary  = Color(0xFF2563EB);
+  static const Color _danger   = Color(0xFFDC2626);
+  static const Color _success  = Color(0xFF059669);
+
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    match = widget.match;
-    if (match['status'] == 'live') {
-      _fetchMatchUpdate();
-      _startPolling();
-    }
+    _fetchMatch();
+    _connectSocket();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _socket.dispose();
     super.dispose();
   }
 
-  void _startPolling() {
-    _timer = Timer.periodic(Duration(seconds: 5), (timer) => _fetchMatchUpdate());
-  }
-
-  Future<void> _fetchMatchUpdate() async {
+  // ── Data ───────────────────────────────────────────────────────────────────
+  Future<void> _fetchMatch() async {
     try {
-      final updatedMatch = await ApiService.getMatch(match['_id'] ?? match['id']);
-      if (mounted) {
-        setState(() => match = updatedMatch);
-        if (match['status'] != 'live') _timer?.cancel();
-      }
-    } catch (_) {}
+      final data = await ApiService.getMatch(widget.matchId);
+      setState(() {
+        _match = data;
+        _loading = false;
+        _setActiveInnings(data);
+      });
+    } catch (_) {
+      setState(() => _loading = false);
+    }
   }
 
+  /// Mirrors FullScorecard.jsx auto-select active innings logic
+  void _setActiveInnings(Map<String, dynamic> data) {
+    final status = data['status'] as String? ?? '';
+    final innings = List<dynamic>.from(data['innings'] ?? []);
+    if ((status == 'live' || status == 'completed') && innings.isNotEmpty) {
+      final bTeam = data['score']?['battingTeam'] as String?;
+      if (bTeam != null) {
+        final reversed = List.generate(innings.length, (i) => {'inn': innings[i], 'idx': i}).reversed;
+        final active = reversed.firstWhere(
+          (x) => (x['inn']['team'] as String?)?.trim().toLowerCase() == bTeam.trim().toLowerCase(),
+          orElse: () => {'idx': innings.length - 1},
+        );
+        _activeInnings = active['idx'] as int;
+      } else {
+        _activeInnings = innings.length - 1;
+      }
+    }
+  }
 
+  void _connectSocket() {
+    _socket = io.io(ApiService.socketUrl, <String, dynamic>{
+      'transports': ['websocket'], 'autoConnect': true,
+    });
+    _socket.on('matchUpdate', (updated) {
+      if (updated['_id'] != widget.matchId && updated['id'] != widget.matchId) return;
+      setState(() {
+        if (_match != null && updated['status'] == 'live') {
+          final oldRuns = (_match!['score']?['runs'] as num? ?? 0).toInt();
+          final newRuns = (updated['score']?['runs'] as num? ?? 0).toInt();
+          final diff = newRuns - oldRuns;
+          if (diff == 4 || diff == 6) {
+            _blastValue = diff;
+            _showBlast = true;
+            Timer(const Duration(milliseconds: 2500), () {
+              if (mounted) setState(() => _showBlast = false);
+            });
+          }
+        }
+        _match = Map<String, dynamic>.from(updated);
+      });
+    });
+  }
+
+  // ── PDF Generation (mirrors AdminDashboard.jsx downloadPDF) ────────────────
+  Future<void> _downloadPDF() async {
+    final match = _match!;
+    final doc = pw.Document();
+    final innings = List<dynamic>.from(match['innings'] ?? []);
+    final result = calculateWinner(match);
+
+    doc.addPage(pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(24),
+      build: (ctx) {
+        final widgets = <pw.Widget>[];
+
+        // Header
+        widgets.add(pw.Text(
+          '${match['teamA']?.toString().toUpperCase()} VS ${match['teamB']?.toString().toUpperCase()} — FULL SCORECARD',
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
+        ));
+        widgets.add(pw.SizedBox(height: 4));
+        final dateParsed = DateTime.tryParse(match['date'] ?? '') ?? DateTime.now();
+        widgets.add(pw.Text(
+          'SERIES: ${(match['series'] ?? 'SMCC').toString().toUpperCase()} | VENUE: ${(match['venue'] ?? '').toString().toUpperCase()} | DATE: ${dateParsed.toLocal().toString().split('.')[0].toUpperCase()}',
+          style: pw.TextStyle(fontSize: 9),
+        ));
+
+        if (result != null) {
+          widgets.add(pw.SizedBox(height: 8));
+          widgets.add(pw.Text('RESULT: ${result.toUpperCase()}',
+              style: pw.TextStyle(color: PdfColors.green700, fontWeight: pw.FontWeight.bold, fontSize: 12)));
+          if (match['manOfTheMatch'] != null) {
+            widgets.add(pw.Text('POTM: ${match['manOfTheMatch'].toString().toUpperCase()}',
+                style: pw.TextStyle(fontSize: 10)));
+          }
+        }
+        widgets.add(pw.SizedBox(height: 16));
+
+        // Innings
+        for (int idx = 0; idx < innings.length; idx++) {
+          final inn = innings[idx] as Map<String, dynamic>;
+          if (idx >= 2 && (inn['runs'] ?? 0) == 0 && (inn['wickets'] ?? 0) == 0 &&
+              (inn['batting'] as List? ?? []).isEmpty) continue;
+
+          final ordinal = _ordinal(idx + 1);
+          final isSO = idx >= 2;
+          final title = '${inn['team']?.toString().toUpperCase()} $ordinal INNINGS${isSO ? ' (SUPER OVER)' : ''}';
+          final ovs = (inn['overs'] as num? ?? 0);
+          final ovsStr = '${inn['runs']}/${inn['wickets']} (${ovs}OV)';
+          widgets.add(pw.Text('$title: $ovsStr',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColors.blue800)));
+          widgets.add(pw.SizedBox(height: 6));
+
+          // Batting table
+          final batting = List<dynamic>.from(inn['batting'] ?? []);
+          if (batting.isNotEmpty) {
+            widgets.add(pw.TableHelper.fromTextArray(
+              headers: ['Batter', 'Status', 'R', 'B', '4s', '6s', 'SR'],
+              data: batting.map((b) => [
+                b['player']?.toString().toUpperCase() ?? '',
+                b['status']?.toString().toUpperCase() ?? '',
+                '${b['runs'] ?? 0}',
+                '${b['balls'] ?? 0}',
+                '${b['fours'] ?? 0}',
+                '${b['sixes'] ?? 0}',
+                '${b['strikeRate'] ?? 0}',
+              ]).toList(),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 9),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.green700),
+              cellStyle: const pw.TextStyle(fontSize: 9),
+              border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            ));
+          }
+
+          // Extras
+          final ext = inn['extras'] as Map<String, dynamic>? ?? {};
+          widgets.add(pw.SizedBox(height: 4));
+          widgets.add(pw.Text(
+            'EXTRAS: ${ext['total'] ?? 0} (wd ${ext['wides'] ?? 0}, nb ${ext['noBalls'] ?? 0}, b ${ext['byes'] ?? 0}, lb ${ext['legByes'] ?? 0})',
+            style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+          ));
+
+          // Hit Breakdown
+          widgets.add(pw.Text(
+            'HIT BREAKDOWN: Dots:${inn['dots'] ?? 0} | 1s:${inn['ones'] ?? 0} | 2s:${inn['twos'] ?? 0} | 3s:${inn['threes'] ?? 0} | 4s:${inn['fours'] ?? 0} | 6s:${inn['sixes'] ?? 0}',
+            style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+          ));
+          widgets.add(pw.SizedBox(height: 6));
+
+          // Bowling table (from the opposing innings)
+          final bowlInnIdx = idx.isEven ? idx + 1 : idx - 1;
+          if (bowlInnIdx < innings.length) {
+            final bowlInn = innings[bowlInnIdx] as Map<String, dynamic>;
+            final bowling = List<dynamic>.from(bowlInn['bowling'] ?? []);
+            if (bowling.isNotEmpty) {
+              widgets.add(pw.TableHelper.fromTextArray(
+                headers: ['Bowler', 'O', 'M', 'R', 'W', 'WD', 'NB', 'ECO'],
+                data: bowling.map((b) => [
+                  b['player']?.toString().toUpperCase() ?? '',
+                  '${b['overs'] ?? 0}',
+                  '${b['maidens'] ?? 0}',
+                  '${b['runs'] ?? 0}',
+                  '${b['wickets'] ?? 0}',
+                  '${b['wides'] ?? 0}',
+                  '${b['noBalls'] ?? 0}',
+                  '${b['economy'] ?? 0}',
+                ]).toList(),
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 9),
+                headerDecoration: const pw.BoxDecoration(color: PdfColors.grey800),
+                cellStyle: const pw.TextStyle(fontSize: 9),
+                border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+              ));
+            }
+          }
+
+          // Fall of Wickets
+          final fow = List<dynamic>.from(inn['fallOfWickets'] ?? []);
+          if (fow.isNotEmpty) {
+            widgets.add(pw.SizedBox(height: 6));
+            widgets.add(pw.Text('FALL OF WICKETS',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.red700, fontSize: 10)));
+            widgets.add(pw.TableHelper.fromTextArray(
+              headers: ['Wkt', 'Score', 'Over', 'Player'],
+              data: fow.map((f) => ['${f['wicket']}', '${f['runs']}', '${f['overs']}', f['player']?.toString().toUpperCase() ?? '']).toList(),
+              cellStyle: const pw.TextStyle(fontSize: 9),
+              border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            ));
+          }
+
+          // Total line — with correct singular/plural
+          final innOvers = (inn['overs'] as num? ?? 0).toDouble();
+          final oversWord = innOvers == 1 ? 'Over' : 'Overs';
+          widgets.add(pw.SizedBox(height: 4));
+          widgets.add(pw.Text(
+            'TOTAL: ${inn['runs']}/${inn['wickets']} in $innOvers $oversWord | Boundaries: 4s: ${inn['fours'] ?? 0}, 6s: ${inn['sixes'] ?? 0}',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+          ));
+          widgets.add(pw.SizedBox(height: 16));
+        }
+
+        return widgets;
+      },
+    ));
+
+    await Printing.layoutPdf(onLayout: (_) async => doc.save());
+  }
+
+  String _ordinal(int n) {
+    final s = ['th', 'st', 'nd', 'rd'];
+    final v = n % 100;
+    return '$n${s[(v - 20) % 10 >= 0 && (v - 20) % 10 < s.length ? (v - 20) % 10 : (v < s.length ? v : 0)]}';
+  }
+
+  // ── UI ─────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsProvider>(context);
-    final primaryBlue = Color(0xFF2563EB);
-    List<dynamic> inningsList = match['innings'] ?? [];
-    bool isCompleted = ['completed', 'abandoned', 'cancelled'].contains(match['status']);
-    
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        centerTitle: false,
-        backgroundColor: Colors.transparent,
-        elevation:0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: primaryBlue, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text('MATCH ANALYTICS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: primaryBlue, fontSize: 16, letterSpacing: 1.2)),
+        backgroundColor: Colors.white,
+        title: Text('Full Scorecard', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
         actions: [
-          if (isCompleted)
+          if (_match != null && _match!['status'] == 'completed')
             IconButton(
-              icon: Icon(Icons.picture_as_pdf_rounded, color: primaryBlue),
-              onPressed: () => _exportToPDF(settings),
+              icon: const Icon(Icons.picture_as_pdf),
+              tooltip: 'Export PDF',
+              onPressed: _downloadPDF,
             ),
-          SizedBox(width: 8),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _fetchMatchUpdate,
-        color: primaryBlue,
-        child: SingleChildScrollView(
-          physics: AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 20),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _match == null
+              ? Center(child: Text('Match not found', style: GoogleFonts.outfit()))
+              : Stack(children: [
+                  _buildBody(),
+                  if (_showBlast) _buildBoundaryOverlay(),
+                ]),
+    );
+  }
+
+  Widget _buildBody() {
+    final match = _match!;
+    final innings = List<dynamic>.from(match['innings'] ?? []);
+    final result = calculateWinner(match);
+    final mom = match['manOfTheMatch'] as String?;
+    final date = DateTime.tryParse(match['date'] ?? '') ?? DateTime.now();
+
+    return Column(
+      children: [
+        // ── Main tab bar: Scorecard | Match Info
+        Container(
+          color: Colors.white,
+          child: Row(
+            children: ['scorecard', 'info'].map((tab) {
+              final isActive = _activeTab == tab;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _activeTab = tab),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(
+                          color: isActive ? _primary : Colors.transparent, width: 3)),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(tab == 'scorecard' ? 'Scorecard' : 'Match Info',
+                        style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w800, fontSize: 14,
+                            color: isActive ? _primary : Colors.grey)),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+
+        Expanded(child: _activeTab == 'scorecard'
+            ? _buildScorecard(match, innings, result, mom)
+            : _buildMatchInfo(match, result, mom, date)),
+      ],
+    );
+  }
+
+  Widget _buildScorecard(Map<String, dynamic> match, List<dynamic> innings, String? result, String? mom) {
+    if (innings.isEmpty) {
+      return Center(child: Text('No innings data yet.', style: GoogleFonts.outfit(color: Colors.grey)));
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // ── Innings phase tabs
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 20),
-              _buildMatchHeader(primaryBlue),
-              SizedBox(height: 32),
-              _buildCustomTabs(primaryBlue),
-              SizedBox(height: 32),
-              if (match['status'] == 'completed') _buildWinnerBanner(primaryBlue),
-              if (_activeTab == 0)
-                ...inningsList.asMap().entries.map((entry) => _buildInningsView(entry.value, entry.key, primaryBlue, settings)).toList()
-              else
-                _buildMatchInfo(match, primaryBlue, settings),
-              SizedBox(height: 40),
-              AppFooter(),
+              Text('MATCH PHASES', style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w900, fontSize: 10, color: Colors.grey, letterSpacing: 1.5)),
+              const SizedBox(height: 10),
+              Wrap(spacing: 8, runSpacing: 8, children: List.generate(innings.length, (idx) {
+                final inn = innings[idx] as Map<String, dynamic>;
+                if (idx >= 2 && (inn['runs'] ?? 0) == 0 && (inn['wickets'] ?? 0) == 0 &&
+                    (inn['batting'] as List? ?? []).isEmpty) return const SizedBox.shrink();
+                final isSO = idx >= 2;
+                final isActive = _activeInnings == idx;
+                return GestureDetector(
+                  onTap: () => setState(() => _activeInnings = idx),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isActive ? _primary : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isActive ? _primary : Colors.grey.shade200),
+                      boxShadow: isActive ? [BoxShadow(color: _primary.withOpacity(0.3), blurRadius: 8)] : [],
+                    ),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Text((inn['team'] ?? '').toString().toUpperCase(),
+                          style: GoogleFonts.outfit(color: isActive ? Colors.white : _primary,
+                              fontWeight: FontWeight.w900, fontSize: 11)),
+                      Text('${_ordinal(idx + 1)} Inn${isSO ? ' (SO)' : ''}',
+                          style: GoogleFonts.outfit(color: isActive ? Colors.white70 : Colors.grey,
+                              fontSize: 10, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Text('${inn['runs']}/${inn['wickets']} (${inn['overs']}ov)',
+                          style: GoogleFonts.outfit(color: isActive ? Colors.white : Colors.black87,
+                              fontWeight: FontWeight.w900, fontSize: 12)),
+                    ]),
+                  ),
+                );
+              })),
             ],
           ),
         ),
-      ),
-    );
-  }
+        const SizedBox(height: 16),
 
-  Widget _buildMatchHeader(Color primaryBlue) {
-    return Container(
-      padding: EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: primaryBlue.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: primaryBlue.withOpacity(0.1)),
-      ),
-      child: Column(
-        children: [
-          Text(match['series']?.toString().toUpperCase() ?? 'SMCC LEAGUE', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 2)),
-          SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _headerTeam(match['teamA'], primaryBlue),
-              Column(
-                children: [
-                   Container(
-                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                     decoration: BoxDecoration(color: primaryBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(100)),
-                     child: Text('VS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: primaryBlue, fontSize: 10)),
-                   ),
-                ],
-              ),
-              _headerTeam(match['teamB'], primaryBlue),
-            ],
-          ),
-          SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.location_on_rounded, size: 12, color: primaryBlue),
-              SizedBox(width: 4),
-              Text(match['venue']?.toString().toUpperCase() ?? 'TBD', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-            ],
-          ),
+        // ── Active innings header + target badge
+        _buildInningsHeader(match, innings),
+        const SizedBox(height: 16),
+
+        // ── Batting table
+        if ((innings[_activeInnings]['batting'] as List? ?? []).isNotEmpty) ...[
+          _buildSectionTitle('Batting'),
+          _buildBattingTable(List<dynamic>.from(innings[_activeInnings]['batting'] ?? [])),
+          const SizedBox(height: 4),
+          _buildExtrasRow(innings[_activeInnings]),
+          _buildHitBreakdown(innings[_activeInnings]),
+          const SizedBox(height: 16),
         ],
-      ),
-    );
-  }
 
-  Widget _headerTeam(String name, Color primaryBlue) {
-    return Expanded(
-      child: FittedBox(fit: BoxFit.scaleDown, child: Text(name.toUpperCase(), textAlign: TextAlign.center, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16))),
-    );
-  }
+        // ── Bowling table (from opposing innings)
+        ..._buildBowlingSection(innings),
 
-  Widget _buildCustomTabs(Color primaryBlue) {
-    return Container(
-      padding: EdgeInsets.all(6),
-      decoration: BoxDecoration(color: primaryBlue.withOpacity(0.05), borderRadius: BorderRadius.circular(100)),
-      child: Row(
-        children: [
-          _tabItem('FULL SCORECARD', 0, primaryBlue),
-          _tabItem('MATCH INFO', 1, primaryBlue),
+        // ── Fall of Wickets
+        if ((innings[_activeInnings]['fallOfWickets'] as List? ?? []).isNotEmpty) ...[
+          _buildSectionTitle('Fall of Wickets'),
+          _buildFoWTable(List<dynamic>.from(innings[_activeInnings]['fallOfWickets'])),
+          const SizedBox(height: 16),
         ],
-      ),
+
+        const SizedBox(height: 24),
+      ],
     );
   }
 
-  Widget _tabItem(String label, int index, Color primaryBlue) {
-    bool active = _activeTab == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _activeTab = index),
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: active ? primaryBlue : Colors.transparent,
-            borderRadius: BorderRadius.circular(100),
-            boxShadow: active ? [BoxShadow(color: primaryBlue.withOpacity(0.3), blurRadius: 10, offset: Offset(0, 4))] : [],
-          ),
-          child: Text(label, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: active ? Colors.white : Colors.grey)),
-        ),
-      ),
-    );
-  }
+  Widget _buildInningsHeader(Map<String, dynamic> match, List<dynamic> innings) {
+    final inn = innings[_activeInnings] as Map<String, dynamic>;
+    final isSecondInn = _activeInnings % 2 != 0 && _activeInnings > 0;
+    final isSO = _activeInnings >= 2;
+    final ovs = isSO ? 1 : (match['totalOvers'] as num? ?? 20).toInt();
+    final target = (match['score']?['target'] as num?) ?? ((innings[_activeInnings - (isSecondInn ? 1 : 0)]['runs'] as num? ?? 0) + 1);
 
-  Widget _buildWinnerBanner(Color primaryBlue) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 32),
-      width: double.infinity,
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.green.shade600, Colors.green.shade400]),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 15, offset: Offset(0, 5))]
-      ),
-      child: Column(
-        children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(_calculateWinner(match).toUpperCase(), textAlign: TextAlign.center, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInningsView(dynamic inn, int idx, Color primaryBlue, SettingsProvider settings) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(idx >= 2 ? 'SUPER OVER' : inn['team'].toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, color: primaryBlue)),
-            Text('${inn['runs']}/${inn['wickets']} (${inn['overs']})', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, color: primaryBlue)),
-          ],
-        ),
-        SizedBox(height: 16),
-        _buildBattingTable(inn['batting'] ?? []),
-        SizedBox(height: 12),
-        Container(
-          padding: EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.grey.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('EXTRAS: ${inn['extras']['total']}', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey)),
-              Text('(wd ${inn['extras']['wides']}, nb ${inn['extras']['noBalls']}, b ${inn['extras']['byes'] ?? 0}, lb ${inn['extras']['legByes'] ?? 0})', style: GoogleFonts.outfit(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ),
-        SizedBox(height: 24),
-        _buildStatsBreakdown(inn),
-        SizedBox(height: 24),
-        _buildBowlingTable(inn, idx, primaryBlue, settings),
-        SizedBox(height: 48),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${(inn['team'] ?? '').toString().toUpperCase()} ${_ordinal(_activeInnings + 1)} INNINGS${isSO ? ' (Super Over)' : ''}',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: _primary)),
+          Text(isSO ? 'Total 1 over' : 'Total ${match['totalOvers']} overs',
+              style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+        ]),
+        if (isSecondInn)
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('TARGET SCORE', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(10)),
+              child: Text('Target: $target (${ovs} ${pluralOvers(ovs)})',
+                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
+            ),
+          ]),
       ],
     );
   }
 
   Widget _buildBattingTable(List<dynamic> batting) {
-    return Column(
-      children: [
-        _tableHeader(['BATTER', 'R', 'B', '4s', '6s', 'SR']),
-        ...batting.map((b) => _tableRow([
-          _toCamelCase(b['player']),
-          b['runs'].toString(),
-          b['balls'].toString(),
-          (b['fours'] ?? 0).toString(),
-          (b['sixes'] ?? 0).toString(),
-          b['strikeRate'].toString()
-        ], isName: true, subText: b['status'])),
-      ],
-    );
-  }
-
-  Widget _buildBowlingTable(dynamic inn, int idx, Color primaryBlue, SettingsProvider settings) {
-    int bowlIdx = idx % 2 == 0 ? idx + 1 : idx - 1;
-    List<dynamic> bowling = [];
-    if (match['innings'] != null && (match['innings'] as List).length > bowlIdx) {
-       bowling = (match['innings'] as List)[bowlIdx]['bowling'] ?? [];
-    }
-    if (bowling.isEmpty) return SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('BOWLING ANALYSIS', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
-        SizedBox(height: 16),
-        _tableHeader(['BOWLER', 'O', 'R', 'W', 'wd', 'nb', 'ECO']),
-        ...bowling.map((b) => _tableRow([
-          _toCamelCase(b['player']),
-          b['overs'].toString(),
-          b['runs'].toString(),
-          b['wickets'].toString(),
-          (b['wides'] ?? 0).toString(),
-          (b['noBalls'] ?? 0).toString(),
-          b['economy'].toString()
-        ], isName: true, highlightIdx: 3)),
-      ],
-    );
-  }
-
-  Widget _tableHeader(List<String> labels) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      child: Row(
-        children: labels.asMap().entries.map((e) => Expanded(
-          flex: e.key == 0 ? 3 : 1,
-          child: Text(e.value, textAlign: e.key == 0 ? TextAlign.start : TextAlign.center, style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.grey)),
-        )).toList(),
-      ),
-    );
-  }
-
-  Widget _tableRow(List<String> values, {bool isName = false, String? subText, int? highlightIdx}) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.05))),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade100),
       ),
-      child: Row(
-        children: values.asMap().entries.map((e) => Expanded(
-          flex: e.key == 0 ? 3 : 1,
-          child: Column(
-            crossAxisAlignment: e.key == 0 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-            children: [
-              Text(e.value, style: GoogleFonts.outfit(fontSize: 11, fontWeight: (e.key == 0 || e.key == highlightIdx) ? FontWeight.w900 : FontWeight.bold, color: e.key == highlightIdx ? Colors.red : null)),
-              if (e.key == 0 && subText != null) Text(subText, style: GoogleFonts.outfit(fontSize: 8, color: Colors.grey, fontWeight: FontWeight.bold)),
-            ],
+      clipBehavior: Clip.hardEdge,
+      child: Table(
+        columnWidths: const {
+          0: FlexColumnWidth(2.2),
+          1: FlexColumnWidth(2),
+          2: FlexColumnWidth(0.7),
+          3: FlexColumnWidth(0.7),
+          4: FlexColumnWidth(0.7),
+          5: FlexColumnWidth(0.7),
+          6: FlexColumnWidth(0.9),
+        },
+        children: [
+          _tableHeader(['BATTER', 'STATUS', 'R', 'B', '4s', '6s', 'SR'], dark: true),
+          ...batting.map((b) => _tableRow([
+            toCamelCase(b['player']),
+            toCamelCase(b['status'] ?? ''),
+            '${b['runs'] ?? 0}',
+            '${b['balls'] ?? 0}',
+            '${b['fours'] ?? 0}',
+            '${b['sixes'] ?? 0}',
+            '${b['strikeRate'] ?? 0}',
+          ], isFirst: true)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExtrasRow(Map<String, dynamic> inn) {
+    final ext = inn['extras'] as Map<String, dynamic>? ?? {};
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Text(
+        'Extras: ${ext['total'] ?? 0}  (wd ${ext['wides'] ?? 0}, nb ${ext['noBalls'] ?? 0}, b ${ext['byes'] ?? 0}, lb ${ext['legByes'] ?? 0})',
+        style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _buildHitBreakdown(Map<String, dynamic> inn) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        'Dots:${inn['dots'] ?? 0}  1s:${inn['ones'] ?? 0}  2s:${inn['twos'] ?? 0}  3s:${inn['threes'] ?? 0}  4s:${inn['fours'] ?? 0}  6s:${inn['sixes'] ?? 0}',
+        style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  List<Widget> _buildBowlingSection(List<dynamic> innings) {
+    final bowlInnIdx = _activeInnings.isEven ? _activeInnings + 1 : _activeInnings - 1;
+    if (bowlInnIdx < 0 || bowlInnIdx >= innings.length) return [];
+    final bowlInn = innings[bowlInnIdx] as Map<String, dynamic>;
+    final bowling = List<dynamic>.from(bowlInn['bowling'] ?? []);
+    if (bowling.isEmpty) return [];
+
+    return [
+      _buildSectionTitle('Bowling'),
+      Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade100),
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: Table(
+          columnWidths: const {
+            0: FlexColumnWidth(2),
+            1: FlexColumnWidth(0.7),
+            2: FlexColumnWidth(0.7),
+            3: FlexColumnWidth(0.7),
+            4: FlexColumnWidth(0.7),
+            5: FlexColumnWidth(0.7),
+            6: FlexColumnWidth(0.7),
+            7: FlexColumnWidth(0.9),
+          },
+          children: [
+            _tableHeader(['BOWLER', 'O', 'M', 'R', 'W', 'WD', 'NB', 'ECO'], dark: false),
+            ...bowling.map((b) => _tableRow([
+              toCamelCase(b['player']),
+              '${b['overs'] ?? 0}',
+              '${b['maidens'] ?? 0}',
+              '${b['runs'] ?? 0}',
+              '${b['wickets'] ?? 0}',
+              '${b['wides'] ?? 0}',
+              '${b['noBalls'] ?? 0}',
+              '${b['economy'] ?? 0}',
+            ])),
+          ],
+        ),
+      ),
+      const SizedBox(height: 16),
+    ];
+  }
+
+  Widget _buildFoWTable(List<dynamic> fow) {
+    return Container(
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade100)),
+      clipBehavior: Clip.hardEdge,
+      child: Table(
+        columnWidths: const {
+          0: FlexColumnWidth(0.7),
+          1: FlexColumnWidth(1),
+          2: FlexColumnWidth(0.7),
+          3: FlexColumnWidth(2),
+        },
+        children: [
+          _tableHeader(['WKT', 'SCORE', 'OV', 'PLAYER'], dark: false),
+          ...fow.map((f) => _tableRow(['${f['wicket']}', '${f['runs']}', '${f['overs']}', toCamelCase(f['player'])])),
+        ],
+      ),
+    );
+  }
+
+  TableRow _tableHeader(List<String> cols, {bool dark = true}) {
+    return TableRow(
+      decoration: BoxDecoration(color: dark ? const Color(0xFF1E293B) : Colors.grey.shade700),
+      children: cols.map((c) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        child: Text(c, style: GoogleFonts.outfit(
+            color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10)),
+      )).toList(),
+    );
+  }
+
+  TableRow _tableRow(List<String> cells, {bool isFirst = false}) {
+    return TableRow(
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
+      children: cells.indexed.map((e) {
+        final isName = isFirst && e.$1 == 0;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+          child: Text(e.$2,
+              style: GoogleFonts.outfit(
+                  fontWeight: isName ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 11,
+                  color: Colors.black87),
+              overflow: isName ? TextOverflow.ellipsis : TextOverflow.clip),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(title.toUpperCase(),
+          style: GoogleFonts.outfit(
+              fontWeight: FontWeight.w900, fontSize: 11,
+              color: Colors.grey, letterSpacing: 1.5)),
+    );
+  }
+
+  Widget _buildMatchInfo(Map<String, dynamic> match, String? result, String? mom, DateTime date) {
+    return ListView(padding: const EdgeInsets.all(16), children: [
+      // Match header
+      _infoCard('MATCH', [
+        _infoRow('Teams', '${match['teamA']} vs ${match['teamB']}'),
+        _infoRow('Series', match['series'] ?? 'SMCC LIVE'),
+        _infoRow('Venue', match['venue'] ?? 'TBA'),
+        _infoRow('Date', '${date.day}/${date.month}/${date.year}'),
+        _infoRow('Time', formatTime(match['date'])),
+        _infoRow('Format', '${match['totalOvers']} Overs'),
+      ]),
+      if (result != null) ...[
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _success.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _success.withOpacity(0.2)),
           ),
-        )).toList(),
-      ),
-    );
-  }
-
-  Widget _buildStatsBreakdown(dynamic inn) {
-    return Container(
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Color(0xFF2563EB).withOpacity(0.03), borderRadius: BorderRadius.circular(20)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _statItem('DOTS', (inn['dots'] ?? 0).toString()),
-          _statItem('1s', (inn['ones'] ?? 0).toString()),
-          _statItem('2s', (inn['twos'] ?? 0).toString()),
-          _statItem('4s', (inn['fours'] ?? 0).toString(), high: true),
-          _statItem('6s', (inn['sixes'] ?? 0).toString(), high: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _statItem(String l, String v, {bool high = false}) {
-    return Column(
-      children: [
-        Text(v, style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: high ? Color(0xFF2563EB) : null)),
-        Text(l, style: GoogleFonts.outfit(fontSize: 8, color: Colors.grey, fontWeight: FontWeight.w900)),
-      ],
-    );
-  }
-
-  Widget _buildMatchInfo(dynamic match, Color primaryBlue, SettingsProvider settings) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _infoCard('Match Logistics', [
-          {'l': 'Series', 'v': match['series'] ?? 'SMCC League'},
-          {'l': 'Venue', 'v': match['venue'] ?? 'TBD'},
-          {'l': 'Date', 'v': match['date']?.toString().split('T')[0] ?? 'TBD'},
-          {'l': 'Match Status', 'v': match['status'].toUpperCase()},
-        ], primaryBlue),
-        SizedBox(height: 32),
-        _infoCard('Tournament Regulations', [
-          {'l': 'Bowling', 'v': 'Strictly Pure Overarm'},
-          {'l': 'Leg Side Wide', 'v': 'Applicable'},
-          {'l': 'LBW', 'v': 'Not Applicable'},
-          {'l': 'Super Over', 'v': 'Applicable for Ties'},
-        ], primaryBlue),
-      ],
-    );
-  }
-
-  Widget _infoCard(String title, List<Map<String, String>> items, Color primaryBlue) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(24),
-      decoration: BoxDecoration(color: primaryBlue.withOpacity(0.03), borderRadius: BorderRadius.circular(24)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title.toUpperCase(), style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: primaryBlue, letterSpacing: 2)),
-          SizedBox(height: 24),
-          ...items.map((it) => Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(it['l']!, style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
-                Text(it['v']!, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w900)),
-              ],
-            ),
-          )).toList(),
-        ],
-      ),
-    );
-  }
-
-  String _calculateWinner(dynamic match) {
-    try {
-      if (match == null || match['innings'] == null) return "Match Completed";
-      List innings = match['innings'] is List ? match['innings'] : [];
-      if (innings.length < 2) return "Match Completed";
-      
-      dynamic inn1 = innings[0], inn2 = innings[1];
-      bool isSuperOver = innings.length > 2;
-      if (innings.length >= 4) { 
-        inn1 = innings[innings.length - 2]; 
-        inn2 = innings[innings.length - 1]; 
-      }
-      
-      if (inn1 == null || inn2 == null) return "Match Completed";
-      
-      int r1 = (inn1['runs'] as num?)?.toInt() ?? 0;
-      int r2 = (inn2['runs'] as num?)?.toInt() ?? 0;
-      
-      if (r1 > r2) {
-        if (isSuperOver) return "MATCH TIED | ${inn1['team'] ?? 'TEAM A'} WON VIA SUPER OVER";
-        return "${inn1['team'] ?? 'TEAM A'} WON BY ${r1 - r2} RUNS";
-      }
-      if (r2 > r1) {
-        if (isSuperOver) return "MATCH TIED | ${inn2['team'] ?? 'TEAM B'} WON VIA SUPER OVER";
-        return "${inn2['team'] ?? 'TEAM B'} WON BY ${10 - (inn2['wickets'] ?? 10)} WICKETS";
-      }
-      return isSuperOver ? "MATCH DRAWN | SUPER OVER TIED" : "MATCH DRAWN";
-    } catch (e) {
-      return "Match Completed";
-    }
-  }
-
-  String _toCamelCase(String text) {
-    if (text.isEmpty) return text;
-    return text.trim().split(' ').map((word) {
-      if (word.isEmpty) return '';
-      return word[0].toUpperCase() + word.substring(1).toLowerCase();
-    }).join(' ');
-  }
-
-  Future<void> _exportToPDF(SettingsProvider settings) async {
-    final pdf = pw.Document();
-    final String winner = _calculateWinner(match);
-    final primaryColor = PdfColor.fromInt(0xFF009270); // SMCC Green
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: pw.EdgeInsets.all(32),
-        build: (pw.Context context) {
-          return [
-            pw.Header(
-              level: 0,
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text("SMCC CRICKET SCORECARD", style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
-                  pw.SizedBox(height: 8),
-                  pw.Text("${match['teamA'].toString().toUpperCase()} VS ${match['teamB'].toString().toUpperCase()}", style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
-                  pw.SizedBox(height: 4),
-                  pw.Text("SERIES: ${match['series']?.toString().toUpperCase() ?? 'SMCC'} | VENUE: ${match['venue'].toString().toUpperCase()}", style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
-                  pw.Divider(height: 20),
-                ]
-              )
-            ),
-            if (match['status'] == 'completed') ...[
-              pw.Container(
-                padding: pw.EdgeInsets.all(12),
-                decoration: pw.BoxDecoration(color: primaryColor, borderRadius: pw.BorderRadius.circular(8)),
-                child: pw.Center(
-                  child: pw.Column(
-                    children: [
-                      pw.Text("RESULT: ${winner.toUpperCase()}", style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 14)),
-                    ]
-                  )
-                )
-              ),
-              pw.SizedBox(height: 24),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('FINAL RESULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: _success, letterSpacing: 1)),
+            const SizedBox(height: 6),
+            Text(result, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: _success)),
+            if (mom != null && mom.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(children: [
+                const Text('🥇 ', style: TextStyle(fontSize: 18)),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('MAN OF THE MATCH', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: _primary, letterSpacing: 1)),
+                  Text(mom.toUpperCase(), style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w900, color: _primary)),
+                ]),
+              ]),
             ],
+          ]),
+        ),
+      ],
+    ]);
+  }
 
-            ...(match['innings'] as List).asMap().entries.map((entry) {
-              final inn = entry.value;
-              final idx = entry.key;
-              final String title = idx >= 2 ? "SUPER OVER INNINGS" : "${inn['team'].toString().toUpperCase()} INNINGS";
-
-              return pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Padding(
-                    padding: pw.EdgeInsets.symmetric(vertical: 12),
-                    child: pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(title, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: primaryColor)),
-                        pw.Text("${inn['runs']}/${inn['wickets']} (${inn['overs']} OV)", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                      ]
-                    )
-                  ),
-                  pw.Table.fromTextArray(
-                    headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold),
-                    headerDecoration: pw.BoxDecoration(color: primaryColor),
-                    headers: ['Batter', 'Status', 'R', 'B', '4s', '6s', 'SR'],
-                    data: (inn['batting'] as List).map((b) => [
-                      b['player'], b['status'], b['runs'], b['balls'], b['fours'], b['sixes'], b['strikeRate']
-                    ]).toList(),
-                  ),
-                  pw.Container(
-                    padding: pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    decoration: pw.BoxDecoration(color: PdfColors.grey100),
-                    child: pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text("EXTRAS: ${inn['extras']['total']}", style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                        pw.Text("(wd ${inn['extras']['wides']}, nb ${inn['extras']['noBalls']}, b ${inn['extras']['byes'] ?? 0}, lb ${inn['extras']['legByes'] ?? 0})", style: pw.TextStyle(fontSize: 8)),
-                      ]
-                    )
-                  ),
-                  pw.SizedBox(height: 16),
-                  
-                  // Bowling Table
-                  pw.Table.fromTextArray(
-                    headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold),
-                    headerDecoration: pw.BoxDecoration(color: PdfColors.grey800),
-                    headers: ['Bowler', 'O', 'M', 'R', 'W', 'ECON'],
-                    data: (() {
-                      int bowlIdx = idx % 2 == 0 ? idx + 1 : idx - 1;
-                      if (match['innings'].length > bowlIdx) {
-                        return (match['innings'][bowlIdx]['bowling'] as List).map((b) => [
-                          b['player'], b['overs'], b['maiden'] ?? 0, b['runs'], b['wickets'], b['economy']
-                        ]).toList();
-                      }
-                      return <List<dynamic>>[];
-                    })(),
-                  ),
-                  pw.SizedBox(height: 32),
-                ]
-              );
-            }).toList(),
-            
-            pw.Footer(
-              trailing: pw.Text("Exported from SMCC Mobile app on ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}", style: pw.TextStyle(fontSize: 8, color: PdfColors.grey500))
-            )
-          ];
-        }
-      )
+  Widget _infoCard(String title, List<Widget> rows) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade100)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.grey, letterSpacing: 1.5)),
+        const SizedBox(height: 10),
+        ...rows,
+      ]),
     );
+  }
 
-    final String filename = "${match['teamA']}_vs_${match['teamB']}_scorecard.pdf";
-    await Printing.layoutPdf(onLayout: (format) async => pdf.save(), name: filename);
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
+        Text(value, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w800)),
+      ]),
+    );
+  }
+
+  Widget _buildBoundaryOverlay() {
+    final isSix = _blastValue == 6;
+    return Positioned.fill(
+      child: Container(
+        color: Colors.white.withOpacity(0.75),
+        child: Center(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.elasticOut,
+            builder: (_, v, child) => Transform.scale(scale: v, child: child),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: isSix
+                    ? [const Color(0xFF059669), const Color(0xFF10B981)]
+                    : [const Color(0xFFD97706), const Color(0xFFFBBF24)]),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white, width: 4),
+                boxShadow: [const BoxShadow(color: Colors.black26, blurRadius: 20)],
+              ),
+              child: Text(isSix ? 'SIX!' : 'FOUR!',
+                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w900)),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

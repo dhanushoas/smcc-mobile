@@ -5,7 +5,9 @@ class ApiService {
   // Production Backend URL
   static const String baseUrl = 'https://smcc-backend.onrender.com/api';
 
-  // Legacy dynamic URL logic removed as per request for seamless valid login
+  // Socket.IO root URL (no /api — mirrors web API_URL)
+  static const String socketUrl = 'https://smcc-backend.onrender.com';
+
   static Future<void> init() async {}
 
   // Wake up Render server early

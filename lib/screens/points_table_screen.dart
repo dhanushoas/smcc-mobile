@@ -1,197 +1,222 @@
+/// points_table_screen.dart — Full port of smcc-web/src/pages/PointsTable.jsx
+/// Real-time points table with NRR calculation (ball-accuracy), series filter, socket updates.
+
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../services/api_service.dart';
+import '../utils/calculations.dart';
 
 class PointsTableScreen extends StatefulWidget {
+  const PointsTableScreen({Key? key}) : super(key: key);
+
   @override
-  _PointsTableScreenState createState() => _PointsTableScreenState();
+  State<PointsTableScreen> createState() => _PointsTableScreenState();
 }
 
 class _PointsTableScreenState extends State<PointsTableScreen> {
-  List<dynamic> stats = [];
-  bool isLoading = true;
+  List<dynamic> _matches = [];
+  bool _loading = true;
+  String? _activeSeries;
+
+  late io.Socket _socket;
+
+  static const Color _primary = Color(0xFF2563EB);
 
   @override
   void initState() {
     super.initState();
-    calculatePoints();
+    _fetch();
+    _socket = io.io(ApiService.socketUrl, <String, dynamic>{'transports': ['websocket']});
+    _socket.on('matchUpdate', (_) => _fetch());
+    _socket.on('matchDeleted', (_) => _fetch());
   }
 
-  Future<void> calculatePoints() async {
+  @override
+  void dispose() {
+    _socket.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetch() async {
     try {
-      final res = await ApiService.getMatches();
-      final completedMatches = res.where((m) => m['status'] == 'completed').toList();
-      Map<String, dynamic> teamStats = {};
-
-      for (var m in completedMatches) {
-        List innings = m['innings'] ?? [];
-        if (innings.length < 2) continue;
-        List teams = [m['teamA'], m['teamB']];
-        for (var t in teams) {
-          if (!teamStats.containsKey(t)) {
-            teamStats[t] = {
-              'name': t, 'p': 0, 'w': 0, 'l': 0, 'd': 0, 'pts': 0, 
-              'runsScored': 0, 'oversFaced': 0.0, 'runsConceded': 0, 'oversBowled': 0.0
-            };
-          }
-          teamStats[t]['p'] += 1;
+      final data = await ApiService.getMatches();
+      setState(() {
+        _matches = data;
+        _loading = false;
+        if (_activeSeries == null && data.isNotEmpty) {
+          final series = data.map((m) => (m['series'] ?? 'SMCC LIVE').toString()).toSet().toList();
+          _activeSeries = series.first;
         }
-
-        dynamic inn1 = innings[0], inn2 = innings[1];
-        int runs1 = (inn1['runs'] as num).toInt(), runs2 = (inn2['runs'] as num).toInt();
-        String team1 = inn1['team'], team2 = inn2['team'];
-
-        if (runs1 > runs2) { 
-          teamStats[team1]['w'] += 1; teamStats[team1]['pts'] += 2; teamStats[team2]['l'] += 1; 
-        } else if (runs2 > runs1) { 
-          teamStats[team2]['w'] += 1; teamStats[team2]['pts'] += 2; teamStats[team1]['l'] += 1; 
-        } else if (innings.length >= 4) {
-          // Super Over
-          dynamic inn3 = innings[2], inn4 = innings[3];
-          int r3 = (inn3['runs'] as num).toInt(), r4 = (inn4['runs'] as num).toInt();
-          if (r3 > r4) {
-             String wTeam = inn3['team'];
-             String lTeam = inn3['team'] == team1 ? team2 : team1;
-             teamStats[wTeam]['w'] += 1; teamStats[wTeam]['pts'] += 2; teamStats[lTeam]['l'] += 1;
-          } else if (r4 > r3) {
-             String wTeam = inn4['team'];
-             String lTeam = inn4['team'] == team1 ? team2 : team1;
-             teamStats[wTeam]['w'] += 1; teamStats[wTeam]['pts'] += 2; teamStats[lTeam]['l'] += 1;
-          } else {
-             teamStats[team1]['d'] += 1; teamStats[team1]['pts'] += 1; teamStats[team2]['d'] += 1; teamStats[team2]['pts'] += 1;
-          }
-        } else { 
-          teamStats[team1]['d'] += 1; teamStats[team1]['pts'] += 1; teamStats[team2]['d'] += 1; teamStats[team2]['pts'] += 1; 
-        }
-
-        teamStats[team1]['runsScored'] += runs1; teamStats[team1]['oversFaced'] += (inn1['overs'] as num).toDouble();
-        teamStats[team1]['runsConceded'] += runs2; teamStats[team1]['oversBowled'] += (inn2['overs'] as num).toDouble();
-        teamStats[team2]['runsScored'] += runs2; teamStats[team2]['oversFaced'] += (inn2['overs'] as num).toDouble();
-        teamStats[team2]['runsConceded'] += runs1; teamStats[team2]['oversBowled'] += (inn1['overs'] as num).toDouble();
-      }
-
-      List result = teamStats.values.map((t) {
-        double f = t['oversFaced'] > 0 ? t['runsScored'] / t['oversFaced'] : 0;
-        double a = t['oversBowled'] > 0 ? t['runsConceded'] / t['oversBowled'] : 0;
-        t['nrr'] = (f - a).toStringAsFixed(3);
-        return t;
-      }).toList();
-
-      result.sort((a,b) {
-        int p = (b['pts'] as int).compareTo(a['pts'] as int);
-        return p != 0 ? p : double.parse(b['nrr']).compareTo(double.parse(a['nrr']));
       });
-
-      if (mounted) setState(() { stats = result; isLoading = false; });
-    } catch (_) { if (mounted) setState(() => isLoading = false); }
+    } catch (_) {
+      setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final primaryBlue = Color(0xFF2563EB);
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(icon: Icon(Icons.arrow_back_ios_new_rounded, color: primaryBlue, size: 20), onPressed: () => Navigator.pop(context)),
-        title: Text('STANDINGS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: primaryBlue, fontSize: 16, letterSpacing: 1.2)),
-      ),
-      body: isLoading ? Center(child: CircularProgressIndicator(color: primaryBlue)) : SingleChildScrollView(
-        physics: AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          children: [
-            SizedBox(height: 20),
-            _buildHeader(),
-            SizedBox(height: 32),
-            _buildStandingsCard(primaryBlue),
-            SizedBox(height: 24),
-            _buildNRRInfo(primaryBlue),
-            SizedBox(height: 48),
-          ],
-        ),
-      ),
-    );
-  }
+    final seriesList = _matches.map((m) => (m['series'] ?? 'SMCC LIVE').toString()).toSet().toList();
+    final filtered = _activeSeries == null
+        ? _matches
+        : _matches.where((m) => (m['series'] ?? 'SMCC LIVE').toString() == _activeSeries).toList();
+    final stats = calculateStats(filtered);
 
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        Text('LEAGUE STATS', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 2)),
-        SizedBox(height: 8),
-        Text('SMCC PREMIER LEAGUE 2026', style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w900)),
-      ],
-    );
-  }
-
-  Widget _buildStandingsCard(Color primaryBlue) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: primaryBlue.withOpacity(0.1)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: Offset(0, 10))],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(20),
-            decoration: BoxDecoration(color: primaryBlue.withOpacity(0.05), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-            child: Row(
+    return _loading
+        ? const Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+            onRefresh: _fetch,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
               children: [
-                Icon(Icons.emoji_events_rounded, color: primaryBlue, size: 24),
-                SizedBox(width: 12),
-                Text('CURRENT STANDINGS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1, color: primaryBlue)),
+                Text('Series Standings',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 20,
+                        textStyle: const TextStyle(letterSpacing: 0.5))),
+                const SizedBox(height: 12),
+
+                // Series filter tabs
+                if (seriesList.length > 1) ...[
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: seriesList.map((s) {
+                        final isActive = s == _activeSeries;
+                        return GestureDetector(
+                          onTap: () => setState(() => _activeSeries = s),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isActive ? _primary : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: isActive ? _primary : Colors.grey.shade300),
+                            ),
+                            child: Text(s, style: GoogleFonts.outfit(
+                                color: isActive ? Colors.white : Colors.grey.shade700,
+                                fontWeight: FontWeight.w800, fontSize: 13)),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Points Table card
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade100),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
+                  ),
+                  clipBehavior: Clip.hardEdge,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        color: Colors.grey.shade50,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('${_activeSeries ?? ''} • Points Table',
+                                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.grey, letterSpacing: 1)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(20)),
+                              child: Text('REAL-TIME', style: GoogleFonts.outfit(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Table header
+                      _buildTableHeader(),
+                      // Rows
+                      if (stats.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text('No matches played in this series yet.',
+                              style: GoogleFonts.outfit(color: Colors.grey)),
+                        )
+                      else
+                        ...stats.asMap().entries.map((e) => _buildTeamRow(e.value, e.key)),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // NRR explanation
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                      color: Colors.white, borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade100)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('NRR RULES & CALCULATION',
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Net Run Rate (NRR) is calculated by taking the average runs per over scored across the tournament, minus the average runs per over conceded.\n\nFormula: (Total Runs Scored / Total Overs Faced) - (Total Runs Conceded / Total Overs Bowled)',
+                      style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade700, height: 1.5),
+                    ),
+                  ]),
+                ),
               ],
             ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 24,
-              headingRowHeight: 50,
-              dataRowHeight: 65,
-              columns: [
-                _col('POS'), _col('TEAM'), _col('P'), _col('W'), _col('L'), _col('NRR'), _col('PTS'),
-              ],
-              rows: stats.asMap().entries.map((e) {
-                final t = e.value;
-                return DataRow(cells: [
-                  DataCell(Text((e.key + 1).toString(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12))),
-                  DataCell(Text(t['name'].toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: primaryBlue))),
-                  DataCell(_cell(t['p'].toString())),
-                  DataCell(_cell(t['w'].toString(), color: Colors.green)),
-                  DataCell(_cell(t['l'].toString(), color: Colors.red)),
-                  DataCell(_cell(t['nrr'].toString())),
-                  DataCell(Container(
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(8)),
-                    child: Text(t['pts'].toString(), style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
-                  )),
-                ]);
-              }).toList(),
-            ),
-          ),
-          if (stats.isEmpty) Padding(padding: EdgeInsets.all(40), child: Text('No matches completed yet', style: GoogleFonts.outfit(color: Colors.grey, fontWeight: FontWeight.bold))),
-        ],
-      ),
+          );
+  }
+
+  Widget _buildTableHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
+      child: Row(children: [
+        Expanded(flex: 4, child: Text('TEAMS', style: _hStyle())),
+        _hCell('M'),
+        _hCell('W'),
+        _hCell('L'),
+        _hCell('T/NR'),
+        _hCell('PTS'),
+        _hCell('NRR'),
+      ]),
     );
   }
 
-  DataColumn _col(String l) => DataColumn(label: Text(l, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)));
-  Widget _cell(String t, {Color? color}) => Text(t, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: color));
+  Widget _hCell(String t) => Expanded(flex: 2, child: Center(child: Text(t, style: _hStyle())));
+  TextStyle _hStyle() => GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.grey, letterSpacing: 1);
 
-  Widget _buildNRRInfo(Color primaryBlue) {
+  Widget _buildTeamRow(Map<String, dynamic> team, int idx) {
     return Container(
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(color: primaryBlue.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: primaryBlue.withOpacity(0.1))),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline_rounded, size: 18, color: primaryBlue),
-          SizedBox(width: 12),
-          Expanded(child: Text('NRR: (Runs Scored / Overs Faced) - (Runs Conceded / Overs Bowled)', style: GoogleFonts.outfit(fontSize: 10, color: primaryBlue, fontWeight: FontWeight.bold))),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: idx == 0 ? _primary.withOpacity(0.04) : Colors.transparent,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
       ),
+      child: Row(children: [
+        Expanded(flex: 4, child: Row(children: [
+          Text('${idx + 1} ', style: GoogleFonts.outfit(color: Colors.grey, fontWeight: FontWeight.w700, fontSize: 12)),
+          Expanded(child: Text((team['name'] ?? '').toString().toUpperCase(),
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13))),
+        ])),
+        _cell('${team['p']}'),
+        _cell('${team['w']}', color: Colors.green.shade700),
+        _cell('${team['l']}', color: Colors.red.shade600),
+        _cell('${team['d']}', color: Colors.grey),
+        _cell('${team['pts']}', color: _primary, bold: true, large: true),
+        _cell('${team['nrr']}', color: Colors.grey.shade700),
+      ]),
     );
+  }
+
+  Widget _cell(String t, {Color? color, bool bold = false, bool large = false}) {
+    return Expanded(flex: 2, child: Center(
+      child: Text(t, style: GoogleFonts.outfit(
+          color: color ?? Colors.black87,
+          fontWeight: bold ? FontWeight.w900 : FontWeight.w600,
+          fontSize: large ? 15 : 12)),
+    ));
   }
 }
