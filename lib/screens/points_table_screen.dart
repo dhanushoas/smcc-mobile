@@ -96,23 +96,19 @@ class _PointsTableScreenState extends State<PointsTableScreen> {
         leading: IconButton(icon: Icon(Icons.arrow_back_ios_new_rounded, color: primaryBlue, size: 20), onPressed: () => Navigator.pop(context)),
         title: Text('STANDINGS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: primaryBlue, fontSize: 16, letterSpacing: 1.2)),
       ),
-      body: isLoading ? Center(child: CircularProgressIndicator(color: primaryBlue)) : RefreshIndicator(
-        onRefresh: calculatePoints,
-        color: primaryBlue,
-        child: SingleChildScrollView(
-          physics: AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: [
-              SizedBox(height: 20),
-              _buildHeader(),
-              SizedBox(height: 32),
-              _buildStandingsCard(primaryBlue),
-              SizedBox(height: 24),
-              _buildNRRInfo(primaryBlue),
-              SizedBox(height: 48),
-            ],
-          ),
+      body: isLoading ? Center(child: CircularProgressIndicator(color: primaryBlue)) : SingleChildScrollView(
+        physics: AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          children: [
+            SizedBox(height: 20),
+            _buildHeader(),
+            SizedBox(height: 32),
+            _buildStandingsCard(primaryBlue),
+            SizedBox(height: 24),
+            _buildNRRInfo(primaryBlue),
+            SizedBox(height: 48),
+          ],
         ),
       ),
     );

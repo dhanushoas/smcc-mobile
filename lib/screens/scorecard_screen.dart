@@ -55,17 +55,6 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
     } catch (_) {}
   }
 
-  void _copyScorecard() {
-    String result = _calculateWinner(match);
-    String text = "🏏 ${match['teamA']} vs ${match['teamB']}\n🏆 $result\n📍 ${match['venue']}";
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Result copied to clipboard!', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: Color(0xFF2563EB),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,12 +74,6 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
         ),
         title: Text('MATCH ANALYTICS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: primaryBlue, fontSize: 16, letterSpacing: 1.2)),
         actions: [
-          if (isCompleted) 
-            IconButton(
-              icon: Icon(Icons.copy_rounded, color: primaryBlue),
-              onPressed: _copyScorecard,
-              tooltip: 'Copy Result',
-            ),
           if (isCompleted)
             IconButton(
               icon: Icon(Icons.picture_as_pdf_rounded, color: primaryBlue),
@@ -99,24 +82,29 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
           SizedBox(width: 8),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 20),
-            _buildMatchHeader(primaryBlue),
-            SizedBox(height: 32),
-            _buildCustomTabs(primaryBlue),
-            SizedBox(height: 32),
-            if (match['status'] == 'completed') _buildWinnerBanner(primaryBlue),
-            if (_activeTab == 0)
-              ...inningsList.asMap().entries.map((entry) => _buildInningsView(entry.value, entry.key, primaryBlue, settings)).toList()
-            else
-              _buildMatchInfo(match, primaryBlue, settings),
-            SizedBox(height: 40),
-            AppFooter(),
-          ],
+      body: RefreshIndicator(
+        onRefresh: _fetchMatchUpdate,
+        color: primaryBlue,
+        child: SingleChildScrollView(
+          physics: AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: 20),
+              _buildMatchHeader(primaryBlue),
+              SizedBox(height: 32),
+              _buildCustomTabs(primaryBlue),
+              SizedBox(height: 32),
+              if (match['status'] == 'completed') _buildWinnerBanner(primaryBlue),
+              if (_activeTab == 0)
+                ...inningsList.asMap().entries.map((entry) => _buildInningsView(entry.value, entry.key, primaryBlue, settings)).toList()
+              else
+                _buildMatchInfo(match, primaryBlue, settings),
+              SizedBox(height: 40),
+              AppFooter(),
+            ],
+          ),
         ),
       ),
     );

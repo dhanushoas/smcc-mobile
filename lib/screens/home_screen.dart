@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../services/api_service.dart';
 import '../providers/settings_provider.dart';
-import 'profile_screen.dart';
 import 'scorecard_screen.dart';
 import '../widgets/app_footer.dart';
 import '../widgets/app_drawer.dart';
@@ -190,12 +189,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   Icon(Icons.cloud_off_rounded, size: 64, color: Colors.red.withOpacity(0.5)),
                   SizedBox(height: 24),
                   Text(errorMessage!, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.red.shade900)),
-                  SizedBox(height: 32),
-                  ElevatedButton(
-                    onPressed: fetchMatches,
-                    style: ElevatedButton.styleFrom(backgroundColor: primaryBlue, foregroundColor: Colors.white, shape: StadiumBorder()),
-                    child: Text('RETRY CONNECTION', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12)),
-                  )
                 ],
               ),
             )
@@ -214,7 +207,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   Icon(Icons.sports_cricket_rounded, size: 80, color: Colors.grey.withOpacity(0.2)),
                   SizedBox(height: 24),
                   Text('NO MATCHES SCHEDULED', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 2)),
-                  TextButton(onPressed: fetchMatches, child: Text('TAP TO REFRESH', style: GoogleFonts.outfit(color: primaryBlue, fontWeight: FontWeight.bold))),
                 ],
               ),
             )
@@ -272,7 +264,6 @@ class _HomeScreenState extends State<HomeScreen> {
                Text('Oops! Error during rendering.', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
                SizedBox(height: 8),
                Text(e.toString(), style: TextStyle(fontSize: 10, color: Colors.grey), textAlign: TextAlign.center),
-               TextButton(onPressed: fetchMatches, child: Text('RELOAD'))
              ],
            ),
          ),

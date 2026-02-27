@@ -3,8 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../screens/home_screen.dart';
-import '../screens/profile_screen.dart';
-import '../screens/admin_screen.dart';
 import '../screens/schedule_screen.dart';
 import '../screens/points_table_screen.dart';
 import '../screens/achievements_screen.dart';
@@ -99,14 +97,6 @@ class AppDrawer extends StatelessWidget {
                 }),
                 _buildDrawerItem(context, Icons.volunteer_activism_rounded, 'Sponsorship', '/sponsorship', () {
                    Navigator.push(context, MaterialPageRoute(builder: (_) => SponsorshipScreen()));
-                }),
-                
-                _buildSectionHeader('ACCOUNT'),
-                _buildDrawerItem(context, Icons.person_rounded, 'Profile', '/profile', () {
-                   Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen()));
-                }),
-                _buildDrawerItem(context, Icons.admin_panel_settings_rounded, 'Admin Console', '/admin', () {
-                   Navigator.push(context, MaterialPageRoute(builder: (_) => AdminScreen()));
                 }),
               ],
             ),
