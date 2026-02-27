@@ -948,7 +948,6 @@ class _AdminLiveMatchScreenState extends State<AdminLiveMatchScreen> {
                   ]
                   )
               ),
-            ),
             SizedBox(height: 10),
             ListTile(
               title: Text('Start Super Over', style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
