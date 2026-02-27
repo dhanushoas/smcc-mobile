@@ -17,7 +17,7 @@ import 'join_council_screen.dart';
 import 'improvements_screen.dart';
 import 'sponsorship_screen.dart';
 import 'privacy_screen.dart';
-import 'admin_screen.dart';
+import 'privacy_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -646,7 +646,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _buildMatchList(),
     PointsTableScreen(),
     ScheduleScreen(),
-    const AdminScreen(),
+    ScheduleScreen(),
   ];
 
   @override
@@ -656,13 +656,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Image.asset('assets/logo.png', height: 36),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            itemBuilder: (_) => const [],
-          )
-        ],
+        title: Row(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: Image.asset('assets/logo.png', height: 32, width: 32),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'SMCC LIVE',
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
       ),
       body: _loading
           ? Center(child: CircularProgressIndicator(color: _primary))
@@ -676,7 +696,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home, color: _primary), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.leaderboard_outlined), selectedIcon: Icon(Icons.leaderboard, color: _primary), label: 'Standings'),
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month, color: _primary), label: 'Schedule'),
-          NavigationDestination(icon: Icon(Icons.terminal_outlined), selectedIcon: Icon(Icons.terminal, color: _danger), label: 'Console'),
         ],
       ),
     );
