@@ -17,6 +17,7 @@ import 'join_council_screen.dart';
 import 'improvements_screen.dart';
 import 'sponsorship_screen.dart';
 import 'privacy_screen.dart';
+import 'admin_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -657,6 +658,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     PointsTableScreen(),
     ScheduleScreen(),
     AchievementsScreen(),
+    const AdminScreen(),
   ];
 
   @override
@@ -707,6 +709,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           NavigationDestination(icon: Icon(Icons.leaderboard_outlined), selectedIcon: Icon(Icons.leaderboard, color: _primary), label: 'Standings'),
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month, color: _primary), label: 'Schedule'),
           NavigationDestination(icon: Icon(Icons.emoji_events_outlined), selectedIcon: Icon(Icons.emoji_events, color: _primary), label: 'Achievements'),
+          NavigationDestination(icon: Icon(Icons.terminal_outlined), selectedIcon: Icon(Icons.terminal, color: _danger), label: 'Console'),
         ],
       ),
     );

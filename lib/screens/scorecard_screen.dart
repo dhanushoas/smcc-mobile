@@ -340,6 +340,39 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // ── Final Result Banner (shown when match is completed — mirrors FullScorecard.jsx header)
+        if (result != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: _success.withOpacity(0.09),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _success.withOpacity(0.25)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('FINAL RESULT', style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w900, fontSize: 10, color: _success, letterSpacing: 1.5)),
+              const SizedBox(height: 4),
+              Text(result, style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w900, fontSize: 15, color: _success)),
+              if (mom != null && mom.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(children: [
+                  const Text('🥇 ', style: TextStyle(fontSize: 18)),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('MAN OF THE MATCH', style: GoogleFonts.outfit(
+                        fontSize: 9, fontWeight: FontWeight.w900, color: _primary, letterSpacing: 1)),
+                    Text(mom.toUpperCase(), style: GoogleFonts.outfit(
+                        fontSize: 14, fontWeight: FontWeight.w900, color: _primary)),
+                  ]),
+                ]),
+              ],
+            ]),
+          ),
+          const SizedBox(height: 16),
+        ],
+
         // ── Innings phase tabs
         Container(
           padding: const EdgeInsets.all(12),
