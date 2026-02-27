@@ -654,9 +654,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ── Navigation ─────────────────────────────────────────────────────────────
   List<Widget> get _pages => [
     _buildMatchList(),
-    const PointsTableScreen(),
-    const ScheduleScreen(),
-    const AchievementsScreen(),
+    PointsTableScreen(),
+    ScheduleScreen(),
+    AchievementsScreen(),
   ];
 
   @override
