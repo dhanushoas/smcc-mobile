@@ -168,7 +168,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             color: const Color(0xFF1E293B),
             padding: const EdgeInsets.symmetric(vertical: 8),
             alignment: Alignment.center,
-            child: Text('$overs OVERS FORMAT',
+            child: Text('${pluralize(overs, 'Over').toUpperCase()} FORMAT',
                 style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 2)),
           ),
         ],

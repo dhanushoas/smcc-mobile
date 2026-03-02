@@ -46,7 +46,7 @@ String ballsToOvers(int balls) {
   return '$ov.$b';
 }
 
-/// Pluralises "over" vs "overs" based on value
-String pluralOvers(num overs) {
-  return overs == 1 ? 'over' : 'overs';
+/// Pluralises a word based on count
+String pluralize(num count, String singular, [String? plural]) {
+  return count == 1 ? '$count $singular' : '$count ${plural ?? (singular + 's')}';
 }

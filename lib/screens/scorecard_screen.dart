@@ -140,7 +140,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           widgets.add(pw.Text('RESULT: ${result.toUpperCase()}',
               style: pw.TextStyle(color: PdfColors.green700, fontWeight: pw.FontWeight.bold, fontSize: 12)));
           if (match['manOfTheMatch'] != null) {
-            widgets.add(pw.Text('POTM: ${match['manOfTheMatch'].toString().toUpperCase()}',
+            widgets.add(pw.Text('MAN OF THE MATCH: ${match['manOfTheMatch'].toString().toUpperCase()}',
                 style: pw.TextStyle(fontSize: 10)));
           }
         }
@@ -156,7 +156,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           final isSO = idx >= 2;
           final title = '${inn['team']?.toString().toUpperCase()} $ordinal INNINGS${isSO ? ' (SUPER OVER)' : ''}';
           final ovs = (inn['overs'] as num? ?? 0);
-          final ovsStr = '${inn['runs']}/${inn['wickets']} (${ovs}OV)';
+          final ovsStr = '${inn['runs']} / ${inn['wickets']} (${pluralize(ovs, 'Over')})';
           widgets.add(pw.Text('$title: $ovsStr',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColors.blue800)));
           widgets.add(pw.SizedBox(height: 6));
@@ -165,7 +165,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           final batting = List<dynamic>.from(inn['batting'] ?? []);
           if (batting.isNotEmpty) {
             widgets.add(pw.TableHelper.fromTextArray(
-              headers: ['Batter', 'Status', 'R', 'B', '4s', '6s', 'SR'],
+              headers: ['Batter', 'Status', 'Runs', 'Balls', 'Fours', 'Sixes', 'Strike Rate'],
               data: batting.map((b) => [
                 b['player']?.toString().toUpperCase() ?? '',
                 b['status']?.toString().toUpperCase() ?? '',
@@ -186,7 +186,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           final ext = inn['extras'] as Map<String, dynamic>? ?? {};
           widgets.add(pw.SizedBox(height: 4));
           widgets.add(pw.Text(
-            'EXTRAS: ${ext['total'] ?? 0} (wd ${ext['wides'] ?? 0}, nb ${ext['noBalls'] ?? 0}, b ${ext['byes'] ?? 0}, lb ${ext['legByes'] ?? 0})',
+            'EXTRAS: ${ext['total'] ?? 0} (Wide Ball: ${ext['wides'] ?? 0}, No Ball: ${ext['noBalls'] ?? 0}, Bye: ${ext['byes'] ?? 0}, Leg Bye: ${ext['legByes'] ?? 0})',
             style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
           ));
 
@@ -204,7 +204,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
             final bowling = List<dynamic>.from(bowlInn['bowling'] ?? []);
             if (bowling.isNotEmpty) {
               widgets.add(pw.TableHelper.fromTextArray(
-                headers: ['Bowler', 'O', 'M', 'R', 'W', 'WD', 'NB', 'ECO'],
+                headers: ['Bowler', 'Overs', 'Maidens', 'Runs', 'Wickets', 'Wides', 'No Balls', 'Economy'],
                 data: bowling.map((b) => [
                   b['player']?.toString().toUpperCase() ?? '',
                   '${b['overs'] ?? 0}',
@@ -230,19 +230,17 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
             widgets.add(pw.Text('FALL OF WICKETS',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.red700, fontSize: 10)));
             widgets.add(pw.TableHelper.fromTextArray(
-              headers: ['Wkt', 'Score', 'Over', 'Player'],
+              headers: ['Wicket', 'Score', 'Over', 'Player'],
               data: fow.map((f) => ['${f['wicket']}', '${f['runs']}', '${f['overs']}', f['player']?.toString().toUpperCase() ?? '']).toList(),
               cellStyle: const pw.TextStyle(fontSize: 9),
               border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
             ));
           }
 
-          // Total line — with correct singular/plural
           final innOvers = (inn['overs'] as num? ?? 0).toDouble();
-          final oversWord = innOvers == 1 ? 'Over' : 'Overs';
           widgets.add(pw.SizedBox(height: 4));
           widgets.add(pw.Text(
-            'TOTAL: ${inn['runs']}/${inn['wickets']} in $innOvers $oversWord | Boundaries: 4s: ${inn['fours'] ?? 0}, 6s: ${inn['sixes'] ?? 0}',
+            'TOTAL: ${inn['runs']} / ${inn['wickets']} in ${pluralize(innOvers, 'Over')} | Boundaries: 4s: ${inn['fours'] ?? 0}, 6s: ${inn['sixes'] ?? 0}',
             style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
           ));
           widgets.add(pw.SizedBox(height: 16));
@@ -340,38 +338,63 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // ── Final Result Banner (shown when match is completed — mirrors FullScorecard.jsx header)
-        if (result != null) ...[
+        if (result != null || (match['status'] == 'live' && match['score']?['target'] != null)) ...[
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: _success.withOpacity(0.09),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _success.withOpacity(0.25)),
+              color: _primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _primary.withOpacity(0.1)),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('FINAL RESULT', style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.w900, fontSize: 10, color: _success, letterSpacing: 1.5)),
-              const SizedBox(height: 4),
-              Text(result, style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.w900, fontSize: 15, color: _success)),
-              if (mom != null && mom.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Row(children: [
-                  const Text('🥇 ', style: TextStyle(fontSize: 18)),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('MAN OF THE MATCH', style: GoogleFonts.outfit(
-                        fontSize: 9, fontWeight: FontWeight.w900, color: _primary, letterSpacing: 1)),
-                    Text(mom.toUpperCase(), style: GoogleFonts.outfit(
-                        fontSize: 14, fontWeight: FontWeight.w900, color: _primary)),
-                  ]),
-                ]),
+            child: match['status'] == 'completed' ? Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text('MATCH RESULT', style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w900, fontSize: 10, color: _primary, letterSpacing: 2)),
+                const SizedBox(height: 8),
+                Text('🏆 ${result!.toUpperCase()}', 
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87)),
+                if (mom != null && mom.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('🎖️ ', style: TextStyle(fontSize: 14)),
+                        Text('PLAYER OF THE MATCH: ', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 1)),
+                        Text(mom.toUpperCase(), style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w900, color: _primary)),
+                      ],
+                    ),
+                  ),
+                ],
               ],
-            ]),
+            ) : Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text('CHASE REQUIREMENT', style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w900, fontSize: 10, color: _danger, letterSpacing: 2)),
+                const SizedBox(height: 8),
+                Text('TARGET: ${match['score']['target']} ${pluralize(match['score']['target'], 'Run')}', 
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: _danger)),
+                const SizedBox(height: 4),
+                Text('REQUIRED FROM ${match['totalOvers']} ${pluralize(match['totalOvers'], 'Over').toUpperCase()}', 
+                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.grey.shade600)),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
         ],
+
 
         // ── Innings phase tabs
         Container(
@@ -412,7 +435,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                           style: GoogleFonts.outfit(color: isActive ? Colors.white70 : Colors.grey,
                               fontSize: 10, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 2),
-                      Text('${inn['runs']}/${inn['wickets']} (${inn['overs']}ov)',
+                      Text('${inn['runs']} / ${inn['wickets']} (${pluralize(inn['overs'] ?? 0, 'Over')})',
                           style: GoogleFonts.outfit(color: isActive ? Colors.white : Colors.black87,
                               fontWeight: FontWeight.w900, fontSize: 12)),
                     ]),
@@ -465,20 +488,11 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
       children: [
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('${(inn['team'] ?? '').toString().toUpperCase()} ${_ordinal(_activeInnings + 1)} INNINGS${isSO ? ' (Super Over)' : ''}',
-              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: _primary)),
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, color: _primary)),
           Text(isSO ? 'Total 1 over' : 'Total ${match['totalOvers']} overs',
-              style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+              style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w700)),
         ]),
-        if (isSecondInn)
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('TARGET SCORE', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(10)),
-              child: Text('Target: $target (${ovs} ${pluralOvers(ovs)})',
-                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
-            ),
-          ]),
+
       ],
     );
   }
@@ -502,7 +516,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           6: FlexColumnWidth(0.9),
         },
         children: [
-          _tableHeader(['BATTER', 'STATUS', 'R', 'B', '4s', '6s', 'SR'], dark: true),
+          _tableHeader(['BATTER', 'STATUS', 'RUNS', 'BALLS', 'FOURS', 'SIXES', 'SR'], dark: true),
           ...batting.map((b) => _tableRow([
             toCamelCase(b['player']),
             toCamelCase(b['status'] ?? ''),
@@ -522,8 +536,8 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Text(
-        'Extras: ${ext['total'] ?? 0}  (wd ${ext['wides'] ?? 0}, nb ${ext['noBalls'] ?? 0}, b ${ext['byes'] ?? 0}, lb ${ext['legByes'] ?? 0})',
-        style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+        'Extras: ${ext['total'] ?? 0}  (Wide Ball: ${ext['wides'] ?? 0}, No Ball: ${ext['noBalls'] ?? 0}, Bye: ${ext['byes'] ?? 0}, Leg Bye: ${ext['legByes'] ?? 0})',
+        style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w800, textStyle: const TextStyle(letterSpacing: 0.2)),
       ),
     );
   }
@@ -566,7 +580,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
             7: FlexColumnWidth(0.9),
           },
           children: [
-            _tableHeader(['BOWLER', 'O', 'M', 'R', 'W', 'WD', 'NB', 'ECO'], dark: false),
+            _tableHeader(['BOWLER', 'OVERS', 'MAIDENS', 'RUNS', 'WICKETS', 'WIDES', 'NO BALLS', 'ECONOMY'], dark: false),
             ...bowling.map((b) => _tableRow([
               toCamelCase(b['player']),
               '${b['overs'] ?? 0}',
@@ -598,7 +612,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           3: FlexColumnWidth(2),
         },
         children: [
-          _tableHeader(['WKT', 'SCORE', 'OV', 'PLAYER'], dark: false),
+          _tableHeader(['WICKET', 'SCORE', 'OVER', 'PLAYER'], dark: false),
           ...fow.map((f) => _tableRow(['${f['wicket']}', '${f['runs']}', '${f['overs']}', toCamelCase(f['player'])])),
         ],
       ),
@@ -647,13 +661,13 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
   Widget _buildMatchInfo(Map<String, dynamic> match, String? result, String? mom, DateTime date) {
     return ListView(padding: const EdgeInsets.all(16), children: [
       // Match header
-      _infoCard('MATCH', [
+      _infoCard('MATCH DETAILS', [
         _infoRow('Teams', '${match['teamA']} vs ${match['teamB']}'),
         _infoRow('Series', match['series'] ?? 'SMCC LIVE'),
         _infoRow('Venue', match['venue'] ?? 'TBA'),
         _infoRow('Date', '${date.day}/${date.month}/${date.year}'),
-        _infoRow('Time', formatTime(match['date'])),
-        _infoRow('Format', '${match['totalOvers']} Overs'),
+        _infoRow('Scheduled Time', formatTime(match['date'])),
+        _infoRow('Match Format', '${pluralize(match['totalOvers'] ?? 20, 'Over')}'),
       ]),
       if (result != null) ...[
         const SizedBox(height: 12),

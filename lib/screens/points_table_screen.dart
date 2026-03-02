@@ -159,8 +159,8 @@ class _PointsTableScreenState extends State<PointsTableScreen> {
                         style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
                     const SizedBox(height: 6),
                     Text(
-                      'Net Run Rate (NRR) is calculated by taking the average runs per over scored across the tournament, minus the average runs per over conceded.\n\nFormula: (Total Runs Scored / Total Overs Faced) - (Total Runs Conceded / Total Overs Bowled)',
-                      style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade700, height: 1.5),
+                      'Net Run Rate (NRR) is calculated by taking the average runs per over scored across the tournament, minus the average runs per over conceded.\n\nNRR Formula: (Total Runs Scored / Total Overs Faced) - (Total Runs Conceded / Total Overs Bowled)',
+                      style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade700, height: 1.5, fontWeight: FontWeight.w600),
                     ),
                   ]),
                 ),
@@ -175,12 +175,12 @@ class _PointsTableScreenState extends State<PointsTableScreen> {
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
       child: Row(children: [
         Expanded(flex: 4, child: Text('TEAMS', style: _hStyle())),
-        _hCell('M'),
-        _hCell('W'),
-        _hCell('L'),
-        _hCell('T/NR'),
-        _hCell('PTS'),
-        _hCell('NRR'),
+        _hCell('Played'),
+        _hCell('Won'),
+        _hCell('Lost'),
+        _hCell('Tied/NR'),
+        _hCell('Points'),
+        _hCell('Net Run Rate'),
       ]),
     );
   }

@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final r = innings[idx]['runs'] ?? 0;
       final w = innings[idx]['wickets'] ?? 0;
       final ov = innings[idx]['overs'] ?? 0;
-      return '$r/$w (${ov}ov)';
+      return '$r / $w (${pluralize(ov, 'Over')})';
     }
 
     // Ball dot chip colours (mirrors Home.jsx)
@@ -173,14 +173,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final b = ball.toUpperCase();
       if (b == '6') return _primary;
       if (b == '4') return _success;
-      if (b == 'W' || b == 'OUT') return _danger;
-      if (b.contains('WD') || b.contains('NB')) return _warning;
+      if (b.startsWith('W') || b == 'OUT') return _danger;
+      if (b.startsWith('WD') || b.startsWith('NB') || b.startsWith('LB') || b.startsWith('B')) return _warning;
       return Colors.grey.shade200;
     }
     Color _ballTextColor(String ball) {
       final b = ball.toUpperCase();
-      if (b == '6' || b == '4' || b == 'W' || b == 'OUT') return Colors.white;
-      if (b.contains('WD') || b.contains('NB')) return Colors.black;
+      if (b == '6' || b == '4' || b.startsWith('W') || b == 'OUT') return Colors.white;
+      if (b.startsWith('WD') || b.startsWith('NB') || b.startsWith('LB') || b.startsWith('B')) return Colors.black;
       return Colors.black87;
     }
 
@@ -251,6 +251,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
                       // ── Live: Batsmen + Bowler + Over balls
                       if (isLive) ...[ 
+                        if (score['freeHit'] == true) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDC2626).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFDC2626).withOpacity(0.2)),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text('🚀 FREE HIT ACTIVE', 
+                              style: GoogleFonts.outfit(color: const Color(0xFFDC2626), fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2)),
+                          ),
+                        ],
                         const SizedBox(height: 10),
                         _buildLivePlayerRow(match, score, innings),
                       ],
@@ -342,8 +356,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         Text(onStrike ? '🏏 ' : '   ', style: const TextStyle(fontSize: 11)),
                         Expanded(child: Text(toCamelCase(b['name']), overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12))),
-                        Text(' ${b['runs'] ?? 0}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: _primary)),
-                        Text('(${b['balls'] ?? 0})', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
+                        Text(' ${pluralize(b['runs'] ?? 0, 'Run')}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: _primary)),
+                        const SizedBox(width: 4),
+                        Text('(${pluralize(b['balls'] ?? 0, 'Ball')})', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
                         if (onStrike) Text('*', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: _danger)),
                       ],
                     ),
@@ -376,8 +391,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         Color fg = Colors.black87;
                         if (bs == '6') { bg = _primary; fg = Colors.white; }
                         else if (bs == '4') { bg = _success; fg = Colors.white; }
-                        else if (bs == 'W' || bs == 'OUT') { bg = _danger; fg = Colors.white; }
-                        else if (bs.contains('WD') || bs.contains('NB')) { bg = _warning; fg = Colors.black; }
+                        else if (bs.startsWith('W') || bs == 'OUT') { bg = _danger; fg = Colors.white; }
+                        else if (bs.startsWith('WD') || bs.startsWith('NB') || bs.startsWith('LB') || bs.startsWith('B')) { bg = _warning; fg = Colors.black; }
                         return Container(
                           margin: const EdgeInsets.only(right: 4),
                           width: 22, height: 22,
@@ -400,27 +415,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildStatusLine(dynamic match, bool isLive, bool isCompleted, bool isUpcoming,
       Map<String, dynamic> score, List<dynamic> innings) {
     if (isCompleted) {
-      final result = calculateWinner(Map<String, dynamic>.from(match)) ?? 'COMPLETED';
-      final isDLS = match['isDLS'] == true;
-      final resultText = isDLS ? '$result (DLS)' : result;
+      final String winner = calculateWinner(Map<String, dynamic>.from(match)) ?? 'COMPLETED';
+      final String resultText = winner.toUpperCase();
       final mom = match['manOfTheMatch'] as String?;
 
       return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
-            child: Text(resultText,
-                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: _primary)),
+            child: Text('🏆 $resultText',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.2)),
           ),
           if (mom != null && mom.isNotEmpty)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: _primary.withOpacity(0.1),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _primary.withOpacity(0.2)),
+                border: Border.all(color: _primary.withOpacity(0.1)),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4)],
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Text('🥇 ', style: TextStyle(fontSize: 10)),
+                const Text('🎖️ ', style: TextStyle(fontSize: 10)),
                 Text(mom.toUpperCase(),
                     style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: _primary)),
               ]),
@@ -433,59 +449,51 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final isPaused = score['isPaused'] == true;
       if (isPaused) {
         return Row(children: [
-          const Text('⏸ ', style: TextStyle(fontSize: 13)),
-          Expanded(child: Text('MATCH PAUSED: ${score['pauseReason'] ?? ''}',
-              style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.orange.shade700))),
+          const Text('⏸ ', style: TextStyle(fontSize: 12)),
+          Expanded(child: Text('PAUSED: ${score['pauseReason'] ?? ''}',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.orange.shade800, letterSpacing: 0.5))),
         ]);
       }
 
       final target = score['target'] as num?;
-      final isSuperOver = innings.length > 2;
-      final totalOvers = isSuperOver ? 1 : ((match['totalOvers'] as num?)?.toInt() ?? 20);
-
       if (target != null) {
-        final runs = (score['runs'] as num? ?? 0).toDouble();
-        final overs = (score['overs'] as num? ?? 0).toDouble();
-        final ballsBowled = (overs.floor() * 6) + (overs * 10 % 10).round();
-        final totalBalls = totalOvers * 6;
-        final remainingBalls = (totalBalls - ballsBowled).clamp(0, totalBalls);
-        final runsNeeded = target - runs;
-        final battingTeam = score['battingTeam'] ?? '';
-        final isDLS = match['isDLS'] == true;
+        final runsNeeded = target - (score['runs'] as num? ?? 0);
+        final isSuperOver = innings.length > 2;
 
         String statusText;
         if (runsNeeded > 0) {
           final rn = runsNeeded.toInt();
-          statusText = '$battingTeam needs $rn ${rn == 1 ? 'run' : 'runs'} from $remainingBalls ${remainingBalls == 1 ? 'ball' : 'balls'} to win${isDLS ? ' (DLS)' : ''}';
+          statusText = 'TARGET: $rn ${pluralize(rn, 'Run')} REQUIRED';
         } else {
-          statusText = 'Scores Level${isDLS ? ' (DLS)' : ''}';
+          statusText = 'SCORES LEVEL';
         }
 
         return Row(children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(4))),
-          const SizedBox(width: 6),
-          Expanded(child: Text(isSuperOver ? 'Match Tied | (Super Over) - $statusText' : statusText,
-              style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 11, color: _primary),
-              overflow: TextOverflow.ellipsis, maxLines: 2)),
+          Container(width: 6, height: 6, decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(3))),
+          const SizedBox(width: 8),
+          Expanded(child: Text(isSuperOver ? 'SUPER OVER: $statusText' : statusText,
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.2))),
         ]);
       }
 
       return Row(children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(4))),
-        const SizedBox(width: 6),
-        Text(isSuperOver ? 'Match Tied | Super Over in progress' : 'Match in progress',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12, color: _primary)),
+        Container(width: 6, height: 6, decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(3))),
+        const SizedBox(width: 8),
+        Text(innings.length > 2 ? 'SUPER OVER IN PROGRESS' : 'MATCH IN PROGRESS',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.2)),
       ]);
     }
 
     // Upcoming
     final venue = match['venue'] ?? 'TBA';
     return Row(children: [
-      const Text('📍 ', style: TextStyle(fontSize: 12)),
-      Text('Starting ${formatTime(match['date'])} • $venue',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.black87)),
+      const Icon(Icons.location_on, size: 12, color: _danger),
+      const SizedBox(width: 4),
+      Text('${formatTime(match['date'])} • ${venue.toString().toUpperCase()}',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.grey.shade800, letterSpacing: 0.2)),
     ]);
   }
+
 
   // ── Animations ─────────────────────────────────────────────────────────────
   Widget _buildBoundaryOverlay(int val) {
@@ -607,13 +615,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: live.isEmpty
                 ? SliverToBoxAdapter(
-                    child: Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade200)),
-                      child: Center(child: Text('No live matches in this series',
-                          style: GoogleFonts.outfit(color: Colors.grey, fontWeight: FontWeight.w600))),
-                    ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('NO ACTIVE MATCHES',
+                              style: GoogleFonts.outfit(color: _primary, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1)),
+                          const SizedBox(height: 8),
+                          Text('There are no matches currently in progress. Please check back later for live coverage.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.outfit(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13)),
+                        ],
+                      ),
                   )
                 : SliverList(delegate: SliverChildBuilderDelegate(
                     (_, i) => _buildMatchCard(live[i]), childCount: live.length)),

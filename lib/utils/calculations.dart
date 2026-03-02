@@ -12,9 +12,9 @@ String? calculateWinner(Map<String, dynamic> match) {
     final inn2 = innings[lastIdx];
     final runs1 = (inn1['runs'] ?? 0) as num;
     final runs2 = (inn2['runs'] ?? 0) as num;
-    if (runs1 > runs2) return 'MATCH TIED | ${inn1['team'].toString().toUpperCase()} WON VIA SUPER OVER';
-    if (runs2 > runs1) return 'MATCH TIED | ${inn2['team'].toString().toUpperCase()} WON VIA SUPER OVER';
-    return 'MATCH DRAWN | SUPER OVER TIED';
+    if (runs1 > runs2) return 'Match Tied | ${inn1['team']} won via Super Over';
+    if (runs2 > runs1) return 'Match Tied | ${inn2['team']} won via Super Over';
+    return 'Match Drawn | Super Over Tied';
   }
 
   final inn1 = innings[0];
@@ -24,13 +24,13 @@ String? calculateWinner(Map<String, dynamic> match) {
 
   if (runs1 > runs2) {
     final diff = runs1 - runs2;
-    return '${inn1['team'].toString().toUpperCase()} WON BY $diff ${diff == 1 ? 'RUN' : 'RUNS'}';
+    return '${inn1['team']} won the match by $diff ${pluralize(diff, 'Run')}.';
   } else if (runs2 > runs1) {
     final wickets = (inn2['wickets'] ?? 0) as num;
     final remaining = 10 - wickets;
-    return '${inn2['team'].toString().toUpperCase()} WON BY $remaining ${remaining == 1 ? 'WICKET' : 'WICKETS'}';
+    return '${inn2['team']} won the match by $remaining ${pluralize(remaining, 'Wicket')}.';
   } else if (runs1 > 0) {
-    return 'MATCH DRAWN';
+    return 'Match Drawn';
   }
   return 'Match Completed';
 }
