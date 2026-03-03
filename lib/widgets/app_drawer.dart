@@ -6,12 +6,13 @@ import '../screens/home_screen.dart';
 import '../screens/schedule_screen.dart';
 import '../screens/points_table_screen.dart';
 import '../screens/achievements_screen.dart';
-import '../screens/interaction_screen.dart';
 import '../screens/join_council_screen.dart';
 import '../screens/sponsorship_screen.dart';
 import '../screens/improvements_screen.dart';
 import '../screens/privacy_screen.dart';
-
+import '../screens/contact_screen.dart';
+import '../screens/feedback_screen.dart';
+import '../screens/report_screen.dart';
 class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -76,13 +77,13 @@ class AppDrawer extends StatelessWidget {
                 
                 _buildSectionHeader('SUPPORT'),
                 _buildDrawerItem(context, Icons.contact_support_rounded, 'Contact Us', '/contact', () {
-                   Navigator.push(context, MaterialPageRoute(builder: (_) => InteractionScreen(type: 'contact', title: 'Contact Us')));
+                   Navigator.push(context, MaterialPageRoute(builder: (_) => ContactScreen()));
                 }),
                 _buildDrawerItem(context, Icons.feedback_rounded, 'Share Feedback', '/feedback', () {
-                   Navigator.push(context, MaterialPageRoute(builder: (_) => InteractionScreen(type: 'feedback', title: 'Feedback')));
+                   Navigator.push(context, MaterialPageRoute(builder: (_) => FeedbackScreen()));
                 }),
                 _buildDrawerItem(context, Icons.report_problem_rounded, 'Report Issues', '/report', () {
-                   Navigator.push(context, MaterialPageRoute(builder: (_) => InteractionScreen(type: 'report', title: 'Report Issue')));
+                   Navigator.push(context, MaterialPageRoute(builder: (_) => ReportScreen()));
                 }),
                 _buildDrawerItem(context, Icons.privacy_tip_rounded, 'Privacy Policy', '/privacy', () {
                    Navigator.push(context, MaterialPageRoute(builder: (_) => PrivacyScreen()));

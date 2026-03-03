@@ -47,7 +47,7 @@ class SponsorshipScreen extends StatelessWidget {
                   Text('Why Sponsor Us?', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: primaryBlue)),
                   SizedBox(height: 12),
                   Text(
-                    'Partnering with SMCC LIVE offers your brand unparalleled visibility among local sports enthusiasts and the wider community.',
+                    'Partnering with SMCC LIVE offers your brand unparalleled visibility among local sports enthusiasts and the wider community. Be part of our growth story.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.outfit(color: Colors.grey.shade700, fontSize: 13),
                   ),
@@ -76,6 +76,13 @@ class SponsorshipScreen extends StatelessWidget {
               Colors.cyan
             ),
             SizedBox(height: 40),
+            Center(
+              child: Text(
+                'Interested in a custom sponsorship package?',
+                style: GoogleFonts.outfit(color: Colors.grey, fontSize: 12),
+              ),
+            ),
+            SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               height: 60,

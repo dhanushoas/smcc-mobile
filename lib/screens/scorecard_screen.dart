@@ -129,10 +129,19 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
         ));
         widgets.add(pw.SizedBox(height: 4));
+        // Toss Info
+        if (match['toss']?['winner'] != null) {
+           widgets.add(pw.Text(
+             'Toss won by ${match['toss']['winner']} and elected to ${match['toss']['decision']} first.',
+             style: pw.TextStyle(fontStyle: pw.FontStyle.italic, fontSize: 10, color: PdfColors.grey700),
+           ));
+           widgets.add(pw.SizedBox(height: 4));
+        }
+
         final dateParsed = DateTime.tryParse(match['date'] ?? '') ?? DateTime.now();
         widgets.add(pw.Text(
-          'SERIES: ${(match['series'] ?? 'SMCC').toString().toUpperCase()} | VENUE: ${(match['venue'] ?? '').toString().toUpperCase()} | DATE: ${dateParsed.toLocal().toString().split('.')[0].toUpperCase()}',
-          style: pw.TextStyle(fontSize: 9),
+          'SERIES: ${(match['series'] ?? 'SMCC').toString().toUpperCase()} | GROUND: ${(match['venue'] ?? '').toString().toUpperCase()} | DATE: ${dateParsed.toLocal().toString().split('.')[0].toUpperCase()}',
+          style: pw.TextStyle(fontSize: 8),
         ));
 
         if (result != null) {
@@ -140,11 +149,17 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           widgets.add(pw.Text('RESULT: ${result.toUpperCase()}',
               style: pw.TextStyle(color: PdfColors.green700, fontWeight: pw.FontWeight.bold, fontSize: 12)));
           if (match['manOfTheMatch'] != null) {
-            widgets.add(pw.Text('MAN OF THE MATCH: ${match['manOfTheMatch'].toString().toUpperCase()}',
-                style: pw.TextStyle(fontSize: 10)));
+            widgets.add(pw.SizedBox(height: 4));
+            widgets.add(pw.Text('PLAYER OF THE MATCH: ${match['manOfTheMatch'].toString().toUpperCase()}',
+                style: pw.TextStyle(color: PdfColors.amber800, fontWeight: pw.FontWeight.bold, fontSize: 11)));
           }
         }
-        widgets.add(pw.SizedBox(height: 16));
+
+        widgets.add(pw.SizedBox(height: 4));
+        final exportedDate = DateTime.now();
+        widgets.add(pw.Text('EXPORTED: ${exportedDate.toLocal().toString().split('.')[0].toUpperCase()}',
+                style: pw.TextStyle(color: PdfColors.grey600, fontSize: 8)));
+        widgets.add(pw.SizedBox(height: 12));
 
         // Innings
         for (int idx = 0; idx < innings.length; idx++) {
@@ -455,6 +470,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
         if ((innings[_activeInnings]['batting'] as List? ?? []).isNotEmpty) ...[
           _buildSectionTitle('Batting'),
           _buildBattingTable(List<dynamic>.from(innings[_activeInnings]['batting'] ?? [])),
+          _buildYetToBat(match, innings[_activeInnings]),
           const SizedBox(height: 4),
           _buildExtrasRow(innings[_activeInnings]),
           _buildHitBreakdown(innings[_activeInnings]),
@@ -462,7 +478,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
         ],
 
         // ── Bowling table (from opposing innings)
-        ..._buildBowlingSection(innings),
+        ..._buildBowlingSection(match, innings),
 
         // ── Fall of Wickets
         if ((innings[_activeInnings]['fallOfWickets'] as List? ?? []).isNotEmpty) ...[
@@ -552,7 +568,54 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
     );
   }
 
-  List<Widget> _buildBowlingSection(List<dynamic> innings) {
+  Widget _buildYetToBat(Map<String, dynamic> match, Map<String, dynamic> currentInnings) {
+    final squad = currentInnings['team'] == match['teamA'] ? match['teamASquad'] : match['teamBSquad'];
+    if (squad == null || (squad as List).isEmpty) return const SizedBox.shrink();
+    
+    final battedPlayers = (currentInnings['batting'] as List? ?? []).map((b) => b['player']).toList();
+    final yetToBat = squad.where((p) => p != null && p.toString().trim().isNotEmpty && !battedPlayers.contains(p)).toList();
+    
+    if (yetToBat.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.grey.shade50, border: Border(bottom: BorderSide(color: Colors.grey.shade200))),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('YET TO BAT:  ', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 0.5)),
+          Expanded(child: Text(yetToBat.map((p) => toCamelCase(p.toString())).join(', '), style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildYetToBowl(Map<String, dynamic> match, Map<String, dynamic> bowlingInnings) {
+    if (bowlingInnings['team'] == null) return const SizedBox.shrink();
+    
+    final bowlingTeamName = bowlingInnings['team'];
+    final squad = bowlingTeamName == match['teamA'] ? match['teamASquad'] : match['teamBSquad'];
+    if (squad == null || (squad as List).isEmpty) return const SizedBox.shrink();
+
+    final bowledPlayers = (bowlingInnings['bowling'] as List? ?? []).map((b) => b['player']).toList();
+    final yetToBowl = squad.where((p) => p != null && p.toString().trim().isNotEmpty && !bowledPlayers.contains(p)).toList();
+
+    if (yetToBowl.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.grey.shade50, border: Border(top: BorderSide(color: Colors.grey.shade200))),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('YET TO BOWL:  ', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 0.5)),
+          Expanded(child: Text(yetToBowl.map((p) => toCamelCase(p.toString())).join(', '), style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600))),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildBowlingSection(Map<String, dynamic> match, List<dynamic> innings) {
     final bowlInnIdx = _activeInnings.isEven ? _activeInnings + 1 : _activeInnings - 1;
     if (bowlInnIdx < 0 || bowlInnIdx >= innings.length) return [];
     final bowlInn = innings[bowlInnIdx] as Map<String, dynamic>;
@@ -594,6 +657,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           ],
         ),
       ),
+      _buildYetToBowl(match, bowlInn),
       const SizedBox(height: 16),
     ];
   }
@@ -664,9 +728,9 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
       _infoCard('MATCH DETAILS', [
         _infoRow('Teams', '${match['teamA']} vs ${match['teamB']}'),
         _infoRow('Series', match['series'] ?? 'SMCC LIVE'),
-        _infoRow('Venue', match['venue'] ?? 'TBA'),
-        _infoRow('Date', '${date.day}/${date.month}/${date.year}'),
-        _infoRow('Scheduled Time', formatTime(match['date'])),
+        _infoRow('Ground', match['venue'] ?? 'TBA'),
+        _infoRow('Toss', match['toss']?['winner'] != null ? '${match['toss']['winner']}, elected to ${match['toss']['decision']} first' : 'To be decided'),
+        _infoRow('Date & Time', '${date.day}/${date.month}/${date.year} at ${formatTime(match['date'])}'),
         _infoRow('Match Format', '${pluralize(match['totalOvers'] ?? 20, 'Over')}'),
       ]),
       if (result != null) ...[

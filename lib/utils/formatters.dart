@@ -50,3 +50,39 @@ String ballsToOvers(int balls) {
 String pluralize(num count, String singular, [String? plural]) {
   return count == 1 ? '$count $singular' : '$count ${plural ?? (singular + 's')}';
 }
+
+/// Helper for ball display (mirrors getBallDisplay from web)
+String getBallDisplay(dynamic ball) {
+  if (ball == null) return '';
+  
+  if (ball is Map) {
+    if (ball['isWide'] == true) return 'Wide Ball${(ball['wideRuns'] ?? 0) > 0 ? " (${ball['wideRuns']} Runs)" : ""}';
+    if (ball['isNoBall'] == true) return 'No Ball${(ball['runs'] ?? 0) > 0 ? " (${ball['runs']} Runs)" : ""}';
+    if (ball['isWicket'] == true) return 'Wicket${(ball['runs'] ?? 0) > 0 ? " (${ball['runs']} Runs)" : ""}';
+    return (ball['runs'] ?? 0).toString();
+  }
+
+  String bs = ball.toString().toUpperCase();
+  if (bs.startsWith('WD')) {
+    final runs = bs.substring(2);
+    return 'Wide Ball${runs.isNotEmpty ? " ($runs Runs)" : ""}';
+  }
+  if (bs.startsWith('NB')) {
+    final runs = bs.substring(2);
+    return 'No Ball${runs.isNotEmpty ? " ($runs Runs)" : ""}';
+  }
+  if (bs.startsWith('LB')) {
+    final runs = bs.substring(2);
+    return 'Leg Bye${runs.isNotEmpty ? " ($runs Runs)" : ""}';
+  }
+  if (bs.startsWith('B') && int.tryParse(bs.substring(1)) != null) {
+    final runs = bs.substring(1);
+    return 'Bye${runs.isNotEmpty ? " ($runs Runs)" : ""}';
+  }
+  if (bs.startsWith('W') && bs != 'WICKET') {
+    final runs = bs.substring(1);
+    return 'Wicket${runs.isNotEmpty ? " ($runs Runs)" : ""}';
+  }
+  if (bs == 'OUT') return 'Wicket';
+  return bs;
+}
