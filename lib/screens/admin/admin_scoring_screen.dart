@@ -7,7 +7,7 @@ import '../../core/scoring/match_state.dart';
 import '../../core/scoring/scoring_enums.dart';
 import '../../services/pdf_service.dart';
 import '../../services/auth_service.dart';
-import '../../utils/calculations.dart';
+import '../../utils/calculations.dart' hide oversToBalls, ballsToOvers;
 import '../../utils/formatters.dart';
 
 class AdminScoringScreen extends StatefulWidget {
@@ -1091,20 +1091,6 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _extraBtn(String label, VoidCallback onTap) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.orange.shade50,
-        foregroundColor: Colors.orange.shade900,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.orange.shade100)),
-      ),
-      child: Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
     );
   }
 }

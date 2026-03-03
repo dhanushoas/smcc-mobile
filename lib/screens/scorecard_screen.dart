@@ -274,7 +274,6 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
             ),
           ),
           const SizedBox(height: 20),
-        ],
 
 
         // ── Innings phase tabs
@@ -585,7 +584,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           style: GoogleFonts.outfit(
               fontWeight: FontWeight.w900, fontSize: 11,
               color: Colors.grey, letterSpacing: 1.5)),
-    ]);
+    );
   }
 
   Widget _buildMatchInfo(Map<String, dynamic> match, String? result, DateTime date) {
