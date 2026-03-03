@@ -1,6 +1,22 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../providers/settings_provider.dart';
+import '../screens/home_screen.dart';
+import '../screens/schedule_screen.dart';
+import '../screens/points_table_screen.dart';
+import '../screens/achievements_screen.dart';
+import '../screens/contact_screen.dart';
+import '../screens/feedback_screen.dart';
+import '../screens/report_screen.dart';
+import '../screens/privacy_screen.dart';
+import '../screens/join_council_screen.dart';
+import '../screens/sponsorship_screen.dart';
+import '../screens/improvements_screen.dart';
 import '../screens/admin/admin_login_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
+import '../screens/admin/admin_scoring_screen.dart';
 
 class AppDrawer extends StatefulWidget {
   @override

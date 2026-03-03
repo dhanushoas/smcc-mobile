@@ -169,12 +169,12 @@ class ApiService {
     return Map<String, dynamic>.from(await _handleResponse(response));
   }
 
-  static Future<Map<String, dynamic>> pauseMatch(String id, String reason) async {
+  static Future<Map<String, dynamic>> pauseMatch(String id, bool pause, String reason) async {
     final headers = await _getHeaders();
     final response = await http.put(
       Uri.parse('$baseUrl/matches/$id/pause'),
       headers: headers,
-      body: json.encode({'reason': reason}),
+      body: json.encode({'pause': pause, 'reason': reason}),
     ).timeout(const Duration(seconds: 30));
     return Map<String, dynamic>.from(await _handleResponse(response));
   }

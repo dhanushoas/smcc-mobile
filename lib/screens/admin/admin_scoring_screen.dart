@@ -6,6 +6,9 @@ import '../../core/scoring/scoring_engine.dart';
 import '../../core/scoring/match_state.dart';
 import '../../core/scoring/scoring_enums.dart';
 import '../../services/pdf_service.dart';
+import '../../services/auth_service.dart';
+import '../../utils/calculations.dart';
+import '../../utils/formatters.dart';
 
 class AdminScoringScreen extends StatefulWidget {
   final Map<String, dynamic> initialMatch;
@@ -1029,5 +1032,79 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       if (confirmed == true) {
           _handleUpdate('manual', value: payload);
       }
+  }
+
+  void _showExtrasModal(String type) {
+    int extraRuns = 0;
+    bool isBat = false;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${type.toUpperCase()} BALL', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B))),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [0, 1, 2, 4, 6].map((r) => GestureDetector(
+                  onTap: () => setModalState(() => extraRuns = r),
+                  child: Container(
+                    width: 50, height: 50,
+                    decoration: BoxDecoration(
+                      color: extraRuns == r ? const Color(0xFF2563EB) : Colors.grey.shade100,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(r.toString(), style: GoogleFonts.outfit(color: extraRuns == r ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
+                  ),
+                )).toList(),
+              ),
+              if (type == 'nb') ...[
+                const SizedBox(height: 20),
+                CheckboxListTile(
+                  title: Text('Hit by Bat', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                  value: isBat,
+                  onChanged: (v) => setModalState(() => isBat = v ?? false),
+                ),
+              ],
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _handleUpdate('extra', value: type, params: {'amount': extraRuns + 1, 'isBat': isBat});
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 56),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: Text('RECORD EXTRA', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _extraBtn(String label, VoidCallback onTap) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.orange.shade50,
+        foregroundColor: Colors.orange.shade900,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.orange.shade100)),
+      ),
+      child: Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+    );
   }
 }

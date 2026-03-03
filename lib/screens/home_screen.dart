@@ -41,9 +41,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // Entry animation controllers per match card
   final Map<String, AnimationController> _cardControllers = {};
 
-  late io.Socket _socket;
+  io.Socket _socket;
   int _navIndex = 0;
   late PageController _pageController;
+  String _activeSeries = 'ALL';
 
   // ── Theme ──────────────────────────────────────────────────────────────────
   static const Color _primary  = Color(0xFF2563EB);

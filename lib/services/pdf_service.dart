@@ -93,7 +93,7 @@ class PdfService {
             final bowlingInn = bowlingInnIdx < innings.length ? innings[bowlingInnIdx] : null;
 
             return pw.Column(
-              cross: pw.CrossAxisAlignment.start,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(
                   '${inn['team'].toString().toUpperCase()} ${_getOrdinal(idx + 1).toUpperCase()} INNINGS${idx >= 2 ? ' (SUPER OVER)' : ''}: ${inn['runs']}/${inn['wickets']} (${inn['overs']} OV)',
@@ -166,7 +166,7 @@ class PdfService {
                 // Fall of Wickets
                 if (inn['fallOfWickets'] != null && (inn['fallOfWickets'] as List).isNotEmpty)
                    pw.Column(
-                     cross: pw.CrossAxisAlignment.start,
+                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                      children: [
                         pw.Text('FALL OF WICKETS', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.red900)),
                         pw.SizedBox(height: 4),

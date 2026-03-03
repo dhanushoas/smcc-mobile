@@ -252,7 +252,10 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
               border: Border.all(color: _primary.withOpacity(0.1)),
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
             ),
-                Text('🏆 ${result!.toUpperCase()}', 
+            child: (match['status'] == 'completed' && result != null) ? Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text('🏆 ${result.toUpperCase()}', 
                   textAlign: TextAlign.center,
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87)),
               ],
@@ -262,10 +265,10 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                 Text('CHASE REQUIREMENT', style: GoogleFonts.outfit(
                     fontWeight: FontWeight.w900, fontSize: 10, color: _danger, letterSpacing: 2)),
                 const SizedBox(height: 8),
-                Text('TARGET: ${match['score']['target']} ${pluralize(match['score']['target'], 'Run')}', 
+                Text('TARGET: ${match['score']?['target'] ?? 0} ${pluralize((match['score']?['target'] ?? 0).toInt(), 'Run')}', 
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: _danger)),
                 const SizedBox(height: 4),
-                Text('REQUIRED FROM ${match['totalOvers']} ${pluralize(match['totalOvers'], 'Over').toUpperCase()}', 
+                Text('REQUIRED FROM ${match['totalOvers'] ?? 20} ${pluralize((match['totalOvers'] ?? 20).toInt(), 'Over').toUpperCase()}', 
                   style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.grey.shade600)),
               ],
             ),

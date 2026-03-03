@@ -4,6 +4,9 @@ import '../../services/api_service.dart';
 import 'admin_dashboard_screen.dart';
 
 class AdminLoginScreen extends StatefulWidget {
+  final bool expired;
+  const AdminLoginScreen({Key? key, this.expired = false}) : super(key: key);
+
   @override
   _AdminLoginScreenState createState() => _AdminLoginScreenState();
 }
