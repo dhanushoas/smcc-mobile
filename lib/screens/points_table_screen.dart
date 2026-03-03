@@ -18,7 +18,6 @@ class PointsTableScreen extends StatefulWidget {
 class _PointsTableScreenState extends State<PointsTableScreen> {
   List<dynamic> _matches = [];
   bool _loading = true;
-  String? _activeSeries;
 
   late io.Socket _socket;
 
@@ -45,10 +44,6 @@ class _PointsTableScreenState extends State<PointsTableScreen> {
       setState(() {
         _matches = data;
         _loading = false;
-        if (_activeSeries == null && data.isNotEmpty) {
-          final series = data.map((m) => (m['series'] ?? 'SMCC LIVE').toString()).toSet().toList();
-          _activeSeries = series.first;
-        }
       });
     } catch (_) {
       setState(() => _loading = false);
@@ -57,11 +52,7 @@ class _PointsTableScreenState extends State<PointsTableScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final seriesList = _matches.map((m) => (m['series'] ?? 'SMCC LIVE').toString()).toSet().toList();
-    final filtered = _activeSeries == null
-        ? _matches
-        : _matches.where((m) => (m['series'] ?? 'SMCC LIVE').toString() == _activeSeries).toList();
-    final stats = calculateStats(filtered);
+    final stats = calculateStats(_matches);
 
     return _loading
         ? const Center(child: CircularProgressIndicator())
@@ -75,34 +66,6 @@ class _PointsTableScreenState extends State<PointsTableScreen> {
                         textStyle: const TextStyle(letterSpacing: 0.5))),
                 const SizedBox(height: 12),
 
-                // Series filter tabs
-                if (seriesList.length > 1) ...[
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: seriesList.map((s) {
-                        final isActive = s == _activeSeries;
-                        return GestureDetector(
-                          onTap: () => setState(() => _activeSeries = s),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isActive ? _primary : Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: isActive ? _primary : Colors.grey.shade300),
-                            ),
-                            child: Text(s, style: GoogleFonts.outfit(
-                                color: isActive ? Colors.white : Colors.grey.shade700,
-                                fontWeight: FontWeight.w800, fontSize: 13)),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
 
                 // Points Table card
                 Container(
@@ -121,7 +84,7 @@ class _PointsTableScreenState extends State<PointsTableScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('${_activeSeries ?? ''} • Points Table',
+                            Text('Series Standings • Points Table',
                                 style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.grey, letterSpacing: 1)),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

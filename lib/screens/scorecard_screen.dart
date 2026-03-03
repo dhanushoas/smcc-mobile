@@ -139,27 +139,45 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
         }
 
         final dateParsed = DateTime.tryParse(match['date'] ?? '') ?? DateTime.now();
-        widgets.add(pw.Text(
-          'SERIES: ${(match['series'] ?? 'SMCC').toString().toUpperCase()} | GROUND: ${(match['venue'] ?? '').toString().toUpperCase()} | DATE: ${dateParsed.toLocal().toString().split('.')[0].toUpperCase()}',
-          style: pw.TextStyle(fontSize: 8),
-        ));
+        final exportedDate = DateTime.now();
+        final timestampStr = "${exportedDate.day}/${exportedDate.month}/${exportedDate.year} ${exportedDate.hour}:${exportedDate.minute.toString().padLeft(2, '0')}";
 
-        if (result != null) {
-          widgets.add(pw.SizedBox(height: 8));
-          widgets.add(pw.Text('RESULT: ${result.toUpperCase()}',
-              style: pw.TextStyle(color: PdfColors.green700, fontWeight: pw.FontWeight.bold, fontSize: 12)));
-          if (match['manOfTheMatch'] != null) {
-            widgets.add(pw.SizedBox(height: 4));
-            widgets.add(pw.Text('PLAYER OF THE MATCH: ${match['manOfTheMatch'].toString().toUpperCase()}',
-                style: pw.TextStyle(color: PdfColors.amber800, fontWeight: pw.FontWeight.bold, fontSize: 11)));
-          }
+        widgets.add(pw.Text(
+          'SERIES: ${(match['series'] ?? 'SMCC').toString().toUpperCase()} | GROUND: ${(match['venue'] ?? '').toString().toUpperCase()}',
+          style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+        ));
+        widgets.add(pw.SizedBox(height: 4));
+        widgets.add(pw.Text(
+          'DATE: ${dateParsed.toLocal().toString().split(' ')[0].toUpperCase()} | EXPORTED: $timestampStr',
+          style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+        ));
+        
+        if (match['toss']?['winner'] != null) {
+          widgets.add(pw.SizedBox(height: 4));
+          widgets.add(pw.Text(
+            'TOSS: ${match['toss']['winner'].toString().toUpperCase()} WON AND ELECTED TO ${match['toss']['decision'].toString().toUpperCase()} FIRST',
+            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800),
+          ));
         }
 
-        widgets.add(pw.SizedBox(height: 4));
-        final exportedDate = DateTime.now();
-        widgets.add(pw.Text('EXPORTED: ${exportedDate.toLocal().toString().split('.')[0].toUpperCase()}',
-                style: pw.TextStyle(color: PdfColors.grey600, fontSize: 8)));
-        widgets.add(pw.SizedBox(height: 12));
+        if (result != null) {
+          widgets.add(pw.SizedBox(height: 12));
+          widgets.add(pw.Container(
+            padding: const pw.EdgeInsets.all(8),
+            decoration: const pw.BoxDecoration(color: PdfColors.green50),
+            child: pw.Text('🏆 RESULT: ${result.toUpperCase()}',
+                style: pw.TextStyle(color: PdfColors.green800, fontWeight: pw.FontWeight.bold, fontSize: 13)),
+          ));
+        }
+
+        if (match['manOfTheMatch'] != null && match['manOfTheMatch'].toString().isNotEmpty) {
+           widgets.add(pw.SizedBox(height: 8));
+           widgets.add(pw.Text(
+             '🥇 MAN OF THE MATCH: ${match['manOfTheMatch'].toString().toUpperCase()}',
+             style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12, color: PdfColors.amber800),
+           ));
+        }
+        widgets.add(pw.SizedBox(height: 16));
 
         // Innings
         for (int idx = 0; idx < innings.length; idx++) {
@@ -265,7 +283,13 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
       },
     ));
 
-    await Printing.layoutPdf(onLayout: (_) async => doc.save());
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final filename = 'SMCC_Scorecard_${match['teamA']}_vs_${match['teamB']}_$timestamp.pdf';
+    
+    await Printing.layoutPdf(
+      onLayout: (_) async => doc.save(),
+      name: filename,
+    );
   }
 
   String _ordinal(int n) {
@@ -306,7 +330,6 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
     final match = _match!;
     final innings = List<dynamic>.from(match['innings'] ?? []);
     final result = calculateWinner(match);
-    final mom = match['manOfTheMatch'] as String?;
     final date = DateTime.tryParse(match['date'] ?? '') ?? DateTime.now();
 
     return Column(
@@ -339,13 +362,13 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
         ),
 
         Expanded(child: _activeTab == 'scorecard'
-            ? _buildScorecard(match, innings, result, mom)
-            : _buildMatchInfo(match, result, mom, date)),
+            ? _buildScorecard(match, innings, result)
+            : _buildMatchInfo(match, result, date)),
       ],
     );
   }
 
-  Widget _buildScorecard(Map<String, dynamic> match, List<dynamic> innings, String? result, String? mom) {
+  Widget _buildScorecard(Map<String, dynamic> match, List<dynamic> innings, String? result) {
     if (innings.isEmpty) {
       return Center(child: Text('No innings data yet.', style: GoogleFonts.outfit(color: Colors.grey)));
     }
@@ -353,7 +376,48 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (result != null || (match['status'] == 'live' && match['score']?['target'] != null)) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.location_on, size: 14, color: _primary),
+                    const SizedBox(width: 4),
+                    Text(match['venue'] ?? 'TBA', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                    const SizedBox(width: 12),
+                    Icon(Icons.emoji_events, size: 14, color: _primary),
+                    const SizedBox(width: 4),
+                    Text(match['series'] ?? 'SMCC LIVE', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (match['toss']?['winner'] != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.amber.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, size: 16, color: Colors.amber),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Toss: ${match['toss']['winner']} won & elected to ${match['toss']['decision']} first',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -363,35 +427,9 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
               border: Border.all(color: _primary.withOpacity(0.1)),
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
             ),
-            child: match['status'] == 'completed' ? Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text('MATCH RESULT', style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w900, fontSize: 10, color: _primary, letterSpacing: 2)),
-                const SizedBox(height: 8),
                 Text('🏆 ${result!.toUpperCase()}', 
                   textAlign: TextAlign.center,
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87)),
-                if (mom != null && mom.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: Colors.grey.shade200),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('🎖️ ', style: TextStyle(fontSize: 14)),
-                        Text('PLAYER OF THE MATCH: ', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 1)),
-                        Text(mom.toUpperCase(), style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w900, color: _primary)),
-                      ],
-                    ),
-                  ),
-                ],
               ],
             ) : Column(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -719,10 +757,10 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           style: GoogleFonts.outfit(
               fontWeight: FontWeight.w900, fontSize: 11,
               color: Colors.grey, letterSpacing: 1.5)),
-    );
+    ]);
   }
 
-  Widget _buildMatchInfo(Map<String, dynamic> match, String? result, String? mom, DateTime date) {
+  Widget _buildMatchInfo(Map<String, dynamic> match, String? result, DateTime date) {
     return ListView(padding: const EdgeInsets.all(16), children: [
       // Match header
       _infoCard('MATCH DETAILS', [
@@ -746,16 +784,22 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
             Text('FINAL RESULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: _success, letterSpacing: 1)),
             const SizedBox(height: 6),
             Text(result, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: _success)),
-            if (mom != null && mom.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Row(children: [
-                const Text('🥇 ', style: TextStyle(fontSize: 18)),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('MAN OF THE MATCH', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: _primary, letterSpacing: 1)),
-                  Text(mom.toUpperCase(), style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w900, color: _primary)),
-                ]),
-              ]),
-            ],
+          ]),
+        ),
+      ],
+      if (match['manOfTheMatch'] != null && match['manOfTheMatch'].toString().isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.amber.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.amber.withOpacity(0.2)),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('🥇 MAN OF THE MATCH', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.amber.shade900, letterSpacing: 1)),
+            const SizedBox(height: 6),
+            Text(match['manOfTheMatch'].toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.amber.shade900)),
           ]),
         ),
       ],

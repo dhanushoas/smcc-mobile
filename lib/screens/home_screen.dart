@@ -17,9 +17,13 @@ import 'join_council_screen.dart';
 import 'improvements_screen.dart';
 import 'sponsorship_screen.dart';
 import 'privacy_screen.dart';
-import 'privacy_screen.dart';
+import 'admin/admin_scoring_screen.dart';
+import '../widgets/app_drawer.dart';
 
 class HomeScreen extends StatefulWidget {
+  final bool isAdminMode;
+  const HomeScreen({Key? key, this.isAdminMode = false}) : super(key: key);
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -28,7 +32,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ── State ──────────────────────────────────────────────────────────────────
   List<dynamic> _matches = [];
   bool _loading = true;
-  String _activeSeries = 'ALL';
 
   // Animation tracking — mirrors Web blastMatchId / completeMatchId
   String? _blastMatchId;
@@ -185,9 +188,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
 
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => ScorecardScreen(matchId: id),
-      )),
+      onTap: () {
+        if (widget.isAdminMode) {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => AdminScoringScreen(initialMatch: match),
+          ));
+        } else {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => ScorecardScreen(matchId: id),
+          ));
+        }
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -417,29 +428,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (isCompleted) {
       final String winner = calculateWinner(Map<String, dynamic>.from(match)) ?? 'COMPLETED';
       final String resultText = winner.toUpperCase();
-      final mom = match['manOfTheMatch'] as String?;
-
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text('🏆 $resultText',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.2)),
-          ),
-          if (mom != null && mom.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _primary.withOpacity(0.1)),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4)],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text('🏆 ${resultText.toUpperCase()}',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.2)),
               ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Text('🎖️ ', style: TextStyle(fontSize: 10)),
-                Text(mom.toUpperCase(),
-                    style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: _primary)),
-              ]),
+            ],
+          ),
+          if (match['manOfTheMatch'] != null && match['manOfTheMatch'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('🥇 MAN OF THE MATCH: ${match['manOfTheMatch'].toString().toUpperCase()}',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: _warning, letterSpacing: 0.5)),
             ),
         ],
       );
@@ -666,27 +671,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: _bgLight,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: widget.isAdminMode ? Colors.blueGrey.shade900 : Colors.white,
+        foregroundColor: widget.isAdminMode ? Colors.white : Colors.black,
         elevation: 0,
         title: Row(
           children: [
             Container(
               decoration: BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
               clipBehavior: Clip.hardEdge,
               child: Image.asset('assets/logo.png', height: 32, width: 32),
             ),
             const SizedBox(width: 12),
             Text(
-              'SMCC LIVE',
+              widget.isAdminMode ? 'ADMIN CONSOLE' : 'SMCC LIVE',
               style: GoogleFonts.outfit(
                 fontWeight: FontWeight.w900,
                 fontSize: 18,
@@ -695,7 +695,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ],
         ),
+        actions: [
+          if (widget.isAdminMode)
+            TextButton.icon(
+              onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomeScreen(isAdminMode: false))),
+              icon: Icon(Icons.exit_to_app, color: Colors.white),
+              label: Text('EXIT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+        ],
       ),
+      drawer: AppDrawer(),
       body: _loading
           ? Center(child: CircularProgressIndicator(color: _primary))
           : _navIndex < _pages.length ? _pages[_navIndex] : _buildMatchList(),

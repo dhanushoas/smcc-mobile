@@ -1,3 +1,5 @@
+import '../constants/scoring.dart';
+
 /// Mirrors smcc-web/src/utils/formatters.js
 
 /// Converts a string to Title Case (first letter of each word capitalized)
@@ -36,7 +38,7 @@ String formatDate(DateTime date) {
 
 /// Converts overs (e.g. 2.4) to total balls (mirrors web getBalls)
 int oversToBalls(double overs) {
-  return (overs.floor() * 6) + (overs * 10 % 10).round();
+  return (overs.floor() * ballsPerOver) + (overs * 10 % 10).round();
 }
 
 /// Converts balls to overs display string e.g. "2.4"

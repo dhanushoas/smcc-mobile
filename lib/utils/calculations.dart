@@ -1,4 +1,5 @@
 import 'formatters.dart';
+import '../constants/scoring.dart';
 
 /// Mirrors AdminDashboard.jsx:calculateWinner
 String? calculateWinner(Map<String, dynamic> match) {
@@ -24,11 +25,11 @@ String? calculateWinner(Map<String, dynamic> match) {
 
   if (runs1 > runs2) {
     final diff = runs1 - runs2;
-    return '${inn1['team']} won the match by $diff ${pluralize(diff, 'Run')}.';
+    return '${inn1['team']} won the match by ${pluralize(diff, 'Run')}.';
   } else if (runs2 > runs1) {
     final wickets = (inn2['wickets'] ?? 0) as num;
-    final remaining = 10 - wickets;
-    return '${inn2['team']} won the match by $remaining ${pluralize(remaining, 'Wicket')}.';
+    final remaining = maxWickets - wickets;
+    return '${inn2['team']} won the match by ${pluralize(remaining, 'Wicket')}.';
   } else if (runs1 > 0) {
     return 'Match Drawn';
   }
@@ -138,9 +139,9 @@ String calculateCRR(Map<String, dynamic> score) {
     final overs = (score['overs'] as num? ?? 0).toDouble();
     if (overs <= 0) return '-';
     final runs = (score['runs'] as num? ?? 0).toDouble();
-    final totalBalls = (overs.floor() * 6) + (overs * 10 % 10).round();
+    final totalBalls = (overs.floor() * ballsPerOver) + (overs * 10 % 10).round();
     if (totalBalls == 0) return '-';
-    return (runs / (totalBalls / 6.0)).toStringAsFixed(2);
+    return (runs / (totalBalls / ballsPerOver.toDouble())).toStringAsFixed(2);
   } catch (_) {
     return '-';
   }
@@ -153,14 +154,14 @@ String calculateRRR(Map<String, dynamic> score, List<dynamic> innings, int total
     if (target == null) return '-';
     final overs = (score['overs'] as num? ?? 0).toDouble();
     final runs = (score['runs'] as num? ?? 0).toDouble();
-    final limit = innings.length > 2 ? 1 : totalOvers;
-    final totalBalls = limit * 6;
-    final ballsBowled = (overs.floor() * 6) + (overs * 10 % 10).round();
+    final limit = innings.length > 2 ? superOverOvers : totalOvers;
+    final totalBalls = limit * ballsPerOver;
+    final ballsBowled = (overs.floor() * ballsPerOver) + (overs * 10 % 10).round();
     final ballsLeft = totalBalls - ballsBowled;
     if (ballsLeft <= 0) return '-';
     final runsNeeded = target - runs;
     if (runsNeeded <= 0) return '-';
-    return ((runsNeeded / ballsLeft) * 6).toStringAsFixed(2);
+    return ((runsNeeded / ballsLeft) * ballsPerOver).toStringAsFixed(2);
   } catch (_) {
     return '-';
   }
