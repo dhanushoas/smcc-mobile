@@ -361,10 +361,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ...batsmen.map((b) {
                   final onStrike = b['onStrike'] == true;
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
+                    padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       children: [
-                        Text(onStrike ? '🏏 ' : '   ', style: const TextStyle(fontSize: 11)),
+                        Container(
+                          width: 22, height: 22,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: onStrike ? const Color(0xFFF1F5F9) : Colors.transparent,
+                            shape: BoxShape.circle,
+                            border: onStrike ? Border.all(color: Colors.grey.shade200) : null,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(onStrike ? '🏏' : '', style: const TextStyle(fontSize: 11)),
+                        ),
                         Expanded(child: Text(toCamelCase(b['name']), overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12))),
                         Text(' ${pluralize(b['runs'] ?? 0, 'Run')}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: _primary)),
@@ -387,8 +397,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 Text('BOWLING', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 1)),
                 const SizedBox(height: 4),
                 Row(children: [
-                  const Text('⚾ ', style: TextStyle(fontSize: 11)),
-                  Expanded(child: Text(toCamelCase(bowler), overflow: TextOverflow.ellipsis,
+                   Container(
+                      width: 22, height: 22,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7ED),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.orange.shade100),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 2, offset: const Offset(0, 1))],
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text('⚾', style: TextStyle(fontSize: 11)),
+                   ),
+                   Expanded(child: Text(toCamelCase(bowler), overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12))),
                 ]),
                 if (thisOver.isNotEmpty) ...[

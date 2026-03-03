@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import '../main.dart';
+import '../screens/admin/admin_login_screen.dart';
+import 'package:flutter/material.dart';
 
 class ApiService {
   // Production Backend URL
@@ -30,6 +33,11 @@ class ApiService {
 
   /// Helper to handle the new standardized response format { success, message, data }
   static dynamic _handleResponse(http.Response response) {
+    if (response.statusCode == 401) {
+      _handleUnauthorized();
+      throw Exception('Session Expired');
+    }
+
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final body = json.decode(response.body);
       
@@ -50,6 +58,14 @@ class ApiService {
       } catch (_) {}
       throw Exception('Server Error: ${response.statusCode}');
     }
+  }
+
+  static void _handleUnauthorized() async {
+    await AuthService.logout();
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AdminLoginScreen(expired: true)),
+      (route) => false,
+    );
   }
 
   // --- Auth API ---
@@ -173,13 +189,15 @@ class ApiService {
   }
 
   // --- Footer API ---
-  static Future<List<dynamic>> getFooterLinks() async {
+  static Future<Map<String, dynamic>> getFooterLinks() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/footer/links'))
           .timeout(const Duration(seconds: 30));
-      return (await _handleResponse(response)) as List<dynamic>;
+      final res = await _handleResponse(response);
+      if (res is Map) return Map<String, dynamic>.from(res);
+      return {'quick_links': [], 'support': [], 'community': []};
     } catch (_) {
-      return [];
+      return {'quick_links': [], 'support': [], 'community': []};
     }
   }
 

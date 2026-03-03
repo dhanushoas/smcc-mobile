@@ -36,6 +36,67 @@ String? calculateWinner(Map<String, dynamic> match) {
   return 'Match Completed';
 }
 
+/// Mirrors AdminDashboard.jsx:calculateSuggestedMOM
+String? calculateSuggestedMOM(Map<String, dynamic> match) {
+  if (match['innings'] == null) return null;
+  final innings = List<dynamic>.from(match['innings']);
+  final Map<String, Map<String, dynamic>> playerStats = {};
+
+  for (final inn in innings) {
+    final team = inn['team']?.toString();
+    final batting = List<dynamic>.from(inn['batting'] ?? []);
+    final bowling = List<dynamic>.from(inn['bowling'] ?? []);
+
+    for (final p in batting) {
+      final name = p['player']?.toString();
+      if (name == null) continue;
+      playerStats.putIfAbsent(name, () => {'runs': 0, 'fours': 0, 'sixes': 0, 'wickets': 0, 'team': team});
+      playerStats[name]!['runs'] = (playerStats[name]!['runs'] as int) + ((p['runs'] ?? 0) as int);
+      playerStats[name]!['fours'] = (playerStats[name]!['fours'] as int) + ((p['fours'] ?? 0) as int);
+      playerStats[name]!['sixes'] = (playerStats[name]!['sixes'] as int) + ((p['sixes'] ?? 0) as int);
+    }
+
+    for (final p in bowling) {
+      final name = p['player']?.toString();
+      if (name == null) continue;
+      playerStats.putIfAbsent(name, () => {'runs': 0, 'fours': 0, 'sixes': 0, 'wickets': 0, 'team': team});
+      playerStats[name]!['wickets'] = (playerStats[name]!['wickets'] as int) + ((p['wickets'] ?? 0) as int);
+    }
+  }
+
+  String? winningTeam;
+  if (innings.length >= 2) {
+    dynamic inn1, inn2;
+    if (innings.length >= 4) {
+      final lastIdx = innings.length - 1;
+      inn1 = innings[lastIdx - 1];
+      inn2 = innings[lastIdx];
+    } else {
+      inn1 = innings[0];
+      inn2 = innings[1];
+    }
+    final r1 = (inn1['runs'] ?? 0) as num;
+    final r2 = (inn2['runs'] ?? 0) as num;
+    if (r1 > r2) winningTeam = inn1['team']?.toString();
+    else if (r2 > r1) winningTeam = inn2['team']?.toString();
+  }
+
+  String? bestPlayer;
+  double bestScore = -1;
+
+  playerStats.forEach((name, stats) {
+    double score = (stats['runs'] * 1.0) + (stats['fours'] * 1.0) + (stats['sixes'] * 2.0) + (stats['wickets'] * 20.0);
+    if (stats['team'] == winningTeam) score *= 1.25;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestPlayer = name;
+    }
+  });
+
+  return bestPlayer;
+}
+
 /// Mirrors PointsTable.jsx:calculateStats
 List<Map<String, dynamic>> calculateStats(List<dynamic> matchList) {
   final Map<String, Map<String, dynamic>> teamStats = {};
@@ -133,15 +194,28 @@ List<Map<String, dynamic>> calculateStats(List<dynamic> matchList) {
   return result;
 }
 
+/// Robust conversion from overs (e.g. 1.4) to balls (10)
+int oversToBalls(double overs) {
+  final whole = overs.floor();
+  final balls = ((overs - whole) * 10).round();
+  return (whole * 6) + balls;
+}
+
+/// Robust conversion from balls (10) to overs (1.4)
+double ballsToOvers(int totalBalls) {
+  final whole = totalBalls ~/ 6;
+  final balls = totalBalls % 6;
+  return double.parse('$whole.$balls');
+}
+
 /// Mirrors AdminDashboard CRR calculation
 String calculateCRR(Map<String, dynamic> score) {
   try {
     final overs = (score['overs'] as num? ?? 0).toDouble();
-    if (overs <= 0) return '-';
+    final totalBalls = oversToBalls(overs);
+    if (totalBalls <= 0) return '-';
     final runs = (score['runs'] as num? ?? 0).toDouble();
-    final totalBalls = (overs.floor() * ballsPerOver) + (overs * 10 % 10).round();
-    if (totalBalls == 0) return '-';
-    return (runs / (totalBalls / ballsPerOver.toDouble())).toStringAsFixed(2);
+    return (runs / (totalBalls / 6.0)).toStringAsFixed(2);
   } catch (_) {
     return '-';
   }

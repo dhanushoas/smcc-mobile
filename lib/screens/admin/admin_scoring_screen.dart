@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/scoring/match_state.dart';
 import '../../core/scoring/scoring_enums.dart';
+import '../../services/pdf_service.dart';
 
 class AdminScoringScreen extends StatefulWidget {
   final Map<String, dynamic> initialMatch;
@@ -41,8 +42,23 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     // Add force logout listener for parity
     _socket.on('adminForceLogout', (data) {
         if (mounted) {
+            AuthService.logout();
             Navigator.of(context).popUntil((route) => route.isFirst);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logged out: Session active on another platform')));
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚡ Session taken over on another platform.')));
+        }
+    });
+    _socket.on('adminSessionExpired', (data) {
+        if (mounted) {
+            AuthService.logout();
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⏱ Session expired. Please log in again.')));
+        }
+    });
+    _socket.on('adminSessionEnded', (data) {
+        if (mounted) {
+            AuthService.logout();
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Session ended.')));
         }
     });
   }
@@ -71,35 +87,179 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       } else {
         // Build scoring payload mirroring AdminDashboard.jsx
         final currentMatch = Map<String, dynamic>.from(match);
-        // Stripping toss to isolate scoring logic (Phase 25 Parity)
         currentMatch.remove('toss');
-        
         final currentScore = Map<String, dynamic>.from(match['score'] ?? {});
+        final innings = List<Map<String, dynamic>>.from((match['innings'] as List).map((e) => Map<String, dynamic>.from(e)));
         
+        final target = currentScore['target'];
+        final battingTeamIdx = target != null ? 1 : 0;
+        final bowlingTeamIdx = battingTeamIdx == 0 ? 1 : 0;
+        
+        final currentInn = innings[battingTeamIdx];
+        final currentBowlInn = innings[bowlingTeamIdx];
+        
+        final strikerName = currentScore['striker'];
+        final nonStrikerName = currentScore['nonStriker'];
+        final bowlerName = currentScore['bowler'];
+        
+        final batting = List<Map<String, dynamic>>.from(currentInn['batting'] ?? []);
+        final bowling = List<Map<String, dynamic>>.from(currentBowlInn['bowling'] ?? []);
+        
+        int sIdx = batting.indexWhere((p) => p['player'] == strikerName);
+        int nsIdx = batting.indexWhere((p) => p['player'] == nonStrikerName);
+        int bIdx = bowling.indexWhere((p) => p['player'] == bowlerName);
+        
+        // Safety: Ensure players exist in stats
+        if (sIdx == -1 && strikerName != null) {
+          batting.add({'player': strikerName, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0});
+          sIdx = batting.length - 1;
+        }
+        if (nsIdx == -1 && nonStrikerName != null) {
+          batting.add({'player': nonStrikerName, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0});
+          nsIdx = batting.length - 1;
+        }
+        if (bIdx == -1 && bowlerName != null) {
+          bowling.add({'player': bowlerName, 'overs': 0, 'maidens': 0, 'runs': 0, 'wickets': 0});
+          bIdx = bowling.length - 1;
+        }
+
         switch (type) {
           case 'runs':
             final runs = value as int;
             currentScore['runs'] = (currentScore['runs'] ?? 0) + runs;
-            _advanceBall(currentScore, false);
+            if (sIdx != -1) {
+              batting[sIdx]['runs'] = (batting[sIdx]['runs'] ?? 0) + runs;
+              batting[sIdx]['balls'] = (batting[sIdx]['balls'] ?? 0) + 1;
+              if (runs == 4) batting[sIdx]['fours'] = (batting[sIdx]['fours'] ?? 0) + 1;
+              if (runs == 6) batting[sIdx]['sixes'] = (batting[sIdx]['sixes'] ?? 0) + 1;
+            }
+            if (bIdx != -1) bowling[bIdx]['runs'] = (bowling[bIdx]['runs'] ?? 0) + runs;
+            _advanceBall(currentScore, bIdx != -1 ? bowling[bIdx] : null, false);
             _logBall(currentScore, runs.toString());
             break;
+            
           case 'extra':
             final extraType = value as String;
             final amount = params?['amount'] ?? 1;
-            currentScore['runs'] = (currentScore['runs'] ?? 0) + amount + (['w', 'nb'].contains(extraType) ? 1 : 0);
-            _advanceBall(currentScore, ['w', 'nb'].contains(extraType));
+            final isBOrLB = ['b', 'lb'].contains(extraType);
+            final isWOrNB = ['w', 'nb'].contains(extraType);
+            
+            currentScore['runs'] = (currentScore['runs'] ?? 0) + amount + (isWOrNB ? 1 : 0);
+            
+            if (isBOrLB) {
+               if (sIdx != -1) batting[sIdx]['balls'] = (batting[sIdx]['balls'] ?? 0) + 1;
+            }
+            if (isWOrNB) {
+               if (bIdx != -1) {
+                 bowling[bIdx]['runs'] = (bowling[bIdx]['runs'] ?? 0) + amount + 1;
+                 if (extraType == 'w') bowling[bIdx]['wides'] = (bowling[bIdx]['wides'] ?? 0) + 1;
+                 if (extraType == 'nb') bowling[bIdx]['noBalls'] = (bowling[bIdx]['noBalls'] ?? 0) + 1;
+               }
+            } else {
+               // Byes/Leg Byes don't add to bowler's runs
+               if (bIdx != -1) bowling[bIdx]['runs'] = (bowling[bIdx]['runs'] ?? 0) + 0;
+            }
+            
+            _advanceBall(currentScore, bIdx != -1 ? bowling[bIdx] : null, isWOrNB);
             _logBall(currentScore, '${extraType.toUpperCase()}$amount');
             break;
+            
           case 'wicket':
             currentScore['wickets'] = (currentScore['wickets'] ?? 0) + 1;
-            _advanceBall(currentScore, false);
+            if (sIdx != -1) {
+              batting[sIdx]['balls'] = (batting[sIdx]['balls'] ?? 0) + 1;
+              batting[sIdx]['status'] = 'out';
+            }
+            if (bIdx != -1) bowling[bIdx]['wickets'] = (bowling[bIdx]['wickets'] ?? 0) + 1;
+            _advanceBall(currentScore, bIdx != -1 ? bowling[bIdx] : null, false);
             _logBall(currentScore, 'W');
             break;
-          case 'swap':
-            // Strike swap logic
+            
+          case 'overthrow':
+            final data = value as Map<String, dynamic>;
+            final ballType = data['ballType'] as String;
+            final runsCompleted = data['runsCompleted'] as int;
+            final crossedOnThrow = data['crossedOnThrow'] as bool;
+            final resultType = data['resultType'] as String;
+            final manualRuns = data['manualRuns'] as int;
+            
+            final overtimeRuns = resultType == 'boundary' ? 4 : manualRuns;
+            final totalRuns = (runsCompleted + (crossedOnThrow ? 1 : 0)) + overtimeRuns;
+            
+            currentScore['runs'] = (currentScore['runs'] ?? 0) + totalRuns;
+            
+            if (ballType == 'normal' || ballType == 'nb') {
+               if (sIdx != -1) {
+                 batting[sIdx]['runs'] = (batting[sIdx]['runs'] ?? 0) + totalRuns;
+                 if (totalRuns >= 4 && resultType == 'boundary') batting[sIdx]['fours'] = (batting[sIdx]['fours'] ?? 0) + 1;
+                 if (totalRuns == 6) batting[sIdx]['sixes'] = (batting[sIdx]['sixes'] ?? 0) + 1;
+               }
+               if (bIdx != -1) {
+                 bowling[bIdx]['runs'] = (bowling[bIdx]['runs'] ?? 0) + totalRuns;
+               }
+            } else if (ballType == 'nb_extra') {
+               final nbPenalty = 1;
+               currentScore['runs'] = (currentScore['runs'] ?? 0) + nbPenalty; // Already added totalRuns above
+               currentInn['extras']['noBalls'] = (currentInn['extras']['noBalls'] ?? 0) + totalRuns + nbPenalty;
+               if (bIdx != -1) bowling[bIdx]['runs'] = (bowling[bIdx]['runs'] ?? 0) + nbPenalty;
+            } else if (ballType == 'w') {
+               final widePenalty = 1;
+               currentScore['runs'] = (currentScore['runs'] ?? 0) + widePenalty;
+               currentInn['extras']['wides'] = (currentInn['extras']['wides'] ?? 0) + totalRuns + widePenalty;
+               if (bIdx != -1) bowling[bIdx]['runs'] = (bowling[bIdx]['runs'] ?? 0) + widePenalty;
+            } else if (['b', 'lb'].contains(ballType)) {
+               if (ballType == 'b') currentInn['extras']['byes'] = (currentInn['extras']['byes'] ?? 0) + totalRuns;
+               else currentInn['extras']['legByes'] = (currentInn['extras']['legByes'] ?? 0) + totalRuns;
+            }
+
+            List<dynamic> thisOver = List.from(currentScore['thisOver'] ?? []);
+            if (thisOver.isNotEmpty) {
+               var last = thisOver.last.toString();
+               // Precision: Overthrow Modifies EXISTING ball notation (Parity Upgrade)
+               if (last.startsWith('NB')) {
+                 int prev = int.parse(last.replaceAll(RegExp(r'[^0-9]'), ''));
+                 thisOver[thisOver.length - 1] = 'NB${prev + totalRuns}';
+               } else if (last.startsWith('WD')) {
+                 int prev = int.parse(last.replaceAll(RegExp(r'[^0-9]'), ''));
+                 thisOver[thisOver.length - 1] = 'WD${prev + totalRuns}';
+               } else if (RegExp(r'^\d+$').hasMatch(last)) {
+                 thisOver[thisOver.length - 1] = (int.parse(last) + totalRuns).toString();
+               } else {
+                 thisOver[thisOver.length - 1] = '$last+$totalRuns';
+               }
+               currentScore['thisOver'] = thisOver;
+            }
+            break;
+            
+          case 'new_bowler':
+            currentMatch['currentBowler'] = value;
+            currentScore['bowler'] = value;
             break;
         }
-        payload = {'score': currentScore, 'innings': match['innings'], 'history': match['history']};
+        
+        // --- Global Stats Sync (Parity Upgrade) ---
+        for (var p in batting) {
+          final pRuns = p['runs'] ?? 0;
+          final pBalls = p['balls'] ?? 0;
+          if (pBalls > 0) {
+            p['strikeRate'] = double.parse(((pRuns / pBalls) * 100.0).toStringAsFixed(2));
+          }
+        }
+
+        for (var b in bowling) {
+          final bOvers = double.tryParse(b['overs']?.toString() ?? '0.0') ?? 0.0;
+          final totalBalls = oversToBalls(bOvers);
+          if (totalBalls > 0) {
+            b['economy'] = double.parse(((b['runs'] / (totalBalls / 6.0))).toStringAsFixed(2));
+          }
+        }
+        
+        currentInn['batting'] = batting;
+        currentBowlInn['bowling'] = bowling;
+        innings[battingTeamIdx] = currentInn;
+        innings[bowlingTeamIdx] = currentBowlInn;
+        
+        payload = {'score': currentScore, 'innings': innings, 'history': match['history']};
       }
 
       // Use dedicated /score endpoint (Phase 25 Parity)
@@ -130,19 +290,23 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     }
   }
 
-  void _advanceBall(Map<String, dynamic> score, bool isExtraUncounted) {
-    if (isExtraUncounted) return; // Wides/No balls don't advance the over
-    double overs = double.tryParse(score['overs']?.toString() ?? '0.0') ?? 0.0;
-    int whole = overs.floor();
-    int balls = ((overs - whole) * 10).round();
+  void _advanceBall(Map<String, dynamic> score, Map<String, dynamic>? bowler, bool isExtraUncounted) {
+    if (isExtraUncounted) return;
     
-    balls++;
-    if (balls >= 6) {
-      whole++;
-      balls = 0;
-      score['thisOver'] = []; // Clear log on over completion
+    // Total Match Overs
+    double currentOvers = double.tryParse(score['overs']?.toString() ?? '0.0') ?? 0.0;
+    int totalMatchBalls = oversToBalls(currentOvers) + 1;
+    if (totalMatchBalls % 6 == 0) {
+      score['thisOver'] = [];
     }
-    score['overs'] = '$whole.$balls';
+    score['overs'] = ballsToOvers(totalMatchBalls).toStringAsFixed(1);
+    
+    // Total Bowler Overs
+    if (bowler != null) {
+      double currentBOvers = double.tryParse(bowler['overs']?.toString() ?? '0.0') ?? 0.0;
+      int totalBowlerBalls = oversToBalls(currentBOvers) + 1;
+      bowler['overs'] = ballsToOvers(totalBowlerBalls).toStringAsFixed(1);
+    }
   }
 
   void _logBall(Map<String, dynamic> score, String log) {
@@ -180,8 +344,11 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
           style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.black, fontSize: 16),
         ),
         actions: [
-          if (isUpdating)
             const Center(child: Padding(padding: EdgeInsets.only(right: 16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.redAccent),
+            onPressed: () => PdfService.generateScorecard(match),
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -288,7 +455,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
           children: [
             _controlButton('SQUADS', Icons.groups, Colors.blue, () {}),
             const SizedBox(width: 8),
-            _controlButton('DLS', Icons.cloud, Colors.indigo, () {}),
+            _controlButton('DLS', Icons.cloud, Colors.indigo, _showDlsModal),
             const SizedBox(width: 8),
             _controlButton('REVERSE', Icons.history, Colors.orange, _handleUndo),
             const SizedBox(width: 8),
@@ -345,7 +512,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                 const SizedBox(width: 8),
                 _actionBtn('RETIRE BATTER', Icons.exit_to_app, () {}),
                 const SizedBox(width: 8),
-                _actionBtn('REPLACE BOWLER', Icons.psychology, () {}),
+                _actionBtn('REPLACE BOWLER', Icons.psychology, () => _showBowlerReplacementModal()),
             ]
         ),
         const SizedBox(height: 16),
@@ -535,8 +702,148 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   }
 
   void _showOverthrowModal() {
+    if ((match['score']?['thisOver'] as List?)?.isEmpty ?? true) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Overthrow only allowed after a base delivery!')));
+      return;
+    }
+
+    String ballType = 'normal';
+    int runsCompleted = 0;
+    bool crossedOnThrow = false;
+    String resultType = 'boundary';
+    int manualRuns = 0;
+
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
+          padding: EdgeInsets.only(left: 32, right: 32, top: 32, bottom: MediaQuery.of(context).viewInsets.bottom + 32),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(child: Text('⚡ RECORD OVERTHROW', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)))),
+                const SizedBox(height: 24),
+                
+                Text('BALL TYPE', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+                DropdownButton<String>(
+                  value: ballType,
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  items: [
+                    {'l': 'Normal Ball', 'v': 'normal'},
+                    {'l': 'Wide Ball', 'v': 'w'},
+                    {'l': 'No Ball (Bat)', 'v': 'nb'},
+                    {'l': 'No Ball (Extra)', 'v': 'nb_extra'},
+                    {'l': 'Bye', 'v': 'b'},
+                    {'l': 'Leg Bye', 'v': 'lb'},
+                  ].map((e) => DropdownMenuItem(value: e['v'], child: Text(e['l']!, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)))).toList(),
+                  onChanged: (v) => setModalState(() => ballType = v!),
+                ),
+                const Divider(),
+                
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('RUNS COMPLETED', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+                          TextField(
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(border: InputBorder.none, hintText: '0'),
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                            onChanged: (v) => runsCompleted = int.tryParse(v) ?? 0,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: crossedOnThrow,
+                      onChanged: (v) => setModalState(() => crossedOnThrow = v),
+                    ),
+                    Text('CROSSED', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey)),
+                  ],
+                ),
+                const Divider(),
+
+                Text('OVERTHROW RESULT', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+                Row(
+                  children: [
+                    Radio<String>(value: 'boundary', groupValue: resultType, onChanged: (v) => setModalState(() => resultType = v!)),
+                    Text('Boundary (+4)', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 16),
+                    Radio<String>(value: 'manual', groupValue: resultType, onChanged: (v) => setModalState(() => resultType = v!)),
+                    Text('Manual', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                
+                if (resultType == 'manual')
+                  TextField(
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Manual Overthrow Runs',
+                      labelStyle: GoogleFonts.outfit(fontSize: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onChanged: (v) => manualRuns = int.tryParse(v) ?? 0,
+                  ),
+                
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _handleUpdate('overthrow', value: {
+                        'ballType': ballType,
+                        'runsCompleted': runsCompleted,
+                        'crossedOnThrow': crossedOnThrow,
+                        'resultType': resultType,
+                        'manualRuns': manualRuns,
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: Text('RECORD OVERTHROW', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showBowlerReplacementModal() {
+    final score = match['score'] ?? {};
+    final thisOver = score['thisOver'] as List? ?? [];
+    final legalBalls = thisOver.where((b) => !b.toString().toUpperCase().contains('WD') && !b.toString().toUpperCase().contains('NB')).length;
+    final remaining = 6 - legalBalls;
+
+    if (remaining > 0 && thisOver.isNotEmpty) {
+       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+         content: Text('🩹 Bowler replaced due to injury. $remaining balls remaining.'),
+         backgroundColor: Colors.orange,
+         duration: const Duration(seconds: 4),
+       ));
+    }
+
+    final battingTeam = match['score']?['battingTeam'];
+    final bowlingSquad = battingTeam == match['teamA'] ? (match['squadB'] as List? ?? []) : (match['squadA'] as List? ?? []);
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
@@ -544,20 +851,104 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('OVERTHROW RUNS', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900)),
+            Text('⚾ REPLACE BOWLER', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900)),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [1, 2, 3, 4].map((runs) => ElevatedButton(
-                onPressed: () {
-                   Navigator.pop(context);
-                   _handleUpdate('overthrow', value: runs);
-                },
-                style: ElevatedButton.styleFrom(minimumSize: const Size(60,60), shape: const CircleBorder()),
-                child: Text('+$runs', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18)),
-              )).toList(),
-            ),
+            ...bowlingSquad.where((p) => p.toString().trim().isNotEmpty).map((p) => ListTile(
+              title: Text(p.toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context);
+                _handleUpdate('new_bowler', value: p);
+              },
+            )).toList(),
+            const SizedBox(height: 32),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showDlsModal() {
+    final targetController = TextEditingController(text: (match['score']?['target'] ?? '').toString());
+    final oversController = TextEditingController(text: (match['totalOvers'] ?? '').toString());
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('🌧️ DLS ADJUSTMENTS', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.indigo)),
+              const SizedBox(height: 24),
+              Text('REVISED TARGET SCORE', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: targetController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: 'Enter new target',
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('REVISED TOTAL OVERS', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: oversController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: 'Enter new total overs',
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
+                      child: Text('CANCEL', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (targetController.text.isEmpty || oversController.text.isEmpty) return;
+                        final updatedMatch = Map<String, dynamic>.from(match);
+                        updatedMatch['totalOvers'] = int.tryParse(oversController.text) ?? updatedMatch['totalOvers'];
+                        final score = Map<String, dynamic>.from(updatedMatch['score'] ?? {});
+                        score['target'] = int.tryParse(targetController.text) ?? score['target'];
+                        updatedMatch['score'] = score;
+                        updatedMatch['isDLS'] = true;
+                        
+                        Navigator.pop(context);
+                        _handleUpdate('manual', value: updatedMatch);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      ),
+                      child: Text('APPLY DLS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

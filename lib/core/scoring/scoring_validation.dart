@@ -98,6 +98,9 @@ class ValidationService {
     if (state.inningsCompleted) {
       throw ScoringException('Innings is completed. Cannot process overthrow.');
     }
+    if (state.lastDeliveryType == null) {
+      throw ScoringException('No last delivery found. Overthrow cannot exist independently.');
+    }
   }
 }
 

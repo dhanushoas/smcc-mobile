@@ -9,6 +9,8 @@ import 'services/notification_service.dart';
 
 import 'package:google_fonts/google_fonts.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // await Firebase.initializeApp();
@@ -68,6 +70,7 @@ class MyApp extends StatelessWidget {
           titleTextStyle: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 20),
         ),
       ),
+      navigatorKey: navigatorKey,
       home: HomeScreen(),
     );
   }
