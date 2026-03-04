@@ -35,16 +35,21 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
     
     if (widget.isCopy) {
       _selectedDate = DateTime.now();
-      _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+      _selectedTime = TimeOfDay.now(); // Default to current time for copies too as per requirement
     } else {
       final parsedDate = DateTime.tryParse(m?['date'] ?? '') ?? DateTime.now();
       _selectedDate = parsedDate;
-      _selectedTime = TimeOfDay.fromDateTime(parsedDate);
+      _selectedTime = (m?['date'] != null) ? TimeOfDay.fromDateTime(parsedDate) : TimeOfDay.now();
     }
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_teamAController.text.trim().toLowerCase() == _teamBController.text.trim().toLowerCase()) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Both teams cannot be the same')));
+      return;
+    }
 
     setState(() => _isSaving = true);
     final fullDate = DateTime(
@@ -142,8 +147,8 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
                       final date = await showDatePicker(
                         context: context,
                         initialDate: _selectedDate,
-                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 30)),
                       );
                       if (date != null) setState(() => _selectedDate = date);
                     },

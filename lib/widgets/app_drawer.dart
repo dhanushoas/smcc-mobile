@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/settings_provider.dart';
 import '../screens/home_screen.dart';
 import '../screens/schedule_screen.dart';
@@ -105,6 +106,12 @@ class _AppDrawerState extends State<AppDrawer> {
                 }),
                 _buildDrawerItem(context, Icons.volunteer_activism_rounded, 'Sponsorship', () {
                    Navigator.push(context, MaterialPageRoute(builder: (_) => SponsorshipScreen()));
+                }),
+                _buildDrawerItem(context, Icons.description_rounded, 'User Manual', () {
+                   launchUrl(Uri.parse('https://smcc-web.vercel.app/user-manual'), mode: LaunchMode.externalApplication);
+                }),
+                _buildDrawerItem(context, Icons.admin_panel_settings_rounded, 'Admin Manual', () {
+                   launchUrl(Uri.parse('https://smcc-web.vercel.app/admin-manual'), mode: LaunchMode.externalApplication);
                 }),
               ],
             ),

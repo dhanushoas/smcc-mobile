@@ -49,6 +49,8 @@ class _DynamicFooterState extends State<DynamicFooter> {
             {'title': 'Improvements', 'route': '/improvements'},
             {'title': 'Join Council', 'route': '/join'},
             {'title': 'Sponsorship', 'route': '/sponsorship'},
+            {'title': 'User Manual', 'route': '/user-manual'},
+            {'title': 'Admin Manual', 'route': '/admin-manual'},
             {'title': 'Console', 'route': '/login'},
           ]
         };
@@ -156,11 +158,13 @@ class _DynamicFooterState extends State<DynamicFooter> {
   }
 
   void _handleNavigation(String route) {
-     // Simple route mapper
      if (route == '/login') {
         Navigator.pushNamed(context, '/login');
+     } else if (route == '/user-manual') {
+        launchUrl(Uri.parse('https://smcc-web.vercel.app/user-manual'), mode: LaunchMode.externalApplication);
+     } else if (route == '/admin-manual') {
+        launchUrl(Uri.parse('https://smcc-web.vercel.app/admin-manual'), mode: LaunchMode.externalApplication);
      }
-     // Others can be added as screens develop
   }
 
   Widget _socialIcon(String platform, String url) {
