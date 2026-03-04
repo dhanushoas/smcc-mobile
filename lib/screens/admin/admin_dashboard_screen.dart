@@ -200,6 +200,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MatchFormScreen(existingMatch: match))),
                       ),
                       IconButton(
+                        icon: const Icon(Icons.copy_outlined, size: 20, color: Colors.blueGrey),
+                        tooltip: 'Copy Match & Squads',
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MatchFormScreen(existingMatch: match, isCopy: true))),
+                      ),
+                      IconButton(
                         icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
                         onPressed: () => _confirmDelete(match),
                       ),

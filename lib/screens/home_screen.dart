@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../utils/formatters.dart';
 import '../utils/calculations.dart';
@@ -718,11 +719,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
         actions: [
-          if (widget.isAdminMode)
             TextButton.icon(
               onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomeScreen(isAdminMode: false))),
               icon: Icon(Icons.exit_to_app, color: Colors.white),
               label: Text('EXIT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          if (!widget.isAdminMode)
+            IconButton(
+              icon: const Icon(Icons.language, color: _primary),
+              tooltip: 'Open SMCC Web',
+              onPressed: () async {
+                final Uri url = Uri.parse('https://smcc-web.vercel.app/');
+                if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Could not launch SMCC Web')),
+                    );
+                  }
+                }
+              },
             ),
         ],
       ),

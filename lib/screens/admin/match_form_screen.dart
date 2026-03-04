@@ -5,7 +5,8 @@ import '../../services/api_service.dart';
 
 class MatchFormScreen extends StatefulWidget {
   final Map<String, dynamic>? existingMatch;
-  const MatchFormScreen({Key? key, this.existingMatch}) : super(key: key);
+  final bool isCopy;
+  const MatchFormScreen({Key? key, this.existingMatch, this.isCopy = false}) : super(key: key);
 
   @override
   _MatchFormScreenState createState() => _MatchFormScreenState();
@@ -19,6 +20,7 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
   late TextEditingController _venueController;
   late TextEditingController _oversController;
   late DateTime _selectedDate;
+  late TimeOfDay _selectedTime;
   bool _isSaving = false;
 
   @override
@@ -30,41 +32,47 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
     _teamBController = TextEditingController(text: m?['teamB'] ?? '');
     _venueController = TextEditingController(text: m?['venue'] ?? '');
     _oversController = TextEditingController(text: (m?['totalOvers'] ?? 20).toString());
-    _selectedDate = DateTime.tryParse(m?['date'] ?? '') ?? DateTime.now();
+    
+    if (widget.isCopy) {
+      _selectedDate = DateTime.now();
+      _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+    } else {
+      final parsedDate = DateTime.tryParse(m?['date'] ?? '') ?? DateTime.now();
+      _selectedDate = parsedDate;
+      _selectedTime = TimeOfDay.fromDateTime(parsedDate);
+    }
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
+    final fullDate = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+
     final payload = {
       'series': _seriesController.text,
       'teamA': _teamAController.text,
       'teamB': _teamBController.text,
       'venue': _venueController.text,
       'totalOvers': int.tryParse(_oversController.text) ?? 20,
-      'date': _selectedDate.toIso8601String(),
-      if (widget.existingMatch == null) 'status': 'upcoming',
-      if (widget.existingMatch == null) 'score': {
+      'date': fullDate.toIso8601String(),
+      if (widget.existingMatch == null || widget.isCopy) 'status': 'upcoming',
+      if (widget.existingMatch == null || widget.isCopy) 'score': {
         'runs': 0, 'wickets': 0, 'overs': '0.0', 'battingTeam': _teamAController.text, 'thisOver': []
       }
     };
 
     try {
-      if (widget.existingMatch != null) {
-        // In mobile, we keep generic update separate from /score for logic safety
-        // Use updateMatch for metadata edits same as web
-        final headers = {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${await ApiService.baseUrl}' // This logic will be inside api_service
-        };
-        // Reuse api_service: updateMatch (which should be generic PUT /:id)
-        // Let's refine api_service after this
+      if (widget.existingMatch != null && !widget.isCopy) {
         await ApiService.updateMatch(widget.existingMatch!['_id'] ?? widget.existingMatch!['id'], payload);
       } else {
-        // POST /api/matches (not yet explicitly in api_service, will add)
-        // Note: For now, we'll assume api_service will have createMatch
-        // BUT to be safe, I'll use raw request here or update service
+        await ApiService.createMatch(payload);
       }
       if (mounted) {
         Navigator.pop(context, true);
@@ -79,12 +87,13 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.existingMatch != null;
+    final isEdit = widget.existingMatch != null && !widget.isCopy;
+    final isCopy = widget.isCopy;
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(isEdit ? 'EDIT MATCH' : 'NEW MATCH', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+        title: Text(isEdit ? 'EDIT MATCH' : (isCopy ? 'NEW MATCH (COPY)' : 'NEW MATCH'), style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,
@@ -125,29 +134,56 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
             const SizedBox(height: 20),
             _buildField('Total Overs', _oversController, Icons.timer_outlined, isNumber: true),
             const SizedBox(height: 24),
-            Text('MATCH DATE', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueAccent, letterSpacing: 1)),
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: _selectedDate,
-                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                );
-                if (date != null) setState(() => _selectedDate = date);
-              },
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 20, color: Color(0xFF2563EB)),
-                    const SizedBox(width: 12),
-                    Text(DateFormat('EEEE, MMMM d, y').format(_selectedDate), style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-                  ],
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedDate,
+                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (date != null) setState(() => _selectedDate = date);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calendar_today, size: 20, color: Color(0xFF2563EB)),
+                          const SizedBox(width: 12),
+                          Expanded(child: Text(DateFormat('MMM d, y').format(_selectedDate), style: GoogleFonts.outfit(fontWeight: FontWeight.w600))),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: _selectedTime,
+                      );
+                      if (time != null) setState(() => _selectedTime = time);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.access_time, size: 20, color: Color(0xFF2563EB)),
+                          const SizedBox(width: 12),
+                          Expanded(child: Text(_selectedTime.format(context), style: GoogleFonts.outfit(fontWeight: FontWeight.w600))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
