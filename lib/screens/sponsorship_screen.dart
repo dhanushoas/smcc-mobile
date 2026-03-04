@@ -1,3 +1,5 @@
+// Sponsorship screen for SMCC platform
+// Displays sponsorship tiers and allows brands to partner with SMCC
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

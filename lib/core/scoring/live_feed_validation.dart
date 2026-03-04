@@ -87,29 +87,24 @@ class DataIntegrityValidator {
     // 1. Validate Total Runs
     int calculatedRuns = LiveMatchIntegrityService.calculateTotalRuns(session);
     if (state.totalRuns != calculatedRuns) {
-      print('CRITICAL INTEGRITY ERROR: displayedTotalRuns (${state.totalRuns}) != calculatedTotalRunsFromHistory ($calculatedRuns)');
     }
 
     // 2. Validate Wickets
     int calculatedWickets = LiveMatchIntegrityService.calculateWickets(session);
     if (state.wickets != calculatedWickets) {
-      print('CRITICAL INTEGRITY ERROR: displayedWickets (${state.wickets}) != historyWickets ($calculatedWickets)');
     }
 
     // 3. Current Batter Validation
     if (!state.isMatchCompleted && !state.inningsCompleted && state.over > 0) {
       if (state.striker.isEmpty || state.nonStriker.isEmpty) {
-        print('CRITICAL INTEGRITY ERROR: Exactly 2 active batters must exist during active innings.');
       }
       if (state.striker == state.nonStriker) {
-        print('CRITICAL INTEGRITY ERROR: Striker and nonStriker are duplicated.');
       }
     }
 
     // 4. Bowler Validation
     if (!state.isMatchCompleted && !state.inningsCompleted && state.over > 0) {
       if (state.bowler.isEmpty) {
-        print('CRITICAL INTEGRITY ERROR: Bowler is missing during active innings.');
       }
     }
   }

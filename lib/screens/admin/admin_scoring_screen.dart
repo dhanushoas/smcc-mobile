@@ -377,6 +377,8 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       ),
       child: Column(
         children: [
+          _buildCompetitionBadge(match['competitionType']?.toString()),
+          const SizedBox(height: 8),
           Text(
             (score['battingTeam'] ?? 'Team').toString().toUpperCase(),
             style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.blueAccent, fontSize: 14, letterSpacing: 1),
@@ -874,7 +876,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
 
   void _showDlsModal() {
     final targetController = TextEditingController(text: (match['score']?['target'] ?? '').toString());
-    final oversController = TextEditingController(text: (match['totalOvers'] ?? '').toString());
+    final oversController = TextEditingController(text: (match['overs_per_match'] ?? match['totalOvers'] ?? '').toString());
 
     showModalBottomSheet(
       context: context,
@@ -932,7 +934,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                       onPressed: () {
                         if (targetController.text.isEmpty || oversController.text.isEmpty) return;
                         final updatedMatch = Map<String, dynamic>.from(match);
-                        updatedMatch['totalOvers'] = int.tryParse(oversController.text) ?? updatedMatch['totalOvers'];
+                        updatedMatch['overs_per_match'] = int.tryParse(oversController.text) ?? (updatedMatch['overs_per_match'] ?? updatedMatch['totalOvers']);
                         final score = Map<String, dynamic>.from(updatedMatch['score'] ?? {});
                         score['target'] = int.tryParse(targetController.text) ?? score['target'];
                         updatedMatch['score'] = score;
@@ -1008,7 +1010,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
 
       if (action == 'force_end') {
           confirmMsg = 'Force end this innings?';
-          currentScore['overs'] = match['totalOvers'] ?? 20;
+          currentScore['overs'] = (match['overs_per_match'] ?? match['totalOvers'] ?? 20).toString();
           payload = {'score': currentScore};
       } else if (action == 'clear_log') {
           confirmMsg = 'Clear the current over log?';
@@ -1206,6 +1208,31 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
 
     _handleUpdate('manual', value: updatedMatch);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Super Over Started! $nextBattingTeam batting first.')));
+  }
+
+  Widget _buildCompetitionBadge(String? type) {
+    final t = (type ?? 'head-to-head').toLowerCase();
+    Color color = Colors.grey.shade600;
+    if (t == 'tournament') color = Colors.orange;
+    else if (t == 'series') color = Colors.blueAccent;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Text(
+        t.toUpperCase(),
+        style: GoogleFonts.outfit(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
   }
 }
   void _showSquadsModal() {

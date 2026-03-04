@@ -210,11 +210,14 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                   children: [
                     Icon(Icons.location_on, size: 14, color: _primary),
                     const SizedBox(width: 4),
-                    Text(match['venue'] ?? 'TBA', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                    Text('${formatTime(match['date'])} • ${(match['venue'] ?? 'TBA').toString().split(' ').map((s) => s.isNotEmpty ? s[0].toUpperCase() + s.substring(1) : '').join(' ')}', 
+                        style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
                     const SizedBox(width: 12),
                     Icon(Icons.emoji_events, size: 14, color: _primary),
                     const SizedBox(width: 4),
                     Text(match['series'] ?? 'SMCC LIVE', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                    const SizedBox(width: 12),
+                    _buildCompetitionBadge(match['competitionType']?.toString()),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -245,31 +248,90 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           ),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: _primary.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _primary.withOpacity(0.05),
+                  Colors.white,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(color: _primary.withOpacity(0.1)),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+              boxShadow: [
+                BoxShadow(
+                  color: _primary.withOpacity(0.03),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                )
+              ],
             ),
             child: (match['status'] == 'completed' && result != null) ? Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text('MATCH COMPLETED', 
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.green, letterSpacing: 1.5)),
+                ),
+                const SizedBox(height: 16),
                 Text('🏆 ${result.toUpperCase()}', 
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87)),
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87, height: 1.2)),
+                if (match['manOfTheMatch'] != null && match['manOfTheMatch'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.amber.withOpacity(0.2)),
+                        ),
+                        child: const Icon(Icons.emoji_events, size: 22, color: Colors.amber),
+                      ),
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('MAN OF THE MATCH', 
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 8, color: Colors.grey, letterSpacing: 1.2)),
+                          Text(match['manOfTheMatch'].toString().toUpperCase(), 
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: _primary, letterSpacing: 0.5)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ) : Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text('CHASE REQUIREMENT', style: GoogleFonts.outfit(
                     fontWeight: FontWeight.w900, fontSize: 10, color: _danger, letterSpacing: 2)),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text('TARGET: ${match['score']?['target'] ?? 0} ${pluralize((match['score']?['target'] ?? 0).toInt(), 'Run')}', 
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: _danger)),
-                const SizedBox(height: 4),
-                Text('REQUIRED FROM ${match['totalOvers'] ?? 20} ${pluralize((match['totalOvers'] ?? 20).toInt(), 'Over').toUpperCase()}', 
-                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.grey.shade600)),
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 20, color: _danger)),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _danger.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text('REQUIRED FROM ${match['totalOvers'] ?? 20} OVERS', 
+                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: _danger)),
+                ),
               ],
             ),
           ),
@@ -654,6 +716,31 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
         Text(label, style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
         Text(value, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w800)),
       ]),
+    );
+  }
+
+  Widget _buildCompetitionBadge(String? type) {
+    final t = (type ?? 'head-to-head').toLowerCase();
+    Color color = Colors.grey.shade600;
+    if (t == 'tournament') color = Colors.orange;
+    else if (t == 'series') color = _primary;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Text(
+        t.toUpperCase(),
+        style: GoogleFonts.outfit(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.5,
+        ),
+      ),
     );
   }
 

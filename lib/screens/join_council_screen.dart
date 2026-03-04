@@ -1,3 +1,5 @@
+// Join Council screen for SMCC platform
+// Users can register as players or apply for official roles (umpire, scorer, organizer)
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

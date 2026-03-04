@@ -10,11 +10,11 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  List<dynamic> _matches = [];
-  List<dynamic> _filteredMatches = [];
-  bool _loading = true;
-  String _searchQuery = '';
-  String _statusFilter = 'all';
+  List<dynamic> _matches = []; // Raw match data from API
+  List<dynamic> _filteredMatches = []; // Filtered list based on search/tabs
+  bool _loading = true; // Data loading indicator
+  String _searchQuery = ''; // Search bar state
+  String _statusFilter = 'all'; // Filter state (live/upcoming/completed)
 
   @override
   void initState() {

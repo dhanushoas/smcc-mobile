@@ -71,8 +71,8 @@ class PdfService {
           
           pw.Center(
             child: pw.Text(
-                'SERIES: ${(match['series'] ?? 'SMCC LIVE').toString().toUpperCase()} | GROUND: ${(match['venue'] ?? 'TBA').toString().toUpperCase()}',
-                style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                'COMPETITION: ${(match['competitionType'] ?? 'HEAD-TO-HEAD').toString().toUpperCase()} | SERIES: ${(match['series'] ?? 'SMCC LIVE').toString().toUpperCase()} | GROUND: ${(match['venue'] ?? 'TBA').toString().toUpperCase()}',
+                style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600)),
           ),
           pw.SizedBox(height: 4),
           pw.Center(

@@ -1,3 +1,5 @@
+// Feedback screen for SMCC platform
+// Lets users rate their experience and submit category-based feedback
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';

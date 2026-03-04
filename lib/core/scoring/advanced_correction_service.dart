@@ -111,18 +111,13 @@ class AdvancedCorrectionService {
     final log = CorrectionAuditLog(action: action, details: details);
     auditLogs.add(log);
     // Mimic the JS print warn for debugging audit logs in console
-    print('[AUDIT_LOG] ${log.timestamp} | ${log.action}: ${log.details}');
   }
 
   void _recalculateAndSync() {
     int historyRuns = LiveMatchIntegrityService.calculateTotalRuns(session);
     int historyWickets = LiveMatchIntegrityService.calculateWickets(session);
     
-    if (session.currentState.totalRuns != historyRuns) {
-      print('CRITICAL: Overridden totalRuns (${session.currentState.totalRuns}) decoupled from mathematical history ($historyRuns). SUPER ADMIN Overrided.');
-    }
     if (session.currentState.wickets != historyWickets) {
-      print('CRITICAL: Overridden wickets (${session.currentState.wickets}) decoupled from mathematical history ($historyWickets). SUPER ADMIN Overrided.');
     }
   }
 

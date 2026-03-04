@@ -1,3 +1,5 @@
+// Contact Us screen for SMCC platform
+// Allows users to reach tournament organizers via a contact form
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';

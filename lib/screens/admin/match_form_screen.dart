@@ -14,28 +14,33 @@ class MatchFormScreen extends StatefulWidget {
 
 class _MatchFormScreenState extends State<MatchFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _seriesController;
+  late TextEditingController _titleController;
   late TextEditingController _teamAController;
   late TextEditingController _teamBController;
   late TextEditingController _venueController;
   late TextEditingController _oversController;
   late DateTime _selectedDate;
   late TimeOfDay _selectedTime;
-  bool _isSaving = false;
+  bool _isSaving = false; // Form submission state
+
+  String _competitionType = 'head-to-head'; // Selected competition format
+  String _seriesType = 'best_of_3'; // Selected series length
 
   @override
   void initState() {
     super.initState();
     final m = widget.existingMatch;
-    _seriesController = TextEditingController(text: m?['series'] ?? '');
+    _titleController = TextEditingController(text: m?['title'] ?? '');
     _teamAController = TextEditingController(text: m?['teamA'] ?? '');
     _teamBController = TextEditingController(text: m?['teamB'] ?? '');
     _venueController = TextEditingController(text: m?['venue'] ?? '');
-    _oversController = TextEditingController(text: (m?['totalOvers'] ?? 20).toString());
+    _oversController = TextEditingController(text: (m?['overs_per_match'] ?? m?['totalOvers'] ?? 20).toString());
+    _competitionType = m?['competitionType'] ?? 'head-to-head';
+    _seriesType = m?['seriesType'] ?? 'best_of_3';
     
     if (widget.isCopy) {
       _selectedDate = DateTime.now();
-      _selectedTime = TimeOfDay.now(); // Default to current time for copies too as per requirement
+      _selectedTime = TimeOfDay.now();
     } else {
       final parsedDate = DateTime.tryParse(m?['date'] ?? '') ?? DateTime.now();
       _selectedDate = parsedDate;
@@ -44,6 +49,7 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
   }
 
   Future<void> _save() async {
+    // Validate form inputs (date, time, teams, overs)
     if (!_formKey.currentState!.validate()) return;
 
     if (_teamAController.text.trim().toLowerCase() == _teamBController.text.trim().toLowerCase()) {
@@ -61,11 +67,15 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
     );
 
     final payload = {
-      'series': _seriesController.text,
+      'title': _competitionType == 'head-to-head' 
+          ? '${_teamAController.text} vs ${_teamBController.text}' 
+          : _titleController.text,
       'teamA': _teamAController.text,
       'teamB': _teamBController.text,
       'venue': _venueController.text,
-      'totalOvers': int.tryParse(_oversController.text) ?? 20,
+      'overs_per_match': int.tryParse(_oversController.text) ?? 20,
+      'competitionType': _competitionType,
+      'seriesType': _seriesType,
       'date': fullDate.toIso8601String(),
       if (widget.existingMatch == null || widget.isCopy) 'status': 'upcoming',
       if (widget.existingMatch == null || widget.isCopy) 'score': {
@@ -74,10 +84,21 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
     };
 
     try {
-      if (widget.existingMatch != null && !widget.isCopy) {
-        await ApiService.updateMatch(widget.existingMatch!['_id'] ?? widget.existingMatch!['id'], payload);
+      if (_competitionType == 'series') {
+        if (!widget.isCopy && widget.existingMatch != null) {
+           // Updating a series match might be restricted, but for parity:
+           await ApiService.updateMatch(widget.existingMatch!['id'] ?? widget.existingMatch!['_id'], payload);
+        } else {
+           await ApiService.createSeries(payload);
+        }
+      } else if (_competitionType == 'tournament') {
+        await ApiService.createTournament(payload);
       } else {
-        await ApiService.createMatch(payload);
+        if (widget.existingMatch != null && !widget.isCopy) {
+          await ApiService.updateMatch(widget.existingMatch!['_id'] ?? widget.existingMatch!['id'], payload);
+        } else {
+          await ApiService.createMatch(payload);
+        }
       }
       if (mounted) {
         Navigator.pop(context, true);
@@ -125,7 +146,43 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            _buildField('Series Name', _seriesController, Icons.emoji_events_outlined),
+            _buildSectionHeader('Competition Type'),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _buildTypeBtn('head-to-head', 'Match'),
+                const SizedBox(width: 8),
+                _buildTypeBtn('series', 'Series'),
+                const SizedBox(width: 8),
+                _buildTypeBtn('tournament', 'T-ment'),
+              ],
+            ),
+            const SizedBox(height: 24),
+            if (_competitionType == 'series') ...[
+               _buildSectionHeader('Series Type'),
+               const SizedBox(height: 12),
+               DropdownButtonFormField<String>(
+                 value: _seriesType,
+                 decoration: InputDecoration(
+                   filled: true,
+                   fillColor: const Color(0xFFF1F5F9),
+                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                 ),
+                 items: const [
+                   DropdownMenuItem(value: 'best_of_3', child: Text('Best of 3')),
+                   DropdownMenuItem(value: 'best_of_5', child: Text('Best of 5')),
+                   DropdownMenuItem(value: 'best_of_7', child: Text('Best of 7')),
+                 ],
+                 onChanged: (val) => setState(() => _seriesType = val!),
+               ),
+               const SizedBox(height: 24),
+            ],
+            _buildField(
+              _competitionType == 'head-to-head' ? 'Match Title' : (_competitionType == 'series' ? 'Series Name' : 'Tournament Name'), 
+              _titleController, 
+              Icons.emoji_events_outlined,
+              enabled: _competitionType != 'head-to-head'
+            ),
             const SizedBox(height: 20),
             Row(
               children: [
@@ -137,7 +194,7 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
             const SizedBox(height: 20),
             _buildField('Venue', _venueController, Icons.location_on_outlined),
             const SizedBox(height: 20),
-            _buildField('Total Overs', _oversController, Icons.timer_outlined, isNumber: true),
+            _buildField('Overs Per Match', _oversController, Icons.timer_outlined, isNumber: true),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -196,7 +253,7 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController controller, IconData icon, {bool isNumber = false}) {
+  Widget _buildField(String label, TextEditingController controller, IconData icon, {bool isNumber = false, bool enabled = true}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -204,17 +261,52 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          enabled: enabled,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+          validator: (val) => (val == null || val.isEmpty) && enabled ? 'Required' : null,
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: enabled ? Colors.black : Colors.grey),
           decoration: InputDecoration(
             prefixIcon: Icon(icon, size: 20),
+            hintText: !enabled ? 'Auto-generated' : null,
             filled: true,
             fillColor: const Color(0xFFF1F5F9),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title.toUpperCase(),
+      style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1),
+    );
+  }
+
+  Widget _buildTypeBtn(String type, String label) {
+    final active = _competitionType == type;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _competitionType = type),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: active ? const Color(0xFF2563EB) : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: GoogleFonts.outfit(
+                color: active ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

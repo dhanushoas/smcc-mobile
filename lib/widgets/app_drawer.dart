@@ -18,6 +18,9 @@ import '../screens/improvements_screen.dart';
 import '../screens/admin/admin_login_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/admin/admin_scoring_screen.dart';
+import '../screens/tournaments/tournament_list_screen.dart';
+import '../screens/admin/admin_dashboard_screen.dart';
+import '../screens/admin/admin_scoring_screen.dart';
 
 class AppDrawer extends StatefulWidget {
   @override
@@ -52,9 +55,7 @@ class _AppDrawerState extends State<AppDrawer> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildDrawerItem(context, Icons.home_rounded, 'Home', () {
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomeScreen()));
-                }),
+                // Home removed
                 
                 if (_isAdmin) ...[
                   _buildSectionHeader('ADMINISTRATION'),

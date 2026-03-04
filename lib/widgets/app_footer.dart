@@ -44,7 +44,6 @@ class _AppFooterState extends State<AppFooter> {
         _useFallback();
       }
     } catch (e) {
-      debugPrint('Error fetching Footer Data: $e');
       _useFallback();
     }
   }
@@ -63,7 +62,6 @@ class _AppFooterState extends State<AppFooter> {
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      debugPrint('Could not launch $url');
     }
   }
 

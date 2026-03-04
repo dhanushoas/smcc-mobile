@@ -11,6 +11,8 @@ import '../services/api_service.dart';
 import '../utils/formatters.dart';
 import '../utils/calculations.dart';
 import 'scorecard_screen.dart';
+import 'series_screen.dart';
+import 'tournaments/tournament_detail_screen.dart';
 import 'points_table_screen.dart';
 import 'schedule_screen.dart';
 import 'achievements_screen.dart';
@@ -31,8 +33,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ── State ──────────────────────────────────────────────────────────────────
-  List<dynamic> _matches = [];
-  bool _loading = true;
+  List<dynamic> _matches = []; // Real-time match data list
+  bool _loading = true; // Global loading state
 
   // Animation tracking — mirrors Web blastMatchId / completeMatchId
   String? _blastMatchId;
@@ -86,6 +88,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _connectSocket() {
+    // Initialize Socket.io connection for real-time score broadcasts
     _socket = io.io(ApiService.socketUrl, <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': true,
@@ -151,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ── Match Card ─────────────────────────────────────────────────────────────
-  Widget _buildMatchCard(dynamic match) {
+  Widget _buildMatchCard(dynamic match, [String groupType = 'head-to-head']) {
     final id = (match['_id'] ?? match['id'] ?? '').toString();
     final status = match['status'] as String? ?? '';
     final isLive = status == 'live';
@@ -161,7 +164,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final score = match['score'] as Map<String, dynamic>? ?? {};
 
     final date = DateTime.tryParse(match['date'] ?? '') ?? DateTime.now();
+    final matchNum = match['matchNumber'];
     final seriesLabel = (match['series'] ?? 'SMCC LIVE').toString().toUpperCase();
+    final matchNumLabel = (groupType == 'series' && matchNum != null) ? ' • MATCH $matchNum' : '';
     final dateLabel = '${const ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][date.month - 1]} ${date.day}';
 
     // Inn display helper
@@ -196,9 +201,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             builder: (_) => AdminScoringScreen(initialMatch: match),
           ));
         } else {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => ScorecardScreen(matchId: id),
-          ));
+          if (groupType == 'series' && match['seriesId'] != null) {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => SeriesScreen(seriesId: int.tryParse(match['seriesId'].toString()) ?? 0),
+            ));
+          } else if (groupType == 'tournament' && match['tournamentId'] != null) {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => TournamentDetailScreen(tournamentId: int.tryParse(match['tournamentId'].toString()) ?? 0),
+            ));
+          } else {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => ScorecardScreen(matchId: id),
+            ));
+          }
         }
       },
       child: Container(
@@ -225,8 +240,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('$seriesLabel • $dateLabel',
-                          style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 1)),
+                      Row(
+                        children: [
+                          _buildCompetitionBadge(match['competitionType']?.toString(), groupType),
+                          const SizedBox(width: 8),
+                          Text('$seriesLabel$matchNumLabel • $dateLabel',
+                              style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 1)),
+                        ],
+                      ),
                       _buildStatusBadge(status),
                     ],
                   ),
@@ -304,6 +325,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             if (_completeMatchId == id)
               _buildCompleteOverlay(),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompetitionBadge(String? type, String groupType) {
+    String t = groupType.toUpperCase();
+    if (t == 'HEAD-TO-HEAD') t = (type ?? 'HEAD-TO-HEAD').toUpperCase();
+    
+    Color color = Colors.grey.shade600;
+    if (t == 'TOURNAMENT') color = _warning;
+    else if (t == 'SERIES') color = _primary;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Text(
+        t,
+        style: GoogleFonts.outfit(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.5,
         ),
       ),
     );
@@ -514,10 +562,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     // Upcoming
     final venue = match['venue'] ?? 'TBA';
+    // Helper to capitalize first letter of each word
+    String titleCaseVenue = venue.toString().split(' ').map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' : '').join(' ');
+    
     return Row(children: [
       const Icon(Icons.location_on, size: 12, color: _danger),
       const SizedBox(width: 4),
-      Text('${formatTime(match['date'])} • ${venue.toString().toUpperCase()}',
+      Text('${formatTime(match['date'])} • $titleCaseVenue',
           style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.grey.shade800, letterSpacing: 0.2)),
     ]);
   }
@@ -621,6 +672,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final live = filtered.where((m) => m['status'] == 'live' || m['status'] == 'upcoming').toList();
     final completed = filtered.where((m) => m['status'] == 'completed').toList();
 
+    List<Map<String, dynamic>> _groupMatches(List<dynamic> matchesArray) {
+      final grouped = <Map<String, dynamic>>[];
+      final seenSeries = <int>{};
+      final seenTournaments = <int>{};
+
+      for (var m in matchesArray) {
+        final cmpType = m['competitionType']?.toString() ?? 'head-to-head';
+        final seriesId = int.tryParse(m['seriesId']?.toString() ?? '');
+        final tId = int.tryParse(m['tournamentId']?.toString() ?? '');
+
+        if (cmpType == 'series' && seriesId != null) {
+          if (!seenSeries.contains(seriesId)) {
+            seenSeries.add(seriesId);
+            grouped.add({'type': 'series', 'match': m});
+          }
+        } else if (cmpType == 'tournament' && tId != null) {
+          if (!seenTournaments.contains(tId)) {
+            seenTournaments.add(tId);
+            grouped.add({'type': 'tournament', 'match': m});
+          }
+        } else {
+          grouped.add({'type': 'head-to-head', 'match': m});
+        }
+      }
+      return grouped;
+    }
+
+    final groupedLive = _groupMatches(live);
+    final groupedCompleted = _groupMatches(completed);
+
     return RefreshIndicator(
       onRefresh: _fetchMatches,
       child: CustomScrollView(
@@ -641,7 +722,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Live match cards
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: live.isEmpty
+            sliver: groupedLive.isEmpty
                 ? SliverToBoxAdapter(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -656,7 +737,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                   )
                 : SliverList(delegate: SliverChildBuilderDelegate(
-                    (_, i) => _buildMatchCard(live[i]), childCount: live.length)),
+                    (_, i) => _buildMatchCard(groupedLive[i]['match'], groupedLive[i]['type'] as String), childCount: groupedLive.length)),
           ),
           // Recently completed header
           SliverToBoxAdapter(
@@ -669,12 +750,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Completed match cards
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-            sliver: completed.isEmpty
+            sliver: groupedCompleted.isEmpty
                 ? SliverToBoxAdapter(
                     child: Text('No recently completed matches.',
                         style: GoogleFonts.outfit(color: Colors.grey, fontSize: 13)))
                 : SliverList(delegate: SliverChildBuilderDelegate(
-                    (_, i) => _buildMatchCard(completed[i]), childCount: completed.length)),
+                    (_, i) => _buildMatchCard(groupedCompleted[i]['match'], groupedCompleted[i]['type'] as String), childCount: groupedCompleted.length)),
           ),
         ],
       ),

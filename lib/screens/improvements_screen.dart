@@ -1,3 +1,5 @@
+// Platform Improvements screen for SMCC platform
+// Community members can submit feature ideas and improvement suggestions
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';

@@ -1,3 +1,5 @@
+// Report Issues screen for SMCC platform
+// Allows users to report bugs, score disputes, and misconduct incidents
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';

@@ -233,4 +233,97 @@ class ApiService {
 
     await _handleResponse(response);
   }
+
+  // --- Tournament API ---
+  static Future<List<dynamic>> getTournaments() async {
+    final response = await http.get(Uri.parse('$baseUrl/tournaments'))
+        .timeout(const Duration(seconds: 30));
+    return (await _handleResponse(response)) as List<dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getTournament(int id) async {
+    final response = await http.get(Uri.parse('$baseUrl/tournaments/$id'))
+        .timeout(const Duration(seconds: 30));
+    return Map<String, dynamic>.from(await _handleResponse(response));
+  }
+
+  static Future<Map<String, dynamic>> createTournament(Map<String, dynamic> data) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/tournaments'),
+      headers: headers,
+      body: json.encode(data),
+    ).timeout(const Duration(seconds: 30));
+    return Map<String, dynamic>.from(await _handleResponse(response));
+  }
+
+  static Future<void> registerTeam(int tournamentId, String name, {String captain = '', String captainMobile = '', String district = '', String manager = ''}) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/tournaments/$tournamentId/teams'),
+      headers: headers,
+      body: json.encode({'name': name, 'captain': captain, 'captainMobile': captainMobile, 'district': district, 'manager': manager}),
+    ).timeout(const Duration(seconds: 30));
+    await _handleResponse(response);
+  }
+
+  static Future<void> updateTeam(int tournamentId, int teamId, Map<String, dynamic> data) async {
+    final headers = await _getHeaders();
+    final response = await http.put(
+      Uri.parse('$baseUrl/tournaments/$tournamentId/teams/$teamId'),
+      headers: headers,
+      body: json.encode(data),
+    ).timeout(const Duration(seconds: 30));
+    await _handleResponse(response);
+  }
+
+  static Future<void> generateGroups(int id) async {
+    final headers = await _getHeaders();
+    final response = await http.post(Uri.parse('$baseUrl/tournaments/$id/generate-groups'), headers: headers)
+        .timeout(const Duration(seconds: 30));
+    await _handleResponse(response);
+  }
+
+  static Future<void> generateSchedule(int id) async {
+    final headers = await _getHeaders();
+    final response = await http.post(Uri.parse('$baseUrl/tournaments/$id/generate-schedule'), headers: headers)
+        .timeout(const Duration(seconds: 30));
+    await _handleResponse(response);
+  }
+
+  static Future<void> generateKnockouts(int id) async {
+    final headers = await _getHeaders();
+    final response = await http.post(Uri.parse('$baseUrl/tournaments/$id/generate-knockouts'), headers: headers)
+        .timeout(const Duration(seconds: 30));
+    await _handleResponse(response);
+  }
+
+  static Future<List<dynamic>> getPointsTable(int id) async {
+    final response = await http.get(Uri.parse('$baseUrl/tournaments/$id/points-table'))
+        .timeout(const Duration(seconds: 30));
+    return (await _handleResponse(response)) as List<dynamic>;
+  }
+
+  // --- Series API ---
+  static Future<List<dynamic>> getSeries() async {
+    final response = await http.get(Uri.parse('$baseUrl/series'))
+        .timeout(const Duration(seconds: 30));
+    return (await _handleResponse(response)) as List<dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getSeriesById(int id) async {
+    final response = await http.get(Uri.parse('$baseUrl/series/$id'))
+        .timeout(const Duration(seconds: 30));
+    return Map<String, dynamic>.from(await _handleResponse(response));
+  }
+
+  static Future<Map<String, dynamic>> createSeries(Map<String, dynamic> data) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/series'),
+      headers: headers,
+      body: json.encode(data),
+    ).timeout(const Duration(seconds: 30));
+    return Map<String, dynamic>.from(await _handleResponse(response));
+  }
 }

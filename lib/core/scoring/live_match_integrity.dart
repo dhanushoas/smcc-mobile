@@ -63,28 +63,22 @@ class LiveMatchIntegrityService {
 
     // 2. Validate over and ball properties explicitly.
     if (state.ball < 0 || state.ball > 5) {
-      print('Integrity Error: Ball count out of bounds.');
     }
     if (state.wickets > 10) {
-      print('Integrity Error: Wickets logically cannot exceed 10.');
     }
 
     // 3. Status checks
     String status = state.matchStatusTag;
     if (status != 'UPCOMING' && status != 'LIVE' && status != 'COMPLETED') {
-      print('Integrity Error: Invalid match status tag.');
     }
 
     // 4. Validate Batters on Live state.
     if (status == 'LIVE') {
        if (state.striker.isEmpty || state.nonStriker.isEmpty) {
-          print('Integrity Error: Exactly 2 active batters must exist during a live match.');
        }
        if (state.striker == state.nonStriker) {
-          print('Integrity Error: Striker and nonStriker are duplicated to the same player.');
        }
        if (state.bowler.isEmpty) {
-          print('Integrity Error: Bowler is missing during a live match.');
        }
        
        // Note: Domain models hold team limits, so if teams are attached, 
@@ -95,16 +89,13 @@ class LiveMatchIntegrityService {
   static void validateTotalRuns(MatchSession session) {
      int calculatedRuns = calculateTotalRuns(session);
      if (session.currentState.totalRuns != calculatedRuns) {
-       print('CRITICAL INTEGRITY ERROR: displayedTotalRuns (${session.currentState.totalRuns}) != calculatedTotalRunsFromHistory ($calculatedRuns)');
      }
 
      int calculatedWickets = calculateWickets(session);
      if (session.currentState.wickets != calculatedWickets) {
-       print('CRITICAL INTEGRITY ERROR: displayedWickets (${session.currentState.wickets}) != historyWickets ($calculatedWickets)');
      }
 
      if (session.currentState.totalRuns < 0) {
-       print('CRITICAL INTEGRITY ERROR: Total runs logically cannot be negative.');
      }
   }
 }
