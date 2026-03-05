@@ -199,7 +199,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.slash_circle, size: 64, color: Colors.grey),
+            const Icon(Icons.not_interested, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text('MATCH NOT REQUIRED', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.grey.shade800)),
             const SizedBox(height: 8),
