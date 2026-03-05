@@ -323,7 +323,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
-                  headingRowColor: WidgetStateProperty.all(Colors.grey.shade50),
+                  headingRowColor: MaterialStateProperty.all(Colors.grey.shade50),
                   dataRowMinHeight: 44,
                   columns: [
                     DataColumn(label: Text('TEAM', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11))),

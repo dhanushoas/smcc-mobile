@@ -194,6 +194,20 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
   }
 
   Widget _buildScorecard(Map<String, dynamic> match, List<dynamic> innings, String? result) {
+    if (match['status'] == 'cancelled') {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.slash_circle, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text('MATCH NOT REQUIRED', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.grey.shade800)),
+            const SizedBox(height: 8),
+            Text('This match was cancelled as the series was\ndecided in earlier matches.', textAlign: TextAlign.center, style: GoogleFonts.outfit(color: Colors.grey.shade600)),
+          ],
+        ),
+      );
+    }
     if (innings.isEmpty) {
       return Center(child: Text('No innings data yet.', style: GoogleFonts.outfit(color: Colors.grey)));
     }

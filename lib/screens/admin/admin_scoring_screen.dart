@@ -225,7 +225,6 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             currentScore['bowler'] = value.toString();
             break;
         }
-        }
         
         // --- Global Stats Sync (Parity Upgrade) ---
         for (var p in batting) {
@@ -1234,7 +1233,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       ),
     );
   }
-}
+
   void _showSquadsModal() {
     final teamA = match['teamA'];
     final teamB = match['teamB'];
@@ -1306,3 +1305,4 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       ),
     );
   }
+}

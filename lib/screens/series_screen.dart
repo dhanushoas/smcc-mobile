@@ -54,6 +54,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
     final isLive = status == 'live';
     final isCompleted = status == 'completed';
     final isUpcoming = status == 'upcoming';
+    final isCancelled = status == 'cancelled';
     final innings = List<dynamic>.from(match['innings'] ?? []);
     final id = (match['_id'] ?? match['id'] ?? '').toString();
 
@@ -70,76 +71,83 @@ class _SeriesScreenState extends State<SeriesScreen> {
     }
 
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ScorecardScreen(matchId: id))),
+      onTap: isCancelled ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => ScorecardScreen(matchId: id))),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: _bgCard,
+          color: isCancelled ? Colors.grey.shade100 : _bgCard,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [if (!isCancelled) BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
         ),
         clipBehavior: Clip.hardEdge,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        child: Opacity(
+          opacity: isCancelled ? 0.7 : 1.0,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isCancelled ? Colors.grey.shade200 : Colors.grey.shade50,
+                  border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        match['matchNumber'] != null
+                            ? 'MATCH ${match['matchNumber']}'
+                            : (match['title'] ?? match['series'] ?? 'SERIES MATCH').toString().toUpperCase(),
+                          style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 1),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                    if (isLive)
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(20)), child: Text('● LIVE', style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)))
+                    else if (isCompleted)
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(20)), child: Text('✓ COMPLETED', style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)))
+                    else if (isCancelled)
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.grey.shade600, borderRadius: BorderRadius.circular(20)), child: Text('∅ NOT REQUIRED', style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)))
+                    else if (isUpcoming)
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(20)), child: Text('⏰ UPCOMING', style: GoogleFonts.outfit(color: Colors.blue.shade800, fontSize: 10, fontWeight: FontWeight.w900))),
+                  ],
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      match['matchNumber'] != null
-                          ? 'MATCH ${match['matchNumber']}'
-                          : (match['title'] ?? match['series'] ?? 'SERIES MATCH').toString().toUpperCase(),
-                        style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 1),
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  if (isLive)
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(20)), child: Text('● LIVE', style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)))
-                  else if (isCompleted)
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(20)), child: Text('✓ COMPLETED', style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)))
-                  else if (isUpcoming)
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(20)), child: Text('⏰ UPCOMING', style: GoogleFonts.outfit(color: Colors.blue.shade800, fontSize: 10, fontWeight: FontWeight.w900))),
-                ],
+              // Body
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      Expanded(child: Text((match['teamA'] ?? '').toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16))),
+                      if (isLive || isCompleted) Text(innScore(0), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: _primary)),
+                    ]),
+                    const SizedBox(height: 6),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      Expanded(child: Text((match['teamB'] ?? '').toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16))),
+                      if (isLive || isCompleted) Text(innScore(1), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.grey.shade700)),
+                    ]),
+                    const SizedBox(height: 10),
+                    // Footer lines
+                    Container(
+                      padding: const EdgeInsets.only(top: 10),
+                      decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.shade100))),
+                      child: isCompleted
+                          ? Text('🏆 ${(calculateWinner(Map<String, dynamic>.from(match)) ?? 'COMPLETED').toUpperCase()}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.2))
+                          : isCancelled
+                              ? Text('SERIES DECIDED EARLY', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.grey.shade600, letterSpacing: 0.2))
+                              : isLive
+                                  ? Row(children: [Container(width: 6, height: 6, decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(3))), const SizedBox(width: 8), Text('MATCH IN PROGRESS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.2))])
+                                  : Row(children: [const Icon(Icons.location_on, size: 12, color: _danger), const SizedBox(width: 4), Text('${formatTime(match['date'])} • $titleCaseVenue', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.grey.shade800, letterSpacing: 0.2))]),
+                    )
+                  ],
+                ),
               ),
-            ),
-            // Body
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Expanded(child: Text((match['teamA'] ?? '').toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16))),
-                    if (isLive || isCompleted) Text(innScore(0), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: _primary)),
-                  ]),
-                  const SizedBox(height: 6),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Expanded(child: Text((match['teamB'] ?? '').toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16))),
-                    if (isLive || isCompleted) Text(innScore(1), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.grey.shade700)),
-                  ]),
-                  const SizedBox(height: 10),
-                  // Footer lines
-                  Container(
-                    padding: const EdgeInsets.only(top: 10),
-                    decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.shade100))),
-                    child: isCompleted
-                        ? Text('🏆 ${(calculateWinner(Map<String, dynamic>.from(match)) ?? 'COMPLETED').toUpperCase()}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.2))
-                        : isLive
-                            ? Row(children: [Container(width: 6, height: 6, decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(3))), const SizedBox(width: 8), Text('MATCH IN PROGRESS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.2))])
-                            : Row(children: [const Icon(Icons.location_on, size: 12, color: _danger), const SizedBox(width: 4), Text('${formatTime(match['date'])} • $titleCaseVenue', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.grey.shade800, letterSpacing: 0.2))]),
-                  )
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -167,6 +175,8 @@ class _SeriesScreenState extends State<SeriesScreen> {
     final oversFormat = _series!['oversPerMatch']?.toString() ?? '20';
     final teamA = _series!['teamA'] ?? 'Team A';
     final teamB = _series!['teamB'] ?? 'Team B';
+    final seriesStatus = _series!['status'] ?? 'upcoming';
+    final seriesWinner = _series!['winner'];
 
     int teamAWins = 0;
     int teamBWins = 0;
@@ -230,7 +240,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                           ],
                         ),
                       ),
-                      Text('VS', style: GoogleFonts.outfit(color: Colors.white34, fontSize: 20, fontWeight: FontWeight.w900)),
+                      Text('VS', style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.34), fontSize: 20, fontWeight: FontWeight.w900)),
                       Expanded(
                         child: Column(
                           children: [
@@ -245,14 +255,16 @@ class _SeriesScreenState extends State<SeriesScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: seriesStatus == 'completed' ? _success : Colors.white.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                      border: Border.all(color: seriesStatus == 'completed' ? _success : Colors.white.withOpacity(0.2)),
                     ),
                     child: Text(
-                      teamAWins > teamBWins ? '$teamA LEADS $teamAWins-$teamBWins' :
-                      teamBWins > teamAWins ? '$teamB LEADS $teamBWins-$teamAWins' :
-                      (sortedMatches.isNotEmpty ? 'SERIES LEVEL' : 'SERIES HAS NOT STARTED YET'),
+                      seriesStatus == 'completed' 
+                        ? '🎉 ${seriesWinner?.toString().toUpperCase() ?? "UNKNOWN"} WINS SERIES $teamAWins-$teamBWins'
+                        : teamAWins > teamBWins ? '$teamA LEADS $teamAWins-$teamBWins' :
+                          teamBWins > teamAWins ? '$teamB LEADS $teamBWins-$teamAWins' :
+                          (sortedMatches.isNotEmpty ? 'SERIES LEVEL' : 'SERIES HAS NOT STARTED YET'),
                       style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1),
                     )
                   )
@@ -260,6 +272,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
               ),
             ),
           ),
+
           
           // Match List Header
           SliverToBoxAdapter(
