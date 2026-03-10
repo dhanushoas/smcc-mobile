@@ -571,7 +571,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
         // ── Batting table
         if ((innings[_activeInnings]['batting'] as List? ?? []).isNotEmpty) ...[
           _buildSectionTitle('Batting'),
-          _buildBattingTable(List<dynamic>.from(innings[_activeInnings]['batting'] ?? [])),
+          _buildBattingTable(match, List<dynamic>.from(innings[_activeInnings]['batting'] ?? [])),
           _buildYetToBat(match, innings[_activeInnings]),
           const SizedBox(height: 4),
           _buildExtrasRow(innings[_activeInnings]),
@@ -615,7 +615,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildBattingTable(List<dynamic> batting) {
+  Widget _buildBattingTable(Map<String, dynamic> match, List<dynamic> batting) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
