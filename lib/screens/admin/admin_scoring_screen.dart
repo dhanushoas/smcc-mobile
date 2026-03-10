@@ -555,6 +555,21 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                 _buildManualInput('Wickets', (val) => _handleManualUpdate('wickets', val)),
                 _buildManualInput('Overs', (val) => _handleManualUpdate('overs', val)),
                 const SizedBox(height: 16),
+                const Divider(),
+                Text('OVERS REDUCTION & TARGET', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.indigo)),
+                const SizedBox(height: 8),
+                _buildManualInput('Total Overs', (val) => _handleReductionUpdate('totalOvers', val)),
+                _buildManualInput('First Innings Overs', (val) => _handleReductionUpdate('firstInningsOvers', val)),
+                _buildManualInput('Second Innings Overs', (val) => _handleReductionUpdate('secondInningsOvers', val)),
+                _buildManualInput('Target Override', (val) => _handleReductionUpdate('customTarget', val)),
+                const Divider(),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: _actionBtn('DATE & TIME', Icons.calendar_month, _showDateOverridePicker)),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(child: _dangerBtn('FORCE END', () => _handleAdvancedAction('force_end'))),
@@ -993,7 +1008,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pause ? 'Match Paused' : 'Match Resumed')));
     } catch (e) {
       setState(() => isUpdating = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pause failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))));
     }
   }
   
@@ -1006,6 +1021,85 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       if (field == 'overs') currentScore['overs'] = value;
 
       _handleUpdate('manual', value: {'score': currentScore});
+  }
+
+  void _handleReductionUpdate(String field, String value) {
+      if (value.isEmpty) return;
+      final updatedMatch = Map<String, dynamic>.from(match);
+      final currentScore = Map<String, dynamic>.from(updatedMatch['score'] ?? {});
+      
+      final numValue = num.tryParse(value);
+      if (numValue == null) return;
+
+      updatedMatch['firstInningsOvers'] ??= updatedMatch['overs_per_match'] ?? updatedMatch['totalOvers'];
+      updatedMatch['secondInningsOvers'] ??= updatedMatch['overs_per_match'] ?? updatedMatch['totalOvers'];
+
+      bool shouldRecalcTarget = false;
+      if (field == 'totalOvers') {
+          updatedMatch['totalOvers'] = numValue.toInt();
+          updatedMatch['overs_per_match'] = numValue.toInt();
+          updatedMatch['firstInningsOvers'] = numValue;
+          updatedMatch['secondInningsOvers'] = numValue;
+          shouldRecalcTarget = true;
+      } else if (field == 'firstInningsOvers') {
+          updatedMatch['firstInningsOvers'] = numValue;
+          shouldRecalcTarget = true;
+      } else if (field == 'secondInningsOvers') {
+          updatedMatch['secondInningsOvers'] = numValue;
+          shouldRecalcTarget = true;
+      } else if (field == 'customTarget') {
+          currentScore['target'] = numValue.toInt();
+      }
+
+      if (shouldRecalcTarget && (updatedMatch['innings'] as List?)?.isNotEmpty == true) {
+          final firstInn = updatedMatch['innings'][0];
+          if (currentScore['target'] != null || ((firstInn['runs'] ?? 0) > 0 && (firstInn['overs'] ?? 0) > 0)) {
+              final t1Score = firstInn['runs'] ?? 0;
+              final t1OversPlayed = (firstInn['overs'] as num?) ?? updatedMatch['firstInningsOvers'];
+              final t1OversSafe = t1OversPlayed > 0 ? t1OversPlayed : 1;
+              final newT2Overs = updatedMatch['secondInningsOvers'];
+              
+              if (newT2Overs < t1OversSafe) {
+                  currentScore['target'] = ((t1Score / t1OversSafe) * newT2Overs).floor() + 1;
+              } else {
+                  currentScore['target'] = t1Score + 1;
+              }
+          }
+      }
+
+      updatedMatch['score'] = currentScore;
+      _handleUpdate('manual', value: updatedMatch);
+  }
+
+  Future<void> _showDateOverridePicker() async {
+      final matchDateStr = match['date']?.toString();
+      final initDate = (matchDateStr != null && matchDateStr.isNotEmpty) ? DateTime.tryParse(matchDateStr)?.toLocal() ?? DateTime.now() : DateTime.now();
+
+      final pickedDate = await showDatePicker(
+          context: context,
+          initialDate: initDate,
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2030),
+      );
+      if (pickedDate == null) return;
+
+      final pickedTime = await showTimePicker(
+          context: context,
+          initialTime: TimeOfDay.fromDateTime(initDate),
+      );
+      if (pickedTime == null) return;
+
+      final newDateTime = DateTime(pickedDate.year, pickedDate.month, pickedDate.day, pickedTime.hour, pickedTime.minute);
+
+      setState(() => isUpdating = true);
+      try {
+          final updated = await ApiService.updateMatchDateTime((match['_id'] ?? match['id']).toString(), {'matchDateTime': newDateTime.toIso8601String()});
+          setState(() { match = updated; isUpdating = false; });
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Date & Time Updated!')));
+      } catch (e) {
+          setState(() => isUpdating = false);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))));
+      }
   }
 
   Future<void> _handleAdvancedAction(String action) async {

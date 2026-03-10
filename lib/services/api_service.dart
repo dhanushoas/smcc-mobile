@@ -179,6 +179,16 @@ class ApiService {
     return Map<String, dynamic>.from(await _handleResponse(response));
   }
 
+  static Future<Map<String, dynamic>> updateMatchDateTime(String id, Map<String, dynamic> payload) async {
+    final headers = await _getHeaders();
+    final response = await http.put(
+      Uri.parse('$baseUrl/matches/$id/datetime'),
+      headers: headers,
+      body: json.encode(payload),
+    ).timeout(const Duration(seconds: 30));
+    return Map<String, dynamic>.from(await _handleResponse(response));
+  }
+
   static Future<void> deleteMatch(String id) async {
     final headers = await _getHeaders();
     final response = await http.delete(
