@@ -156,10 +156,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ── Match Card ─────────────────────────────────────────────────────────────
   Widget _buildMatchCard(dynamic match, [String groupType = 'head-to-head']) {
     final id = (match['_id'] ?? match['id'] ?? '').toString();
-    final status = match['status'] as String? ?? '';
+    final status = match['computedStatus'] as String? ?? match['status'] as String? ?? '';
     final isLive = status == 'live';
     final isCompleted = status == 'completed';
     final isUpcoming = status == 'upcoming';
+    final isLocked = status == 'LOCKED';
+    final isCancelled = status == 'CANCELLED';
     final innings = List<dynamic>.from(match['innings'] ?? []);
     final score = match['score'] as Map<String, dynamic>? ?? {};
 
@@ -196,24 +198,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     return GestureDetector(
       onTap: () {
+        if (isLocked || isCancelled) return;
         if (widget.isAdminMode) {
           Navigator.push(context, MaterialPageRoute(
             builder: (_) => AdminScoringScreen(initialMatch: match),
           ));
         } else {
-          if (groupType == 'series' && match['seriesId'] != null) {
-            Navigator.push(context, MaterialPageRoute(
-              builder: (_) => SeriesScreen(seriesId: int.tryParse(match['seriesId'].toString()) ?? 0),
-            ));
-          } else if (groupType == 'tournament' && match['tournamentId'] != null) {
-            Navigator.push(context, MaterialPageRoute(
-              builder: (_) => TournamentDetailScreen(tournamentId: int.tryParse(match['tournamentId'].toString()) ?? 0),
-            ));
-          } else {
-            Navigator.push(context, MaterialPageRoute(
-              builder: (_) => ScorecardScreen(matchId: id),
-            ));
-          }
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => ScorecardScreen(matchId: id),
+          ));
         }
       },
       child: Container(
@@ -227,7 +220,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         clipBehavior: Clip.hardEdge,
         child: Stack(
           children: [
-            Column(
+            Opacity(
+              opacity: isCancelled ? 0.6 : 1.0,
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // ── Header bar: series • date + status badge
@@ -313,8 +308,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                     ],
                   ),
-                ),
-              ],
+              ),
             ),
 
             // ── Boundary Overlay (FOUR! / SIX!)
@@ -377,6 +371,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         child: Text('✓ COMPLETED', style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
       );
     }
+    if (status == 'LOCKED') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(20)),
+        child: Text('🔒 LOCKED', style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+      );
+    }
+    if (status == 'CANCELLED') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+        child: Text('✕ CANCELLED', style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(20)),
@@ -414,22 +422,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       children: [
-                        Container(
-                          width: 22, height: 22,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            color: onStrike ? const Color(0xFFF1F5F9) : Colors.transparent,
-                            shape: BoxShape.circle,
-                            border: onStrike ? Border.all(color: Colors.grey.shade200) : null,
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(onStrike ? '🏏' : '', style: const TextStyle(fontSize: 11)),
-                        ),
                         Expanded(child: Text(toCamelCase(b['name']), overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12))),
-                        Text(' ${pluralize(b['runs'] ?? 0, 'Run')}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: _primary)),
+                        Text(' ${b['runs'] ?? 0}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: _primary)),
                         const SizedBox(width: 4),
-                        Text('(${pluralize(b['balls'] ?? 0, 'Ball')})', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
+                        Text('(${b['balls'] ?? 0})', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
                         if (onStrike) Text('*', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: _danger)),
                       ],
                     ),
@@ -451,10 +448,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       width: 22, height: 22,
                       margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF7ED),
+                        color: const Color(0xFFF1F5F9),
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.orange.shade100),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 2, offset: const Offset(0, 1))],
+                        border: Border.all(color: Colors.grey.shade200),
                       ),
                       alignment: Alignment.center,
                       child: const Text('⚾', style: TextStyle(fontSize: 11)),
@@ -557,6 +553,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         const SizedBox(width: 8),
         Text(innings.length > 2 ? 'SUPER OVER IN PROGRESS' : 'MATCH IN PROGRESS',
             style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.2)),
+      ]);
+    }
+
+    if (match['computedStatus'] == 'LOCKED') {
+      return Row(children: [
+        const Icon(Icons.lock, size: 12, color: Colors.grey),
+        const SizedBox(width: 4),
+        Text('WAITING FOR PREVIOUS MATCH RESULT',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.grey.shade600, letterSpacing: 0.2)),
+      ]);
+    }
+    
+    if (match['computedStatus'] == 'CANCELLED') {
+      return Row(children: [
+        const Icon(Icons.cancel, size: 12, color: Colors.grey),
+        const SizedBox(width: 4),
+        Text('CANCELLED (SERIES ALREADY WON)',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.grey.shade600, letterSpacing: 0.2)),
       ]);
     }
 
@@ -666,41 +680,212 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ── Match List View ────────────────────────────────────────────────────────
+  Widget _buildSeriesGroup(Map<String, dynamic> ps) {
+    final teamA = ps['teamA'].toString();
+    final teamB = ps['teamB'].toString();
+    final aw = ps['teamAWins'] as int;
+    final bw = ps['teamBWins'] as int;
+    final seriesWinner = ps['seriesWinner']?.toString();
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+            ),
+            child: Column(
+              children: [
+                Text('SERIES: $teamA VS $teamB (${ps['totalMatches']} Matches)',
+                  style: GoogleFonts.outfit(color: _primary, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
+                if (seriesWinner != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(8)),
+                    child: Text('🏆 $seriesWinner won the series ${aw > bw ? aw : bw}-${aw < bw ? aw : bw}',
+                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 4),
+                  Text('Series Lead: ${aw == bw ? 'Tied $aw-$bw' : (aw > bw ? teamA : teamB) + ' ${aw > bw ? aw : bw}-${aw < bw ? aw : bw}'}',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.black87)),
+                ]
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: (ps['matches'] as List).map((m) => _buildMatchCard(m, 'series')).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMatchList() {
     final filtered = _matches;
 
-    final live = filtered.where((m) => m['status'] == 'live' || m['status'] == 'upcoming').toList();
-    final completed = filtered.where((m) => m['status'] == 'completed').toList();
+    final activeItems = <Map<String, dynamic>>[];
+    final completedItems = <Map<String, dynamic>>[];
 
-    List<Map<String, dynamic>> _groupMatches(List<dynamic> matchesArray) {
-      final grouped = <Map<String, dynamic>>[];
-      final seenSeries = <int>{};
-      final seenTournaments = <int>{};
-
-      for (var m in matchesArray) {
-        final cmpType = m['competitionType']?.toString() ?? 'head-to-head';
-        final seriesId = int.tryParse(m['seriesId']?.toString() ?? '');
-        final tId = int.tryParse(m['tournamentId']?.toString() ?? '');
-
-        if (cmpType == 'series' && seriesId != null) {
-          if (!seenSeries.contains(seriesId)) {
-            seenSeries.add(seriesId);
-            grouped.add({'type': 'series', 'match': m});
-          }
-        } else if (cmpType == 'tournament' && tId != null) {
-          if (!seenTournaments.contains(tId)) {
-            seenTournaments.add(tId);
-            grouped.add({'type': 'tournament', 'match': m});
-          }
-        } else {
-          grouped.add({'type': 'head-to-head', 'match': m});
-        }
+    final seriesGroups = <int, List<dynamic>>{};
+    for (var m in filtered) {
+      if (m['competitionType'] == 'series' && m['seriesId'] != null) {
+        final sId = int.tryParse(m['seriesId'].toString()) ?? 0;
+        seriesGroups.putIfAbsent(sId, () => []).add(m);
       }
-      return grouped;
     }
 
-    final groupedLive = _groupMatches(live);
-    final groupedCompleted = _groupMatches(completed);
+    for (final sId in seriesGroups.keys) {
+      final sMatches = seriesGroups[sId]!;
+      sMatches.sort((a, b) => (int.tryParse(a['matchNumber']?.toString() ?? '0') ?? 0)
+          .compareTo(int.tryParse(b['matchNumber']?.toString() ?? '0') ?? 0));
+          
+      int teamAWins = 0;
+      int teamBWins = 0;
+      String? seriesWinner;
+      bool prevCompleted = true;
+      final totalMatches = sMatches.length;
+      final winsRequired = (totalMatches / 2).floor() + 1;
+      
+      final teamA = sMatches.isNotEmpty ? (sMatches[0]['teamA'] ?? 'Team A').toString() : 'Team A';
+      final teamB = sMatches.isNotEmpty ? (sMatches[0]['teamB'] ?? 'Team B').toString() : 'Team B';
+      final seriesName = sMatches.isNotEmpty ? (sMatches[0]['series'] ?? 'Series').toString() : 'Series';
+      
+      final processedMatches = [];
+      
+      for (var m in sMatches) {
+        String status = m['status']?.toString() ?? 'upcoming';
+        String computedStatus = status;
+        
+        if (seriesWinner != null) {
+          if (computedStatus != 'completed') computedStatus = 'CANCELLED';
+        } else if (computedStatus == 'upcoming') {
+          if (!prevCompleted) {
+            computedStatus = 'LOCKED';
+          }
+        }
+        
+        if (computedStatus == 'completed' || computedStatus == 'CANCELLED') {
+          if (computedStatus == 'completed') {
+            String? w = m['winner']?.toString();
+            if ((w == null || w.isEmpty) && m['innings'] != null && (m['innings'] as List).length >= 2) {
+              final List<dynamic> inns = m['innings'] as List<dynamic>;
+              Map<dynamic, dynamic>? inn1;
+              Map<dynamic, dynamic>? inn2;
+              if (inns.length >= 4) {
+                inn1 = inns[inns.length - 2] as Map<dynamic, dynamic>;
+                inn2 = inns[inns.length - 1] as Map<dynamic, dynamic>;
+              } else {
+                inn1 = inns[0] as Map<dynamic, dynamic>;
+                inn2 = inns[1] as Map<dynamic, dynamic>;
+              }
+              final int r1 = (inn1['runs'] as num?)?.toInt() ?? 0;
+              final int r2 = (inn2['runs'] as num?)?.toInt() ?? 0;
+              if (r1 > r2) w = inn1['team']?.toString();
+              else if (r2 > r1) w = inn2['team']?.toString();
+            }
+
+            if (w != null && w.isNotEmpty && w != 'Draw' && w != 'Tie' && w != 'Abandoned') {
+              if (w.toLowerCase() == teamA.toLowerCase()) teamAWins++;
+              if (w.toLowerCase() == teamB.toLowerCase()) teamBWins++;
+            }
+          }
+        }
+        
+        if (seriesWinner == null) {
+          if (teamAWins >= winsRequired) seriesWinner = teamA;
+          else if (teamBWins >= winsRequired) seriesWinner = teamB;
+        }
+        
+        if (computedStatus == 'completed' || computedStatus == 'CANCELLED') {
+          prevCompleted = true;
+        } else {
+          prevCompleted = false;
+        }
+        
+        final newM = Map<String, dynamic>.from(m);
+        newM['computedStatus'] = computedStatus;
+        processedMatches.add(newM);
+      }
+      
+      bool isFinished = seriesWinner != null || processedMatches.every((m) => m['computedStatus'] == 'completed' || m['computedStatus'] == 'CANCELLED');
+      
+      final seriesObj = {
+        'seriesId': sId,
+        'seriesName': seriesName,
+        'teamA': teamA,
+        'teamB': teamB,
+        'totalMatches': totalMatches,
+        'teamAWins': teamAWins,
+        'teamBWins': teamBWins,
+        'seriesWinner': seriesWinner,
+        'matches': processedMatches,
+        'isFinished': isFinished,
+      };
+      
+      if (isFinished) completedItems.add({'type': 'series-group', 'data': seriesObj});
+      else activeItems.add({'type': 'series-group', 'data': seriesObj});
+    }
+
+    for (var m in filtered) {
+       final cmpType = m['competitionType']?.toString() ?? 'head-to-head';
+       if (cmpType != 'series' || m['seriesId'] == null) {
+          final st = m['status']?.toString() ?? 'upcoming';
+          if (st == 'live' || st == 'upcoming') {
+             activeItems.add({'type': 'single', 'match': m, 'groupType': cmpType});
+          } else if (st == 'completed') {
+             completedItems.add({'type': 'single', 'match': m, 'groupType': cmpType});
+          }
+       }
+    }
+
+    activeItems.sort((a, b) {
+       bool aLive = false;
+       bool bLive = false;
+       if (a['type'] == 'series-group') {
+         aLive = (a['data']['matches'] as List).any((m) => m['computedStatus'] == 'live');
+       } else {
+         aLive = a['match']['status'] == 'live';
+       }
+       if (b['type'] == 'series-group') {
+         bLive = (b['data']['matches'] as List).any((m) => m['computedStatus'] == 'live');
+       } else {
+         bLive = b['match']['status'] == 'live';
+       }
+       if (aLive && !bLive) return -1;
+       if (!aLive && bLive) return 1;
+       
+       String dateA = a['type'] == 'series-group' ? (a['data']['matches'].first['date'] ?? '') : (a['match']['date'] ?? '');
+       String dateB = b['type'] == 'series-group' ? (b['data']['matches'].first['date'] ?? '') : (b['match']['date'] ?? '');
+       return (DateTime.tryParse(dateA) ?? DateTime.now()).compareTo(DateTime.tryParse(dateB) ?? DateTime.now());
+    });
+
+    completedItems.sort((a, b) {
+       String dateA = a['type'] == 'series-group' ? (a['data']['matches'].last['date'] ?? '') : (a['match']['date'] ?? '');
+       String dateB = b['type'] == 'series-group' ? (b['data']['matches'].last['date'] ?? '') : (b['match']['date'] ?? '');
+       return (DateTime.tryParse(dateB) ?? DateTime.now()).compareTo(DateTime.tryParse(dateA) ?? DateTime.now());
+    });
+
+    Widget _renderItem(Map<String, dynamic> item) {
+       if (item['type'] == 'series-group') {
+           return _buildSeriesGroup(item['data']);
+       }
+       return _buildMatchCard(item['match'], item['groupType'] as String);
+    }
 
     return RefreshIndicator(
       onRefresh: _fetchMatches,
@@ -722,7 +907,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Live match cards
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: groupedLive.isEmpty
+            sliver: activeItems.isEmpty
                 ? SliverToBoxAdapter(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -737,7 +922,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                   )
                 : SliverList(delegate: SliverChildBuilderDelegate(
-                    (_, i) => _buildMatchCard(groupedLive[i]['match'], groupedLive[i]['type'] as String), childCount: groupedLive.length)),
+                    (_, i) => _renderItem(activeItems[i]), childCount: activeItems.length)),
           ),
           // Recently completed header
           SliverToBoxAdapter(
@@ -750,12 +935,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Completed match cards
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-            sliver: groupedCompleted.isEmpty
+            sliver: completedItems.isEmpty
                 ? SliverToBoxAdapter(
                     child: Text('No recently completed matches.',
                         style: GoogleFonts.outfit(color: Colors.grey, fontSize: 13)))
                 : SliverList(delegate: SliverChildBuilderDelegate(
-                    (_, i) => _buildMatchCard(groupedCompleted[i]['match'], groupedCompleted[i]['type'] as String), childCount: groupedCompleted.length)),
+                    (_, i) => _renderItem(completedItems[i]), childCount: completedItems.length)),
           ),
         ],
       ),

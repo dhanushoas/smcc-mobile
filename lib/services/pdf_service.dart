@@ -6,7 +6,7 @@ import '../utils/calculations.dart';
 import '../utils/formatters.dart';
 
 class PdfService {
-  static Future<void> generateScorecard(Map<String, dynamic> match) async {
+  static Future<void> generateScorecard(Map<String, dynamic> match, {String? seriesLeadStr, int? seriesTotalMatches}) async {
     final doc = pw.Document();
     
     // Load logo if available
@@ -51,14 +51,32 @@ class PdfService {
             ),
 
           pw.Center(
-            child: pw.Text('SMCC CRICKET OFFICIAL SCORECARD',
-                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+            child: pw.Text(
+              match['competitionType'] == 'series' ? 'SMCC CRICKET SERIES' : 'SMCC CRICKET OFFICIAL SCORECARD',
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
           ),
           pw.SizedBox(height: 6),
           pw.Center(
             child: pw.Text('${match['teamA'].toString().toUpperCase()} VS ${match['teamB'].toString().toUpperCase()}',
                 style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
           ),
+          
+          if (match['competitionType'] == 'series' && match['matchNumber'] != null) ...[
+            pw.SizedBox(height: 6),
+            pw.Center(
+              child: pw.Text('Match ${match['matchNumber']} ${seriesTotalMatches != null ? 'of $seriesTotalMatches' : ''}',
+                  style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+            ),
+          ],
+          
+          if (seriesLeadStr != null && seriesLeadStr.isNotEmpty) ...[
+            pw.SizedBox(height: 6),
+            pw.Center(
+              child: pw.Text('Series Status: $seriesLeadStr',
+                  style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.green800)),
+            ),
+          ],
+          
           pw.SizedBox(height: 6),
           
           if (match['toss'] != null && match['toss']['winner'] != null)

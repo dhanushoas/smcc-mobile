@@ -248,7 +248,14 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
         innings[battingTeamIdx] = currentInn;
         innings[bowlingTeamIdx] = currentBowlInn;
         
-        payload = {'score': currentScore, 'innings': innings, 'history': match['history']};
+        List<dynamic> historyLog = List.from(match['history'] ?? []);
+        if (['runs', 'extra', 'wicket', 'swap', 'overthrow'].contains(type)) {
+            final snapshot = Map<String, dynamic>.from(match);
+            snapshot.remove('history');
+            historyLog.add(snapshot);
+        }
+        
+        payload = {'score': currentScore, 'innings': innings, 'history': historyLog};
       }
 
       final updated = await ApiService.updateScore((match['_id'] ?? match['id']).toString(), payload);
@@ -315,7 +322,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Last action reversed')));
     } catch (e) {
       setState(() => isUpdating = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Undo failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))));
     }
   }
 
