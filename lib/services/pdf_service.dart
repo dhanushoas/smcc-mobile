@@ -141,7 +141,7 @@ class PdfService {
                         'EXTRAS',
                         '',
                         (inn['extras']?['total'] ?? 0).toString(),
-                        '(WD: ${inn['extras']?['wides'] ?? 0}, NB: ${inn['extras']?['noBalls'] ?? 0}, B: ${inn['extras']?['byes'] ?? 0}, LB: ${inn['extras']?['legByes'] ?? 0})',
+                        '(W: ${inn['extras']?['wides'] ?? 0}, NB: ${inn['extras']?['noBalls'] ?? 0}, B: ${inn['extras']?['byes'] ?? 0}, LB: ${inn['extras']?['legByes'] ?? 0})',
                         '',
                         '',
                         ''

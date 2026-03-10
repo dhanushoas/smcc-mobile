@@ -97,10 +97,9 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
         currentMatch.remove('toss');
         final currentScore = Map<String, dynamic>.from(match['score'] ?? {});
         final innings = List<Map<String, dynamic>>.from((match['innings'] as List).map((e) => Map<String, dynamic>.from(e)));
-        
-        final target = currentScore['target'];
-        final battingTeamIdx = target != null ? 1 : 0;
-        final bowlingTeamIdx = battingTeamIdx == 0 ? 1 : 0;
+        final String battingTeamName = currentScore['battingTeam'].toString();
+        final int battingTeamIdx = innings.indexWhere((inn) => inn['team'].toString() == battingTeamName);
+        final int bowlingTeamIdx = battingTeamIdx == 0 ? 1 : 0;
         
         final currentInn = Map<String, dynamic>.from(innings[battingTeamIdx]);
         final currentBowlInn = Map<String, dynamic>.from(innings[bowlingTeamIdx]);
@@ -171,7 +170,15 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             }
             
             _advanceBall(currentScore, bIdx != -1 ? bowling[bIdx] : null, isWOrNB);
-            _logBall(currentScore, '${extraType.toUpperCase()}$amount');
+            String ballLog;
+            if (extraType == 'w') {
+                ballLog = amount > 0 ? 'W+$amount' : 'W';
+            } else if (extraType == 'nb') {
+                ballLog = amount > 0 ? 'NB+$amount' : 'NB';
+            } else {
+                ballLog = '${extraType.toUpperCase()}+$amount';
+            }
+            _logBall(currentScore, ballLog);
             break;
             
           case 'wicket':
@@ -213,11 +220,42 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             final int manualRuns = int.tryParse(data['manualRuns']?.toString() ?? '0') ?? 0;
             
             final int overtimeRuns = resultType == 'boundary' ? 4 : manualRuns;
-            final int totalRuns = (runsCompleted + (crossedOnThrow ? 1 : 0)) + overtimeRuns;
+            final int baseRuns = (runsCompleted + (crossedOnThrow ? 1 : 0));
+            final int totalRuns = baseRuns + overtimeRuns;
             
             currentScore['runs'] = (int.tryParse(currentScore['runs']?.toString() ?? '0') ?? 0) + totalRuns;
-            // ... (rest of overthrow logic remains similar but with type safety)
-            // I'll keep it concise for now and ensure types are handled.
+            if (ballType == 'normal' || ballType == 'nb') {
+              if (sIdx != -1) batting[sIdx]['runs'] = (int.tryParse(batting[sIdx]['runs']?.toString() ?? '0') ?? 0) + totalRuns;
+              if (bIdx != -1) bowling[bIdx]['runs'] = (int.tryParse(bowling[bIdx]['runs']?.toString() ?? '0') ?? 0) + totalRuns;
+              
+              if (ballType == 'nb') {
+                currentScore['runs'] = (int.tryParse(currentScore['runs']?.toString() ?? '0') ?? 0) + 1;
+                if (bIdx != -1) {
+                  bowling[bIdx]['runs'] = (int.tryParse(bowling[bIdx]['runs']?.toString() ?? '0') ?? 0) + 1;
+                  bowling[bIdx]['noBalls'] = (int.tryParse(bowling[bIdx]['noBalls']?.toString() ?? '0') ?? 0) + 1;
+                }
+                currentScore['freeHit'] = true;
+                _logBall(currentScore, totalRuns > 0 ? 'NB+$totalRuns' : 'NB');
+              } else {
+                _logBall(currentScore, '$baseRuns+OV$overtimeRuns');
+              }
+            } else if (ballType == 'w') {
+                currentScore['runs'] = (int.tryParse(currentScore['runs']?.toString() ?? '0') ?? 0) + 1;
+                if (bIdx != -1) {
+                  bowling[bIdx]['runs'] = (int.tryParse(bowling[bIdx]['runs']?.toString() ?? '0') ?? 0) + totalRuns + 1;
+                  bowling[bIdx]['wides'] = (int.tryParse(bowling[bIdx]['wides']?.toString() ?? '0') ?? 0) + 1;
+                }
+                _logBall(currentScore, totalRuns > 0 ? 'W+$totalRuns' : 'W');
+            } else if (ballType == 'b' || ballType == 'lb') {
+                if (sIdx != -1) batting[sIdx]['balls'] = (int.tryParse(batting[sIdx]['balls']?.toString() ?? '0') ?? 0) + 1;
+                _logBall(currentScore, '${ballType.toUpperCase()}+$totalRuns');
+            }
+
+            if (totalRuns % 2 != 0) {
+              final temp = currentScore['striker'];
+              currentScore['striker'] = currentScore['nonStriker'];
+              currentScore['nonStriker'] = temp;
+            }
             break;
             
           case 'new_bowler':
@@ -855,7 +893,10 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   void _showBowlerReplacementModal() {
     final score = match['score'] ?? {};
     final thisOver = score['thisOver'] as List? ?? [];
-    final legalBalls = thisOver.where((b) => !b.toString().toUpperCase().contains('WD') && !b.toString().toUpperCase().contains('NB')).length;
+    final legalBalls = thisOver.where((b) {
+      final s = b.toString().toUpperCase();
+      return !s.contains('WD') && !s.contains('W+') && !s.contains('NB');
+    }).length;
     final remaining = 6 - legalBalls;
 
     if (remaining > 0 && thisOver.isNotEmpty) {
@@ -865,9 +906,9 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
          duration: const Duration(seconds: 4),
        ));
     }
-
-    final battingTeam = match['score']?['battingTeam'];
-    final bowlingSquad = battingTeam == match['teamA'] ? (match['squadB'] as List? ?? []) : (match['squadA'] as List? ?? []);
+    final String battingTeamName = match['score']?['battingTeam']?.toString() ?? '';
+    final int bowlingTeamIdx = (match['teamA'].toString() == battingTeamName) ? 1 : 0;
+    final bowlingSquad = List<String>.from((bowlingTeamIdx == 0 ? match['teamASquad'] : match['teamBSquad']) ?? []);
     
     showModalBottomSheet(
       context: context,
@@ -1181,7 +1222,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  _handleUpdate('extra', value: type, params: {'amount': extraRuns + 1, 'isBat': isBat});
+                  _handleUpdate('extra', value: type, params: {'amount': extraRuns, 'isBat': isBat});
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB),
@@ -1314,7 +1355,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     final t = (type ?? 'head-to-head').toLowerCase();
     Color color = Colors.grey.shade600;
     if (t == 'tournament') color = Colors.orange;
-    else if (t == 'series') color = Colors.blueAccent;
+    else if (t == 'series') color = const Color(0xFF2563EB);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

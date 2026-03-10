@@ -65,23 +65,26 @@ String getBallDisplay(dynamic ball) {
   }
 
   String bs = ball.toString().toUpperCase();
-  if (bs.startsWith('WD')) {
-    final runs = bs.substring(2);
+  if (bs.startsWith('WD') || bs.startsWith('W+')) {
+    final runs = bs.startsWith('W+') ? bs.substring(2) : bs.substring(2);
     return 'Wide Ball${runs.isNotEmpty ? " ($runs Runs)" : ""}';
   }
   if (bs.startsWith('NB')) {
-    final runs = bs.substring(2);
+    final runs = bs.startsWith('NB+') ? bs.substring(3) : bs.substring(2);
     return 'No Ball${runs.isNotEmpty ? " ($runs Runs)" : ""}';
   }
   if (bs.startsWith('LB')) {
-    final runs = bs.substring(2);
+    final runs = bs.startsWith('LB+') ? bs.substring(3) : bs.substring(2);
     return 'Leg Bye${runs.isNotEmpty ? " ($runs Runs)" : ""}';
   }
-  if (bs.startsWith('B') && int.tryParse(bs.substring(1)) != null) {
-    final runs = bs.substring(1);
+  if (bs.startsWith('B') && (bs.startsWith('B+') || int.tryParse(bs.substring(1)) != null)) {
+    final runs = bs.startsWith('B+') ? bs.substring(2) : bs.substring(1);
     return 'Bye${runs.isNotEmpty ? " ($runs Runs)" : ""}';
   }
-  if (bs.startsWith('W') && bs != 'WICKET') {
+  if (bs.contains('+OV')) {
+    return 'Overthrow ($bs)';
+  }
+  if (bs.startsWith('W') && bs != 'WICKET' && !bs.startsWith('W+')) {
     final runs = bs.substring(1);
     return 'Wicket${runs.isNotEmpty ? " ($runs Runs)" : ""}';
   }

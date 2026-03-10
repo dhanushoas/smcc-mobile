@@ -444,9 +444,22 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                     style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.green, letterSpacing: 1.5)),
                 ),
                 const SizedBox(height: 16),
-                Text('🏆 ${result.toUpperCase()}', 
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87, height: 1.2)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(color: const Color(0xFFFFF7D6), shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFDE68A), width: 2)),
+                      child: const Center(child: Icon(Icons.emoji_events_rounded, color: Color(0xFFF59E0B), size: 22)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(result.toUpperCase(), 
+                        textAlign: TextAlign.left,
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: const Color(0xFF92400E), height: 1.2)),
+                    ),
+                  ],
+                ),
                 if (match['manOfTheMatch'] != null && match['manOfTheMatch'].toString().isNotEmpty) ...[
                   const SizedBox(height: 16),
                   const Divider(height: 1),
@@ -454,14 +467,13 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
+                       Container(
                         padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF4B400).withOpacity(0.12),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFBBF24),
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFFF4B400).withOpacity(0.4)),
                         ),
-                        child: const Icon(Icons.star_rounded, size: 26, color: Color(0xFFF4B400)),
+                        child: const Icon(Icons.military_tech, size: 26, color: Color(0xFF111827)),
                       ),
                       const SizedBox(width: 14),
                       Column(
@@ -623,15 +635,23 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
         },
         children: [
           _tableHeader(['BATTER', 'STATUS', 'RUNS', 'BALLS', 'FOURS', 'SIXES', 'SR'], dark: true),
-          ...batting.map((b) => _tableRow([
-            toCamelCase(b['player']),
-            toCamelCase(b['status'] ?? ''),
-            '${b['runs'] ?? 0}',
-            '${b['balls'] ?? 0}',
-            '${b['fours'] ?? 0}',
-            '${b['sixes'] ?? 0}',
-            '${b['strikeRate'] ?? 0}',
-          ], isFirst: true)),
+          ...List.generate(batting.length, (idx) {
+            final b = batting[idx];
+            final bool isLive = match['status'] == 'live';
+            final bool isCurrentInn = match['score']?['battingTeam'] == match['innings'][_activeInnings]['team'];
+            final List currentBatsmen = List.from(match['currentBatsmen'] ?? []);
+            final bool onStrike = isLive && isCurrentInn && currentBatsmen.any((cb) => cb['name'] == b['player'] && cb['onStrike'] == true);
+            
+            return _tableRow([
+              toCamelCase(b['player']),
+              toCamelCase(b['status'] ?? ''),
+              '${b['runs'] ?? 0}',
+              '${b['balls'] ?? 0}',
+              '${b['fours'] ?? 0}',
+              '${b['sixes'] ?? 0}',
+              '${b['strikeRate'] ?? 0}',
+            ], isFirst: true, onStrike: onStrike);
+          }),
         ],
       ),
     );
@@ -642,7 +662,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Text(
-        'Extras: ${ext['total'] ?? 0}  (Wide Ball: ${ext['wides'] ?? 0}, No Ball: ${ext['noBalls'] ?? 0}, Bye: ${ext['byes'] ?? 0}, Leg Bye: ${ext['legByes'] ?? 0})',
+        'Extras: ${ext['total'] ?? 0} (W ${ext['wides'] ?? 0}, NB ${ext['noBalls'] ?? 0}, B ${ext['byes'] ?? 0}, LB ${ext['legByes'] ?? 0})',
         style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w800, textStyle: const TextStyle(letterSpacing: 0.2)),
       ),
     );
@@ -784,19 +804,27 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
     );
   }
 
-  TableRow _tableRow(List<String> cells, {bool isFirst = false}) {
+  TableRow _tableRow(List<String> cells, {bool isFirst = false, bool onStrike = false}) {
     return TableRow(
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
       children: cells.indexed.map((e) {
         final isName = isFirst && e.$1 == 0;
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-          child: Text(e.$2,
-              style: GoogleFonts.outfit(
-                  fontWeight: isName ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 11,
-                  color: Colors.black87),
-              overflow: isName ? TextOverflow.ellipsis : TextOverflow.clip),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isName && onStrike) const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.sports_cricket, color: Color(0xFFFF7A00), size: 14)),
+              Expanded(
+                child: Text(e.$2 + (isName && onStrike ? '*' : ''),
+                    style: GoogleFonts.outfit(
+                        fontWeight: (isName || onStrike) ? FontWeight.w900 : FontWeight.w500,
+                        fontSize: 11,
+                        color: onStrike ? const Color(0xFF2563EB) : Colors.black87),
+                    overflow: isName ? TextOverflow.ellipsis : TextOverflow.clip),
+              ),
+            ],
+          ),
         );
       }).toList(),
     );
@@ -826,17 +854,34 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
       if (result != null) ...[
         const SizedBox(height: 12),
         Container(
-          padding: const EdgeInsets.all(16),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: _success.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _success.withOpacity(0.2)),
+            color: const Color(0xFFFFF7D6),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFFDE68A), width: 1),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('FINAL RESULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: _success, letterSpacing: 1)),
-            const SizedBox(height: 6),
-            Text(result, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: _success)),
-          ]),
+          child: Row(
+            children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(color: const Color(0xFFFFF7D6), shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFDE68A))),
+                child: const Icon(Icons.emoji_events, color: Color(0xFFF59E0B), size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('MATCH RESULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: const Color(0xFF92400E), letterSpacing: 1)),
+                    const SizedBox(height: 2),
+                    Text(result.toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, color: const Color(0xFF92400E))),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ],
       if (match['manOfTheMatch'] != null && match['manOfTheMatch'].toString().isNotEmpty) ...[
@@ -851,8 +896,8 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(
               children: [
-                const Icon(Icons.star_rounded, size: 18, color: Color(0xFFF4B400)),
-                const SizedBox(width: 4),
+                const Text('🥇', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
                 Text('MAN OF THE MATCH', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.amber.shade900, letterSpacing: 1)),
               ],
             ),

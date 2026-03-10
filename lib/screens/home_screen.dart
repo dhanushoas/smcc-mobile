@@ -48,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _navIndex = 0;
   late PageController _pageController;
   String _activeSeries = 'ALL';
+  String _completedFilter = 'ALL'; // Competition type filter for Recently Completed
 
   // ── Theme ──────────────────────────────────────────────────────────────────
   static const Color _primary  = Color(0xFF2563EB);
@@ -185,14 +186,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final b = ball.toUpperCase();
       if (b == '6') return _primary;
       if (b == '4') return _success;
-      if (b.startsWith('W') || b == 'OUT') return _danger;
-      if (b.startsWith('WD') || b.startsWith('NB') || b.startsWith('LB') || b.startsWith('B')) return _warning;
+      final isWicket = b == 'W' || b == 'OUT';
+      final isExtra = b.contains('+') ? (b.startsWith('W+') || b.startsWith('NB+') || b.startsWith('B+') || b.startsWith('LB+')) : (b == 'WD' || b == 'NB' || b == 'LB' || b == 'B');
+      if (isWicket) return _danger;
+      if (isExtra) return _warning;
       return Colors.grey.shade200;
     }
     Color _ballTextColor(String ball) {
       final b = ball.toUpperCase();
-      if (b == '6' || b == '4' || b.startsWith('W') || b == 'OUT') return Colors.white;
-      if (b.startsWith('WD') || b.startsWith('NB') || b.startsWith('LB') || b.startsWith('B')) return Colors.black;
+      final isWicket = b == 'W' || b == 'OUT';
+      final isExtra = b.contains('+') ? (b.startsWith('W+') || b.startsWith('NB+') || b.startsWith('B+') || b.startsWith('LB+')) : (b == 'WD' || b == 'NB' || b == 'LB' || b == 'B');
+      if (b == '6' || b == '4' || isWicket) return Colors.white;
+      if (isExtra) return Colors.black;
       return Colors.black87;
     }
 
@@ -422,8 +427,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       children: [
+                        if (onStrike) const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.sports_cricket, color: Color(0xFFFF7A00), size: 14)),
                         Expanded(child: Text(toCamelCase(b['name']), overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12))),
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, color: onStrike ? const Color(0xFF1E293B) : Colors.grey.shade700))),
                         Text(' ${b['runs'] ?? 0}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: _primary)),
                         const SizedBox(width: 4),
                         Text('(${b['balls'] ?? 0})', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
@@ -473,10 +479,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         else if (bs.startsWith('WD') || bs.startsWith('NB') || bs.startsWith('LB') || bs.startsWith('B')) { bg = _warning; fg = Colors.black; }
                         return Container(
                           margin: const EdgeInsets.only(right: 4),
-                          width: 22, height: 22,
-                          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(11)),
+                          constraints: const BoxConstraints(minWidth: 26),
+                          height: 26,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(13)),
                           alignment: Alignment.center,
-                          child: Text(ball.toString(), style: TextStyle(color: fg, fontSize: 9, fontWeight: FontWeight.w900)),
+                          child: Text(ball.toString(), style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.w900)),
                         );
                       }).toList(),
                     ),
@@ -498,20 +506,43 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text('🏆 ${resultText.toUpperCase()}',
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.2)),
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7D6),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFDE68A), width: 1),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(color: const Color(0xFFFFF7D6), shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFDE68A), width: 1.5)),
+                  child: const Center(child: Icon(Icons.emoji_events_rounded, color: Color(0xFFF59E0B), size: 18)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(resultText.toUpperCase(),
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: const Color(0xFF92400E), letterSpacing: 0.2)),
+                ),
+              ],
+            ),
           ),
-          if (match['manOfTheMatch'] != null && match['manOfTheMatch'].toString().isNotEmpty)
+            if (match['manOfTheMatch'] != null && match['manOfTheMatch'].toString().isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text('🥇 MAN OF THE MATCH: ${match['manOfTheMatch'].toString().toUpperCase()}',
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: _warning, letterSpacing: 0.5)),
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(color: Color(0xFFFBBF24), shape: BoxShape.circle),
+                    child: const Icon(Icons.military_tech, size: 12, color: Color(0xFF111827)),
+                  ),
+                  const SizedBox(width: 6),
+                  Text('PLAYER OF THE MATCH: ${match['manOfTheMatch'].toString().toUpperCase()}',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: const Color(0xFFD97706), letterSpacing: 0.5)),
+                ],
+              ),
             ),
         ],
       );
@@ -924,25 +955,101 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 : SliverList(delegate: SliverChildBuilderDelegate(
                     (_, i) => _renderItem(activeItems[i]), childCount: activeItems.length)),
           ),
-          // Recently completed header
+          // Recently completed header + filter
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-              child: Text('Recently Completed',
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, textStyle: const TextStyle(letterSpacing: 0.5))),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Recently Completed',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, textStyle: const TextStyle(letterSpacing: 0.5))),
+                  const SizedBox(height: 10),
+                  // Filter chips row
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _completedFilterChip('ALL', Icons.grid_view_rounded, 'All'),
+                        const SizedBox(width: 6),
+                        _completedFilterChip('head-to-head', Icons.people_alt_outlined, 'Head-to-Head'),
+                        const SizedBox(width: 6),
+                        _completedFilterChip('series', Icons.content_copy_outlined, 'Series'),
+                        const SizedBox(width: 6),
+                        _completedFilterChip('tournament', Icons.emoji_events_outlined, 'Tournament'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           // Completed match cards
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-            sliver: completedItems.isEmpty
-                ? SliverToBoxAdapter(
-                    child: Text('No recently completed matches.',
-                        style: GoogleFonts.outfit(color: Colors.grey, fontSize: 13)))
-                : SliverList(delegate: SliverChildBuilderDelegate(
-                    (_, i) => _renderItem(completedItems[i]), childCount: completedItems.length)),
+            sliver: (() {
+              final filteredCompleted = _completedFilter == 'ALL'
+                  ? completedItems
+                  : completedItems.where((item) {
+                      if (item['type'] == 'series-group') return _completedFilter == 'series';
+                      final ct = (item['match']?['competitionType'] ?? 'head-to-head').toString();
+                      return ct == _completedFilter;
+                    }).toList();
+
+              if (filteredCompleted.isEmpty) {
+                return SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.info_outlined, size: 48, color: Colors.grey.shade400),
+                        const SizedBox(height: 12),
+                        Text('No Matches Found',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.grey.shade500)),
+                        const SizedBox(height: 4),
+                        Text('No completed matches for the selected filter.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade400)),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              return SliverList(delegate: SliverChildBuilderDelegate(
+                  (_, i) => _renderItem(filteredCompleted[i]), childCount: filteredCompleted.length));
+            })(),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _completedFilterChip(String value, IconData icon, String label) {
+    final isActive = _completedFilter == value;
+    return GestureDetector(
+      onTap: () => setState(() => _completedFilter = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: isActive ? _primary : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isActive ? _primary : Colors.grey.shade300),
+          boxShadow: isActive ? [BoxShadow(color: _primary.withOpacity(0.25), blurRadius: 6)] : [],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: isActive ? Colors.white : Colors.grey.shade600),
+            const SizedBox(width: 5),
+            Text(label,
+                style: GoogleFonts.outfit(
+                    color: isActive ? Colors.white : Colors.grey.shade700,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
