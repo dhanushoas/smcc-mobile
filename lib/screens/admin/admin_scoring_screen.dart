@@ -156,10 +156,6 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
         final currentInn = Map<String, dynamic>.from(innings[battingTeamIdx]);
         final currentBowlInn = Map<String, dynamic>.from(innings[bowlingTeamIdx]);
         
-        final strikerName = currentScore['striker'];
-        final nonStrikerName = currentScore['nonStriker'];
-        final bowlerName = currentScore['bowler'];
-        
         final batting = List<Map<String, dynamic>>.from((currentInn['batting'] ?? []).map((e) => Map<String, dynamic>.from(e)));
         final bowling = List<Map<String, dynamic>>.from((currentBowlInn['bowling'] ?? []).map((e) => Map<String, dynamic>.from(e)));
         
