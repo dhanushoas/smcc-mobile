@@ -97,8 +97,60 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
         currentMatch.remove('toss');
         final currentScore = Map<String, dynamic>.from(match['score'] ?? {});
         final innings = List<Map<String, dynamic>>.from((match['innings'] as List).map((e) => Map<String, dynamic>.from(e)));
+        
+        // --- MATCH SETUP VALIDATION (Parity upgrade) ---
+        final squadA = List.from(match['squadA'] ?? []);
+        final squadB = List.from(match['squadB'] ?? []);
+        if (squadA.isEmpty || squadB.isEmpty) {
+          if (mounted) {
+            setState(() => isUpdating = false);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select squads before starting the match.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
+          }
+          return;
+        }
+
+        final toss = match['toss'] ?? {};
+        if (toss['winner'] == null || toss['decision'] == null) {
+          if (mounted) {
+            setState(() => isUpdating = false);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Conduct toss before starting the match.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
+          }
+          return;
+        }
+
+        if (innings.isEmpty) {
+           if (mounted) {
+             setState(() => isUpdating = false);
+             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Start innings first.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
+           }
+           return;
+        }
+
+        final strikerName = currentScore['striker'];
+        final bowlerName = currentScore['bowler'];
+        final nonStrikerName = currentScore['nonStriker'];
+        
+        // Bypassing player validation for pure 'swap' logic or 'new_bowler' selection itself
+        if (type != 'swap' && type != 'retire' && type != 'new_bowler') {
+          if (strikerName == null || bowlerName == null) {
+             if (mounted) {
+               setState(() => isUpdating = false);
+               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select players before scoring', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
+             }
+             return;
+          }
+        }
+        // -----------------------------------------------
+
         final String battingTeamName = currentScore['battingTeam'].toString();
         final int battingTeamIdx = innings.indexWhere((inn) => inn['team'].toString() == battingTeamName);
+        if (battingTeamIdx == -1) {
+            if (mounted) {
+              setState(() => isUpdating = false);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('RangeError (length): Invalid value: Valid value range is empty: -1. Setup your innings!')));
+            }
+            return;
+        }
         final int bowlingTeamIdx = battingTeamIdx == 0 ? 1 : 0;
         
         final currentInn = Map<String, dynamic>.from(innings[battingTeamIdx]);
@@ -490,14 +542,15 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     return Column(
       children: [
         // ROW 1 – MATCH CONTROLS
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
           children: [
             _controlButton('SQUADS', Icons.groups, Colors.blue, _showSquadsModal),
-            const SizedBox(width: 8),
+            _controlButton('TOSS', Icons.monetization_on, Colors.purple, _showTossModal),
             _controlButton('DLS', Icons.cloud, Colors.indigo, _showDlsModal),
-            const SizedBox(width: 8),
             _controlButton('REVERSE', Icons.history, Colors.orange, _handleUndo),
-            const SizedBox(width: 8),
             _controlButton(
                 isPaused ? 'RESUME' : 'PAUSE',
                 isPaused ? Icons.play_circle_filled : Icons.pause_circle_filled,
@@ -509,48 +562,45 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
         const SizedBox(height: 16),
 
         // ROW 2 – PRIMARY SCORING
-        Row(
+        Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
             children: [
                 _scoreBtn('0', () => _handleUpdate('runs', value: 0)),
-                const SizedBox(width: 8),
                 _scoreBtn('1', () => _handleUpdate('runs', value: 1)),
-                const SizedBox(width: 8),
                 _scoreBtn('2', () => _handleUpdate('runs', value: 2)),
-                const SizedBox(width: 8),
                 _scoreBtn('3', () => _handleUpdate('runs', value: 3)),
-                const SizedBox(width: 8),
                 _scoreBtn('4', () => _handleUpdate('runs', value: 4)),
-                const SizedBox(width: 8),
                 _scoreBtn('6', () => _handleUpdate('runs', value: 6)),
-                const SizedBox(width: 8),
                 _scoreBtn('WKT', () => _showWicketModal(), isWicket: true),
             ]
         ),
         const SizedBox(height: 16),
 
         // ROW 3 – EXTRAS
-        Row(
+        Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
             children: [
                 _extraBtn('WIDE', () => _showExtrasModal('wd')),
-                const SizedBox(width: 8),
                 _extraBtn('NO BALL', () => _showExtrasModal('nb')),
-                const SizedBox(width: 8),
                 _extraBtn('LEG BYE', () => _showExtrasModal('lb')),
-                const SizedBox(width: 8),
                 _extraBtn('BYE', () => _showExtrasModal('b')),
-                const SizedBox(width: 8),
                 _extraBtn('O/THROW', () => _showOverthrowModal()),
             ]
         ),
         const SizedBox(height: 16),
 
         // ROW 4 – PLAYER ACTIONS
-        Row(
+        Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
             children: [
                 _actionBtn('CHANGE STRIKE', Icons.swap_calls, () => _handleUpdate('swap')),
-                const SizedBox(width: 8),
-                _actionBtn('RETIRE BATTER', Icons.exit_to_app, _showRetireModal),
-                const SizedBox(width: 8),
+                _actionBtn('RETIRE', Icons.exit_to_app, _showRetireModal),
                 _actionBtn('REPLACE BOWLER', Icons.psychology, () => _showBowlerReplacementModal()),
             ]
         ),
@@ -634,7 +684,8 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
 
   // Helper methods for buttons to match premium aesthetics
   Widget _controlButton(String label, IconData icon, Color color, VoidCallback? onPressed) {
-    return Expanded(
+    return SizedBox(
+      width: 80,
       child: InkWell(
         onTap: isUpdating ? null : onPressed,
         borderRadius: BorderRadius.circular(12),
@@ -655,7 +706,8 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
 
   Widget _scoreBtn(String label, VoidCallback onPressed, {bool isWicket = false}) {
     final color = isWicket ? Colors.red : Colors.blue;
-    return Expanded(
+    return SizedBox(
+      width: isWicket ? 80 : 60,
       child: ElevatedButton(
         onPressed: (isUpdating || (match['score']?['isPaused'] ?? false)) ? null : onPressed,
         style: ElevatedButton.styleFrom(
@@ -663,7 +715,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             foregroundColor: color,
             elevation: 2,
             shadowColor: color.withOpacity(0.2),
-            padding: const EdgeInsets.symmetric(vertical: 20),
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 0),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: color.withOpacity(0.5)))),
         child: Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16)),
       ),
@@ -671,22 +723,24 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   }
 
   Widget _extraBtn(String label, VoidCallback onPressed) {
-    return Expanded(
+    return SizedBox(
+      width: 90,
       child: ElevatedButton(
         onPressed: (isUpdating || (match['score']?['isPaused'] ?? false)) ? null : onPressed,
         style: ElevatedButton.styleFrom(
             backgroundColor: Colors.amber.shade50,
             foregroundColor: Colors.amber.shade900,
             elevation: 0,
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.amber.shade200))),
-        child: Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 8)),
+        child: Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 8), textAlign: TextAlign.center),
       ),
     );
   }
 
   Widget _actionBtn(String label, IconData icon, VoidCallback onPressed) {
-    return Expanded(
+    return SizedBox(
+      width: 140,
       child: ElevatedButton.icon(
         onPressed: (isUpdating || (match['score']?['isPaused'] ?? false)) ? null : onPressed,
         icon: Icon(icon, size: 14),
@@ -695,7 +749,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             backgroundColor: const Color(0xFFF1F5F9),
             foregroundColor: const Color(0xFF475569),
             elevation: 0,
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
       ),
     );
@@ -1376,50 +1430,212 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     );
   }
 
-  void _showSquadsModal() {
-    final teamA = match['teamA'];
-    final teamB = match['teamB'];
-    final squadA = List<String>.from(match['squadA'] ?? []);
-    final squadB = List<String>.from(match['squadB'] ?? []);
+  void _showTossModal() {
+    final toss = match['toss'] ?? {};
+    if (toss['winner'] != null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Toss already conducted!')));
+      return;
+    }
+
+    String? selectedWinner;
+    String? selectedDecision;
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
-        padding: const EdgeInsets.all(32),
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
-        child: Column(
-          children: [
-            Text('MATCH SQUADS', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.blueAccent)),
-            const SizedBox(height: 24),
-            Expanded(
-              child: ListView(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('CONDUCT TOSS', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.purple)),
+              const SizedBox(height: 24),
+              Text('Who won the toss?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+              Row(
                 children: [
-                  _buildSquadSection(teamA, squadA),
-                  const Divider(height: 32),
-                  _buildSquadSection(teamB, squadB),
+                  Expanded(
+                    child: RadioListTile<String>(
+                      title: Text(match['teamA'], style: GoogleFonts.outfit(fontSize: 12)),
+                      value: match['teamA'],
+                      groupValue: selectedWinner,
+                      onChanged: (v) => setModalState(() => selectedWinner = v),
+                    ),
+                  ),
+                  Expanded(
+                    child: RadioListTile<String>(
+                      title: Text(match['teamB'], style: GoogleFonts.outfit(fontSize: 12)),
+                      value: match['teamB'],
+                      groupValue: selectedWinner,
+                      onChanged: (v) => setModalState(() => selectedWinner = v),
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ],
+              if (selectedWinner != null) ...[
+                const SizedBox(height: 16),
+                Text('Decision?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile<String>(
+                        title: Text('Bat', style: GoogleFonts.outfit(fontSize: 12)),
+                        value: 'bat',
+                        groupValue: selectedDecision,
+                        onChanged: (v) => setModalState(() => selectedDecision = v),
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<String>(
+                        title: Text('Bowl', style: GoogleFonts.outfit(fontSize: 12)),
+                        value: 'bowl',
+                        groupValue: selectedDecision,
+                        onChanged: (v) => setModalState(() => selectedDecision = v),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: (selectedWinner == null || selectedDecision == null) ? null : () {
+                  Navigator.pop(context);
+                  _handleTossUpdate(selectedWinner == match['teamA'] ? 'teamA' : 'teamB', selectedDecision!);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 56),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: Text('CONFIRM TOSS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+              )
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildSquadSection(String name, List<String> squad) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(name.toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: const Color(0xFF1E293B))),
-        const SizedBox(height: 12),
-        ...squad.map((p) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Text(p, style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: Colors.blueGrey)),
-        )).toList(),
-      ],
+  void _showSquadsModal() {
+    final teamA = match['teamA'];
+    final teamB = match['teamB'];
+    List<String> squadA = List<String>.from(match['squadA'] ?? []);
+    List<String> squadB = List<String>.from(match['squadB'] ?? []);
+    while(squadA.length < 11) squadA.add('');
+    while(squadB.length < 11) squadB.add('');
+
+    String? striker = match['score']?['striker'];
+    String? nonStriker = match['score']?['nonStriker'];
+    String? bowler = match['score']?['bowler'];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
+          padding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: MediaQuery.of(context).viewInsets.bottom + 24),
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('MANAGE SQUADS & SETUP', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.blueAccent)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(teamA.toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 8),
+                      for (int i=0; i<11; i++) Padding(
+                         padding: const EdgeInsets.only(bottom: 8),
+                         child: TextFormField(
+                            initialValue: squadA[i],
+                            onChanged: (v) => squadA[i] = v,
+                            decoration: InputDecoration(hintText: 'Player ${i+1}', isDense: true, border: const OutlineInputBorder()),
+                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(teamB.toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 8),
+                      for (int i=0; i<11; i++) Padding(
+                         padding: const EdgeInsets.only(bottom: 8),
+                         child: TextFormField(
+                            initialValue: squadB[i],
+                            onChanged: (v) => squadB[i] = v,
+                            decoration: InputDecoration(hintText: 'Player ${i+1}', isDense: true, border: const OutlineInputBorder()),
+                         ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text('STARTING PLAYERS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.indigo)),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                         decoration: const InputDecoration(labelText: 'Striker', border: OutlineInputBorder()),
+                         value: striker != null && [...squadA, ...squadB].contains(striker) ? striker : null,
+                         items: [...squadA, ...squadB].where((e) => e.isNotEmpty).toSet().map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                         onChanged: (v) => setModalState(() => striker = v),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                         decoration: const InputDecoration(labelText: 'Non-Striker', border: OutlineInputBorder()),
+                         value: nonStriker != null && [...squadA, ...squadB].contains(nonStriker) ? nonStriker : null,
+                         items: [...squadA, ...squadB].where((e) => e.isNotEmpty).toSet().map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                         onChanged: (v) => setModalState(() => nonStriker = v),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                         decoration: const InputDecoration(labelText: 'Bowler', border: OutlineInputBorder()),
+                         value: bowler != null && [...squadA, ...squadB].contains(bowler) ? bowler : null,
+                         items: [...squadA, ...squadB].where((e) => e.isNotEmpty).toSet().map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                         onChanged: (v) => setModalState(() => bowler = v),
+                      ),
+                    ]
+                  ),
+                )
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                   onPressed: () {
+                     // Save to API
+                     final sA = squadA.where((e) => e.trim().isNotEmpty).toList();
+                     final sB = squadB.where((e) => e.trim().isNotEmpty).toList();
+                     if (sA.length < 11 || sB.length < 11) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter 11 players for each team')));
+                        return;
+                     }
+                     Navigator.pop(context);
+                     
+                     final updated = Map<String, dynamic>.from(match);
+                     updated['squadA'] = sA;
+                     updated['squadB'] = sB;
+                     
+                     final score = Map<String, dynamic>.from(updated['score'] ?? {});
+                     if (striker != null) score['striker'] = striker;
+                     if (nonStriker != null) score['nonStriker'] = nonStriker;
+                     if (bowler != null) score['bowler'] = bowler;
+                     updated['score'] = score;
+                     
+                     _handleUpdate('manual', value: updated);
+                   },
+                   style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.blueAccent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
+                   ),
+                   child: Text('SAVE SQUADS & SETUP', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16)),
+                )
+              )
+            ],
+          ),
+        ),
+      ),
     );
   }
 

@@ -173,12 +173,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final dateLabel = '${const ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][date.month - 1]} ${date.day}';
 
     // Inn display helper
-    String innScore(int idx) {
-      if (innings.length <= idx) return '';
+    Widget _buildScoreWidget(int idx, Color color) {
+      if (innings.length <= idx) return const SizedBox.shrink();
       final r = innings[idx]['runs'] ?? 0;
       final w = innings[idx]['wickets'] ?? 0;
       final ov = innings[idx]['overs'] ?? 0;
-      return '$r / $w (${pluralize(ov, 'Over')})';
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Text('$r / $w', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 36, color: color)),
+          const SizedBox(width: 8),
+          Text('(${pluralize(ov, 'Over')})', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.grey.shade600))
+        ],
+      );
     }
 
     // Ball dot chip colours (mirrors Home.jsx)
@@ -265,9 +273,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         children: [
                           Expanded(child: Text((match['teamA'] ?? '').toString().toUpperCase(),
                               style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16))),
-                          if (isLive || isCompleted)
-                            Text(innScore(0),
-                                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: _primary)),
+                          if (isLive || isCompleted) _buildScoreWidget(0, _primary),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -277,9 +283,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         children: [
                           Expanded(child: Text((match['teamB'] ?? '').toString().toUpperCase(),
                               style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16))),
-                          if (isLive || isCompleted)
-                            Text(innScore(1),
-                                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.grey.shade700)),
+                          if (isLive || isCompleted) _buildScoreWidget(1, Colors.grey.shade700),
                         ],
                       ),
 
@@ -360,16 +364,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildStatusBadge(String status) {
     if (status == 'live') {
-      return TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.5, end: 1.0),
-        duration: const Duration(milliseconds: 800),
-        builder: (_, v, child) => Opacity(opacity: v, child: child),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: _danger, borderRadius: BorderRadius.circular(20)),
-          child: Text('● LIVE', style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
-        ),
-      );
+      return const _BlinkingLiveBadge();
     }
     if (status == 'completed') {
       return Container(
@@ -713,21 +708,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final seriesWinner = ps['seriesWinner']?.toString();
     
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
             ),
             child: Column(
               children: [
@@ -749,11 +741,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: (ps['matches'] as List).map((m) => _buildMatchCard(m, 'series')).toList(),
-            ),
+          Column(
+            children: (ps['matches'] as List).map((m) => _buildMatchCard(m, 'series')).toList(),
           ),
         ],
       ),
@@ -947,7 +936,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                   )
                 : SliverList(delegate: SliverChildBuilderDelegate(
-                    (_, i) => _renderItem(activeItems[i]), childCount: activeItems.length)),
+                    (_, i) => Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child: _renderItem(activeItems[i]),
+                      ),
+                    ), childCount: activeItems.length)),
           ),
           // Recently completed header + filter
           SliverToBoxAdapter(
@@ -1011,7 +1005,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 );
               }
               return SliverList(delegate: SliverChildBuilderDelegate(
-                  (_, i) => _renderItem(filteredCompleted[i]), childCount: filteredCompleted.length));
+                  (_, i) => Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1100),
+                      child: _renderItem(filteredCompleted[i]),
+                    ),
+                  ), childCount: filteredCompleted.length));
             })(),
           ),
         ],
@@ -1126,3 +1125,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 }
+
+class _BlinkingLiveBadge extends StatefulWidget {
+  const _BlinkingLiveBadge({Key? key}) : super(key: key);
+  @override
+  State<_BlinkingLiveBadge> createState() => _BlinkingLiveBadgeState();
+}
+
+class _BlinkingLiveBadgeState extends State<_BlinkingLiveBadge> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))
+      ..repeat(reverse: true);
+  }
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _ctrl,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: const Color(0xFFDC2626), borderRadius: BorderRadius.circular(20)),
+        child: Text('● LIVE', style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+      ),
+    );
+  }
+}
+
