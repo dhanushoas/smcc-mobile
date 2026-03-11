@@ -19,8 +19,7 @@ import '../screens/admin/admin_login_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/admin/admin_scoring_screen.dart';
 import '../screens/tournaments/tournament_list_screen.dart';
-import '../screens/admin/admin_dashboard_screen.dart';
-import '../screens/admin/admin_scoring_screen.dart';
+import '../screens/registration_screen.dart';
 
 class AppDrawer extends StatefulWidget {
   @override
@@ -74,6 +73,9 @@ class _AppDrawerState extends State<AppDrawer> {
                 ],
 
                 _buildSectionHeader('QUICK LINKS'),
+                _buildDrawerItem(context, Icons.how_to_reg_rounded, 'Register Team', () {
+                   Navigator.push(context, MaterialPageRoute(builder: (_) => const RegistrationScreen()));
+                }),
                 _buildDrawerItem(context, Icons.calendar_month_rounded, 'Schedule', () {
                    Navigator.push(context, MaterialPageRoute(builder: (_) => ScheduleScreen()));
                 }),

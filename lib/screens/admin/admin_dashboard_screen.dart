@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
 import 'admin_scoring_screen.dart';
 import 'match_form_screen.dart';
+import 'tournament_registrations_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   @override
@@ -12,6 +13,7 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<dynamic> _matches = []; // Raw match data from API
   List<dynamic> _filteredMatches = []; // Filtered list based on search/tabs
+  Map<String, dynamic> _registrationStats = {'total': 0, 'approved': 0, 'rejected': 0};
   bool _loading = true; // Data loading indicator
   String _searchQuery = ''; // Search bar state
   String _statusFilter = 'all'; // Filter state (live/upcoming/completed)
@@ -25,14 +27,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _fetchMatches() async {
     setState(() => _loading = true);
     try {
-      final data = await ApiService.getMatches();
+      final futures = await Future.wait([
+        ApiService.getMatches(),
+        ApiService.getRegistrations(),
+      ]);
       setState(() {
-        _matches = data;
+        _matches = futures[0] as List<dynamic>;
+        _registrationStats = (futures[1] as Map)['stats'] ?? {'total': 0, 'approved': 0, 'rejected': 0};
         _applyFilters();
         _loading = false;
       });
     } catch (e) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -69,6 +75,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
       body: Column(
         children: [
+          _buildRegistrationStats(),
           _buildFilters(),
           Expanded(
             child: _loading
@@ -86,6 +93,70 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRegistrationStats() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _statBadge('Total', _registrationStats['total'], Colors.blueGrey),
+                    _statBadge('Approved', _registrationStats['approved'], Colors.green),
+                    _statBadge('Rejected', _registrationStats['rejected'], Colors.red),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '${_registrationStats['approved']} / 32 REGISTERED',
+              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TournamentRegistrationsScreen())).then((_) => _fetchMatches()),
+              icon: const Icon(Icons.people_alt, color: Colors.blueAccent),
+              label: Text('REGISTRATIONS', style: GoogleFonts.outfit(color: Colors.blueAccent, fontWeight: FontWeight.w900)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.blueAccent, width: 2),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _statBadge(String label, dynamic count, Color color) {
+    return Column(
+      children: [
+        Text('$count', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: color)),
+        Text(label.toUpperCase(), style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
+      ],
     );
   }
 
@@ -161,11 +232,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    (match['series'] ?? 'SMCC LIVE').toString().toUpperCase(),
-                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueAccent),
+                   Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (match['series'] ?? 'SMCC LIVE').toString().toUpperCase(),
+                          style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueAccent),
+                        ),
+                        if (match['competitionType'] == 'series' && match['matchNumber'] != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'SERIES • MATCH ${match['matchNumber']}',
+                            style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey.shade600),
+                          ),
+                        ] else ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'HEAD-TO-HEAD',
+                            style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey.shade600),
+                          ),
+                        ]
+                      ],
+                    ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

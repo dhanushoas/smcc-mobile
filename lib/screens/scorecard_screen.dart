@@ -447,12 +447,8 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 36, height: 36,
-                      decoration: BoxDecoration(color: const Color(0xFFFFF7D6), shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFDE68A), width: 2)),
-                      child: const Center(child: Icon(Icons.emoji_events_rounded, color: Color(0xFFF59E0B), size: 22)),
-                    ),
-                    const SizedBox(width: 12),
+                    const Icon(Icons.emoji_events, color: Color(0xFFF59E0B), size: 36),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(result.toUpperCase(), 
                         textAlign: TextAlign.left,
@@ -467,15 +463,8 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                       Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFBBF24),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.military_tech, size: 26, color: Color(0xFF111827)),
-                      ),
-                      const SizedBox(width: 14),
+                      const Icon(Icons.star, size: 32, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 10),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

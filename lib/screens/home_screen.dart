@@ -517,12 +517,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 28, height: 28,
-                  decoration: BoxDecoration(color: const Color(0xFFFFF7D6), shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFDE68A), width: 1.5)),
-                  child: const Center(child: Icon(Icons.emoji_events_rounded, color: Color(0xFFF59E0B), size: 18)),
-                ),
-                const SizedBox(width: 10),
+                const Icon(Icons.emoji_events, color: Color(0xFFF59E0B), size: 18),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(resultText.toUpperCase(),
                       style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: const Color(0xFF92400E), letterSpacing: 0.2)),
@@ -535,11 +531,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               padding: const EdgeInsets.only(top: 8),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(color: Color(0xFFFBBF24), shape: BoxShape.circle),
-                    child: const Icon(Icons.military_tech, size: 12, color: Color(0xFF111827)),
-                  ),
+                  const Icon(Icons.star, size: 16, color: Color(0xFFF59E0B)),
                   const SizedBox(width: 6),
                   Text('PLAYER OF THE MATCH: ${match['manOfTheMatch'].toString().toUpperCase()}',
                       style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: const Color(0xFFD97706), letterSpacing: 0.5)),

@@ -267,6 +267,49 @@ class ApiService {
     return Map<String, dynamic>.from(await _handleResponse(response));
   }
 
+  // --- Registration API ---
+  static Future<Map<String, dynamic>> getRegistrations() async {
+    final headers = await _getHeaders();
+    final response = await http.get(Uri.parse('$baseUrl/tournaments/registrations'), headers: headers)
+        .timeout(const Duration(seconds: 30));
+    final body = json.decode(response.body);
+    if (body['success'] == true) {
+      return {'data': body['data'], 'stats': body['stats'] ?? {'total': 0, 'approved': 0, 'rejected': 0}};
+    } else {
+      throw Exception(body['message'] ?? 'Failed to load registrations');
+    }
+  }
+
+  static Future<void> updateRegistrationAction(String id, String action) async {
+    final headers = await _getHeaders();
+    final response = await http.put(Uri.parse('$baseUrl/tournaments/registrations/$id/$action'), headers: headers)
+        .timeout(const Duration(seconds: 30));
+    await _handleResponse(response);
+  }
+
+  static Future<void> deleteRegistration(String id) async {
+    final headers = await _getHeaders();
+    final response = await http.delete(Uri.parse('$baseUrl/tournaments/registrations/$id'), headers: headers)
+        .timeout(const Duration(seconds: 30));
+    await _handleResponse(response);
+  }
+
+  static Future<void> generateRegistrationSchedule() async {
+    final headers = await _getHeaders();
+    final response = await http.post(Uri.parse('$baseUrl/tournaments/registrations/generate-schedule'), headers: headers)
+        .timeout(const Duration(seconds: 30));
+    await _handleResponse(response);
+  }
+
+  static Future<void> submitPublicRegistration(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/tournaments/register'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(data),
+    ).timeout(const Duration(seconds: 30));
+    await _handleResponse(response);
+  }
+
   static Future<void> registerTeam(int tournamentId, String name, {String captain = '', String captainMobile = '', String district = '', String manager = ''}) async {
     final headers = await _getHeaders();
     final response = await http.post(
