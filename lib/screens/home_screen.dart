@@ -236,10 +236,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
           BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 2, offset: const Offset(0, 1)),
         ],
+        ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
-
           children: [
+
             Opacity(
               opacity: isCancelled ? 0.6 : 1.0,
               child: Column(
