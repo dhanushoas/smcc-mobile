@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
+import 'squad_selection_screen.dart';
 
 class MatchFormScreen extends StatefulWidget {
   final Map<String, dynamic>? existingMatch;
@@ -21,10 +22,13 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
   late TextEditingController _oversController;
   late DateTime _selectedDate;
   late TimeOfDay _selectedTime;
-  bool _isSaving = false; // Form submission state
+  bool _isSaving = false;
 
-  String _competitionType = 'head-to-head'; // Selected competition format
-  String _seriesType = 'best_of_3'; // Selected series length
+  String _competitionType = 'head-to-head';
+  String _seriesType = 'best_of_3';
+
+  List<String> _squadA = [];
+  List<String> _squadB = [];
 
   @override
   void initState() {
@@ -37,6 +41,11 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
     _oversController = TextEditingController(text: (m?['overs_per_match'] ?? m?['totalOvers'] ?? 20).toString());
     _competitionType = m?['competitionType'] ?? 'head-to-head';
     _seriesType = m?['seriesType'] ?? 'best_of_3';
+
+    _squadA = List<String>.from(m?['squadA'] ?? []);
+    _squadB = List<String>.from(m?['squadB'] ?? []);
+
+    _squadB = List<String>.from(m?['squadB'] ?? []);
     
     if (widget.isCopy) {
       _selectedDate = DateTime.now();
@@ -57,6 +66,11 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
       return;
     }
 
+    if (_squadA.length < 11 || _squadB.length < 11) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select squads before starting the match')));
+      return;
+    }
+
     setState(() => _isSaving = true);
     final fullDate = DateTime(
       _selectedDate.year,
@@ -72,6 +86,8 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
           : _titleController.text,
       'teamA': _teamAController.text,
       'teamB': _teamBController.text,
+      'squadA': _squadA,
+      'squadB': _squadB,
       'venue': _venueController.text,
       'overs_per_match': int.tryParse(_oversController.text) ?? 20,
       'competitionType': _competitionType,
@@ -83,11 +99,12 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
       }
     };
 
+
     try {
       if (_competitionType == 'series') {
         if (!widget.isCopy && widget.existingMatch != null) {
            // Updating a series match might be restricted, but for parity:
-           await ApiService.updateMatch(widget.existingMatch!['id'] ?? widget.existingMatch!['_id'], payload);
+           await ApiService.updateMatch((widget.existingMatch!['id'] ?? widget.existingMatch!['_id']).toString(), payload);
         } else {
            await ApiService.createSeries(payload);
         }
@@ -95,7 +112,7 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
         await ApiService.createTournament(payload);
       } else {
         if (widget.existingMatch != null && !widget.isCopy) {
-          await ApiService.updateMatch(widget.existingMatch!['_id'] ?? widget.existingMatch!['id'], payload);
+          await ApiService.updateMatch((widget.existingMatch!['_id'] ?? widget.existingMatch!['id']).toString(), payload);
         } else {
           await ApiService.createMatch(payload);
         }
@@ -191,8 +208,46 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
                 Expanded(child: _buildField('Team B', _teamBController, Icons.shield_outlined)),
               ],
             ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  if (_teamAController.text.isEmpty || _teamBController.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter team names first')));
+                    return;
+                  }
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SquadSelectionScreen(
+                        teamA: _teamAController.text,
+                        teamB: _teamBController.text,
+                        initialSquadA: _squadA,
+                        initialSquadB: _squadB,
+                      ),
+                    ),
+                  );
+                  if (result != null) {
+                    setState(() {
+                      _squadA = result['squadA'];
+                      _squadB = result['squadB'];
+                    });
+                  }
+                },
+                icon: const Icon(Icons.people_outline),
+                label: Text('ADD SQUADS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _squadA.length >= 11 && _squadB.length >= 11 ? Colors.green : Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             _buildField('Venue', _venueController, Icons.location_on_outlined),
+
             const SizedBox(height: 20),
             _buildField('Overs Per Match', _oversController, Icons.timer_outlined, isNumber: true),
             const SizedBox(height: 24),

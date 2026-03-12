@@ -150,7 +150,7 @@ class ApiService {
   static Future<Map<String, dynamic>> updateToss(String id, String winnerId, String decision) async {
     final headers = await _getHeaders();
     final response = await http.put(
-      Uri.parse('$baseUrl/matches/$id/toss'),
+      Uri.parse('$baseUrl/matches/${id.toString()}/toss'),
       headers: headers,
       body: json.encode({
         'tossWinnerTeamId': winnerId,
@@ -159,6 +159,7 @@ class ApiService {
     ).timeout(const Duration(seconds: 30));
     return Map<String, dynamic>.from(await _handleResponse(response));
   }
+
 
   static Future<Map<String, dynamic>> reverseMatch(String id) async {
     final headers = await _getHeaders();

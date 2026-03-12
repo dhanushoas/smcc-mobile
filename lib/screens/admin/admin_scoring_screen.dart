@@ -363,7 +363,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     setState(() => isUpdating = true);
     try {
       // Use dedicated /toss endpoint (Phase 25 Parity)
-      final updated = await ApiService.updateToss(match['_id'] ?? match['id'], winnerId, decision);
+      final updated = await ApiService.updateToss((match['_id'] ?? match['id']).toString(), winnerId, decision);
       setState(() {
         match = updated;
         isUpdating = false;
@@ -444,6 +444,8 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                   _buildMatchStatus(),
+                   const SizedBox(height: 16),
                   _buildTossBanner(),
                   _buildScoringGrid(isPaused, isCompleted),
                   const SizedBox(height: 24),
@@ -507,6 +509,57 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     );
   }
 
+  Widget _buildMatchStatus() {
+    final toss = match['toss'] ?? {};
+    final squadA = List.from(match['squadA'] ?? []);
+    final squadB = List.from(match['squadB'] ?? []);
+    final score = match['score'] ?? {};
+    final striker = score['striker'];
+    final bowler = score['bowler'];
+
+    bool hasToss = toss['winner'] != null;
+    bool hasSquads = squadA.isNotEmpty && squadB.isNotEmpty;
+    bool hasPlayers = striker != null && bowler != null;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('MATCH READINESS', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueAccent, letterSpacing: 1)),
+          const SizedBox(height: 12),
+          _statusRow('Squads', hasSquads),
+          _statusRow('Toss', hasToss),
+          _statusRow('Striker/Bowler', hasPlayers),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusRow(String label, bool isReady) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey.shade700)),
+          Row(
+            children: [
+              Text(isReady ? 'READY' : 'PENDING', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: isReady ? Colors.green : Colors.orange)),
+              const SizedBox(width: 4),
+              Icon(isReady ? Icons.check_circle : Icons.pending, size: 14, color: isReady ? Colors.green : Colors.orange),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTossBanner() {
     final toss = match['toss'] ?? {};
     if (toss['winner'] == null) return const SizedBox.shrink();
@@ -544,8 +597,9 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
           alignment: WrapAlignment.center,
           children: [
             _controlButton('SQUADS', Icons.groups, Colors.blue, _showSquadsModal),
-            _controlButton('TOSS', Icons.monetization_on, Colors.purple, _showTossModal),
+            _controlButton('TOSS', Icons.monetization_on, Colors.purple, (match['squadA'] ?? []).isEmpty || (match['squadB'] ?? []).isEmpty ? null : _showTossModal),
             _controlButton('DLS', Icons.cloud, Colors.indigo, _showDlsModal),
+
             _controlButton('REVERSE', Icons.history, Colors.orange, _handleUndo),
             _controlButton(
                 isPaused ? 'RESUME' : 'PAUSE',
@@ -587,6 +641,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                 _extraBtn('O/THROW', () => _showOverthrowModal()),
             ]
         ),
+
         const SizedBox(height: 16),
 
         // ROW 4 – PLAYER ACTIONS
@@ -700,12 +755,41 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     );
   }
 
+  bool _checkReadiness() {
+    final toss = match['toss'] ?? {};
+    final squadA = List.from(match['squadA'] ?? []);
+    final squadB = List.from(match['squadB'] ?? []);
+    final score = match['score'] ?? {};
+    final striker = score['striker'];
+    final bowler = score['bowler'];
+
+    if (squadA.isEmpty || squadB.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select squads before starting the match.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
+      return false;
+    }
+    if (toss['winner'] == null || toss['decision'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Complete toss before scoring.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
+      return false;
+    }
+    if (striker == null || bowler == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select striker and bowler.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
+      return false;
+    }
+    return true;
+  }
+
   Widget _scoreBtn(String label, VoidCallback onPressed, {bool isWicket = false}) {
     final color = isWicket ? Colors.red : Colors.blue;
     return SizedBox(
       width: isWicket ? 80 : 60,
       child: ElevatedButton(
-        onPressed: (isUpdating || (match['score']?['isPaused'] ?? false)) ? null : onPressed,
+        onPressed: (isUpdating || (match['score']?['isPaused'] ?? false)) 
+          ? null 
+          : () {
+            if (_checkReadiness()) {
+              onPressed();
+            }
+          },
         style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white,
             foregroundColor: color,
@@ -718,11 +802,18 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     );
   }
 
+
   Widget _extraBtn(String label, VoidCallback onPressed) {
     return SizedBox(
       width: 90,
       child: ElevatedButton(
-        onPressed: (isUpdating || (match['score']?['isPaused'] ?? false)) ? null : onPressed,
+        onPressed: (isUpdating || (match['score']?['isPaused'] ?? false)) 
+          ? null 
+          : () {
+            if (_checkReadiness()) {
+              onPressed();
+            }
+          },
         style: ElevatedButton.styleFrom(
             backgroundColor: Colors.amber.shade50,
             foregroundColor: Colors.amber.shade900,
@@ -734,11 +825,18 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     );
   }
 
+
   Widget _actionBtn(String label, IconData icon, VoidCallback onPressed) {
     return SizedBox(
       width: 140,
       child: ElevatedButton.icon(
-        onPressed: (isUpdating || (match['score']?['isPaused'] ?? false)) ? null : onPressed,
+        onPressed: (isUpdating || (match['score']?['isPaused'] ?? false)) 
+          ? null 
+          : () {
+            if (_checkReadiness()) {
+              onPressed();
+            }
+          },
         icon: Icon(icon, size: 14),
         label: Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 8)),
         style: ElevatedButton.styleFrom(
@@ -750,6 +848,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       ),
     );
   }
+
 
   Widget _dangerBtn(String label, VoidCallback onPressed) {
     return ElevatedButton(
@@ -1427,6 +1526,13 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   }
 
   void _showTossModal() {
+    final squadA = List.from(match['squadA'] ?? []);
+    final squadB = List.from(match['squadB'] ?? []);
+    if (squadA.isEmpty || squadB.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select squads first!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
+      return;
+    }
+
     final toss = match['toss'] ?? {};
     if (toss['winner'] != null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Toss already conducted!')));
