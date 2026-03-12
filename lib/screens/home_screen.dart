@@ -14,6 +14,8 @@ import 'scorecard_screen.dart';
 import 'series_screen.dart';
 import 'tournaments/tournament_detail_screen.dart';
 import 'points_table_screen.dart';
+
+
 import 'schedule_screen.dart';
 import 'achievements_screen.dart';
 import 'join_council_screen.dart';
@@ -22,6 +24,8 @@ import 'sponsorship_screen.dart';
 import 'privacy_screen.dart';
 import 'admin/admin_scoring_screen.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/match_skeleton.dart';
+
 
 class HomeScreen extends StatefulWidget {
   final bool isAdminMode;
@@ -228,10 +232,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           color: _bgCard,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
-        ),
-        clipBehavior: Clip.hardEdge,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 2, offset: const Offset(0, 1)),
+        ],
+        clipBehavior: Clip.antiAlias,
         child: Stack(
+
           children: [
             Opacity(
               opacity: isCancelled ? 0.6 : 1.0,
@@ -252,8 +259,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         children: [
                           _buildCompetitionBadge(match['competitionType']?.toString(), groupType),
                           const SizedBox(width: 8),
-                          Text('$seriesLabel$matchNumLabel • $dateLabel',
-                              style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 1)),
+                          Text('$seriesLabel • $dateLabel',
+                              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey.shade600, letterSpacing: 0.2)),
+
                         ],
                       ),
                       _buildStatusBadge(status),
@@ -272,7 +280,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(child: Text((match['teamA'] ?? '').toString().toUpperCase(),
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16))),
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: -0.2))),
+
                           if (isLive || isCompleted) _buildScoreWidget(0, _primary),
                         ],
                       ),
@@ -282,7 +291,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(child: Text((match['teamB'] ?? '').toString().toUpperCase(),
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16))),
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: -0.2))),
+
                           if (isLive || isCompleted) _buildScoreWidget(1, Colors.grey.shade700),
                         ],
                       ),
@@ -708,11 +718,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final seriesWinner = ps['seriesWinner']?.toString();
     
     return Container(
+      width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
@@ -722,32 +734,48 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text('SERIES: $teamA VS $teamB (${ps['totalMatches']} Matches)',
-                  style: GoogleFonts.outfit(color: _primary, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
+                  style: GoogleFonts.outfit(color: _primary, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5)),
                 if (seriesWinner != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(8)),
-                    child: Text('🏆 $seriesWinner won the series ${aw > bw ? aw : bw}-${aw < bw ? aw : bw}',
-                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _success,
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [BoxShadow(color: _success.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('🏆', style: TextStyle(fontSize: 14)),
+                            const SizedBox(width: 8),
+                            Text('$seriesWinner won the series ${aw > bw ? aw : bw}-${aw < bw ? aw : bw}',
+                              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ] else ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text('Series Lead: ${aw == bw ? 'Tied $aw-$bw' : (aw > bw ? teamA : teamB) + ' ${aw > bw ? aw : bw}-${aw < bw ? aw : bw}'}',
                     style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.black87)),
                 ]
               ],
             ),
           ),
-          Column(
-            children: (ps['matches'] as List).map((m) => _buildMatchCard(m, 'series')).toList(),
-          ),
+          ...((ps['matches'] as List).map((m) => _buildMatchCard(m, 'series')).toList()),
         ],
       ),
     );
   }
+
 
   Widget _buildMatchList() {
     final filtered = _matches;
@@ -937,11 +965,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   )
                 : SliverList(delegate: SliverChildBuilderDelegate(
                     (_, i) => Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1100),
-                        child: _renderItem(activeItems[i]),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 448),
+                          child: _renderItem(activeItems[i]),
+                        ),
                       ),
                     ), childCount: activeItems.length)),
+
           ),
           // Recently completed header + filter
           SliverToBoxAdapter(
@@ -1006,12 +1038,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               }
               return SliverList(delegate: SliverChildBuilderDelegate(
                   (_, i) => Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1100),
-                      child: _renderItem(filteredCompleted[i]),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 448),
+                        child: _renderItem(filteredCompleted[i]),
+                      ),
                     ),
                   ), childCount: filteredCompleted.length));
             })(),
+
           ),
         ],
       ),
@@ -1062,38 +1098,52 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       appBar: AppBar(
         backgroundColor: widget.isAdminMode ? Colors.blueGrey.shade900 : Colors.white,
         foregroundColor: widget.isAdminMode ? Colors.white : Colors.black,
-        elevation: 0,
+        elevation: 1,
+        shadowColor: Colors.black.withOpacity(0.1),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        titleSpacing: 0,
         title: Row(
           children: [
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.black.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(8),
               ),
-              clipBehavior: Clip.hardEdge,
-              child: Image.asset('assets/logo.png', height: 32, width: 32),
+              padding: const EdgeInsets.all(4),
+              child: Image.asset('assets/logo.png', height: 28, width: 28),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Text(
               widget.isAdminMode ? 'ADMIN CONSOLE' : 'SMCC LIVE',
               style: GoogleFonts.outfit(
                 fontWeight: FontWeight.w900,
-                fontSize: 18,
-                letterSpacing: 0.5,
+                fontSize: 16,
+                letterSpacing: -0.5,
               ),
             ),
           ],
         ),
         actions: [
+          if (widget.isAdminMode)
             TextButton.icon(
-              onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomeScreen(isAdminMode: false))),
-              icon: Icon(Icons.exit_to_app, color: Colors.white),
-              label: Text('EXIT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen(isAdminMode: false))),
+              icon: const Icon(Icons.exit_to_app, color: Colors.white, size: 18),
+              label: const Text('EXIT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+            )
+          else ...[
+            TextButton.icon(
+              onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen(isAdminMode: false))),
+              icon: Icon(Icons.exit_to_app, color: Colors.grey.shade600, size: 20),
+              label: Text('EXIT', style: GoogleFonts.outfit(color: Colors.grey.shade600, fontWeight: FontWeight.w900, fontSize: 11)),
             ),
-          if (!widget.isAdminMode)
             IconButton(
-              icon: const Icon(Icons.language, color: _primary),
-              tooltip: 'Open SMCC Web',
+              icon: Icon(Icons.language, color: Colors.blue.shade700, size: 22),
+
               onPressed: () async {
                 final Uri url = Uri.parse('https://smcc-web.vercel.app/');
                 if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
@@ -1105,12 +1155,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 }
               },
             ),
+          ],
         ],
       ),
+
       drawer: AppDrawer(),
       body: _loading
-          ? Center(child: CircularProgressIndicator(color: _primary))
+          ? CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                    child: Row(children: [
+                      Container(width: 40, height: 20, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4))),
+                      const SizedBox(width: 8),
+                      Container(width: 120, height: 20, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4))),
+                    ]),
+                  ),
+                ),
+                SliverPadding(
+                   padding: const EdgeInsets.symmetric(horizontal: 16),
+                   sliver: SliverList(
+                     delegate: SliverChildBuilderDelegate((_, i) => const MatchSkeleton(), childCount: 3),
+                   ),
+                ),
+              ],
+            )
           : _navIndex < _pages.length ? _pages[_navIndex] : _buildMatchList(),
+
       bottomNavigationBar: NavigationBar(
         selectedIndex: _navIndex,
         onDestinationSelected: (i) => setState(() => _navIndex = i),
