@@ -40,11 +40,11 @@ class PdfService {
               child: pw.Column(
                 children: [
                   pw.Text('RESULT: ${result.toUpperCase()}',
-                      style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.emerald500)), // Vibrant Emerald
+                      style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#10b981'))), // Vibrant Emerald
                   pw.SizedBox(height: 4),
                   if (match['manOfTheMatch'] != null)
                     pw.Text('MAN OF THE MATCH: ${match['manOfTheMatch'].toUpperCase()}',
-                        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.amber500)), // Bold Amber
+                        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#f59e0b'))), // Bold Amber
                   pw.SizedBox(height: 10),
                 ],
               ),
@@ -52,13 +52,13 @@ class PdfService {
 
           pw.Center(
             child: pw.Text('${match['teamA'].toString().toUpperCase()} VS ${match['teamB'].toString().toUpperCase()}',
-                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo600)),
+                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#4f46e5'))),
           ),
           pw.SizedBox(height: 6),
           pw.Center(
             child: pw.Text(
               '${(match['series'] ?? (match['competitionType'] == 'series' ? 'SERIES' : (match['competitionType'] == 'tournament' ? 'TOURNAMENT' : 'HEAD-TO-HEAD'))).toString().toUpperCase()}${match['matchNumber'] != null ? ' - MATCH ${match['matchNumber']}' : ''} - FULL SCORECARD',
-              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.slate600),
+              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#475569')),
             ),
           ),
           
@@ -126,7 +126,7 @@ class PdfService {
                     context: context,
                     headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10),
                     cellStyle: const pw.TextStyle(fontSize: 9),
-                    headerDecoration: const pw.BoxDecoration(color: PdfColors.indigo600),
+                    headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF4F46E5)),
                     data: [
                       ['Batter', 'Status', 'R', 'B', '4s', '6s', 'SR'],
                       ...(inn['batting'] as List).map((b) => [
@@ -165,7 +165,7 @@ class PdfService {
                     context: context,
                     headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10),
                     cellStyle: const pw.TextStyle(fontSize: 9),
-                    headerDecoration: const pw.BoxDecoration(color: PdfColors.slate700),
+                    headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF334155)),
                     data: [
                       ['Bowler', 'O', 'M', 'R', 'W', 'WD', 'NB', 'Eco'],
                       ...(bowlingInn['bowling'] as List).map((b) => [
