@@ -254,11 +254,11 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
   Widget _buildScorecard(Map<String, dynamic> match, List<dynamic> innings, String? result) {
     final bool isSeries = match['competitionType'] == 'series';
     String seriesLeadStr = '';
+    int teamAWins = 0;
+    int teamBWins = 0;
     
     if (isSeries && _seriesData != null) {
        final sMatches = List<dynamic>.from(_seriesData!['matches'] ?? []);
-       int teamAWins = 0;
-       int teamBWins = 0;
        for (var m in sMatches) {
            if (m['status'] == 'completed') {
                String? w = m['winner']?.toString();
