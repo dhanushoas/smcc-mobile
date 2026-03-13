@@ -330,7 +330,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                       Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(color: _primary.withOpacity(0.08), borderRadius: BorderRadius.circular(6)),
-                          child: Text('Series Standing : $seriesLeadStr', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: _primary, fontSize: 13)),
+                          child: Text('Series Status : ($teamAWins-$teamBWins) | TOTAL ${(_seriesData!['matches'] as List).length}', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: _primary, fontSize: 13)),
                       ),
                       const SizedBox(height: 12),
                   ],
@@ -460,12 +460,12 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.emoji_events, color: Color(0xFFF59E0B), size: 36),
+                    const Text('🏆', style: TextStyle(fontSize: 32)),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(result.toUpperCase(), 
                         textAlign: TextAlign.left,
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: const Color(0xFF92400E), height: 1.2)),
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: const Color(0xFF15803D), height: 1.2)),
                     ),
                   ],
                 ),
@@ -476,7 +476,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.star, size: 32, color: Color(0xFFF59E0B)),
+                      const Text('🥇', style: TextStyle(fontSize: 28)),
                       const SizedBox(width: 10),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,7 +484,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                           Text('MAN OF THE MATCH', 
                             style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 8, color: Colors.grey, letterSpacing: 1.2)),
                           Text(match['manOfTheMatch'].toString().toUpperCase(), 
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87, letterSpacing: 0.5)),
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: _danger, letterSpacing: 0.5)),
                         ],
                       ),
                     ],
@@ -868,17 +868,17 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
             children: [
               Container(
                 width: 44, height: 44,
-                decoration: BoxDecoration(color: const Color(0xFFFFF7D6), shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFDE68A))),
-                child: const Icon(Icons.emoji_events, color: Color(0xFFF59E0B), size: 24),
+                decoration: BoxDecoration(color: const Color(0xFFDCFCE7), shape: BoxShape.circle, border: Border.all(color: const Color(0xFFBBF7D0))),
+                child: const Center(child: Text('🏆', style: TextStyle(fontSize: 22))),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('MATCH RESULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: const Color(0xFF92400E), letterSpacing: 1)),
+                    Text('MATCH RESULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: const Color(0xFF15803D), letterSpacing: 1)),
                     const SizedBox(height: 2),
-                    Text(result.toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, color: const Color(0xFF92400E))),
+                    Text(result.toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, color: const Color(0xFF15803D))),
                   ],
                 ),
               ),
@@ -900,11 +900,11 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
               children: [
                 const Text('🥇', style: TextStyle(fontSize: 14)),
                 const SizedBox(width: 8),
-                Text('MAN OF THE MATCH', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.amber.shade900, letterSpacing: 1)),
+                Text('MAN OF THE MATCH', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: _danger, letterSpacing: 1)),
               ],
             ),
             const SizedBox(height: 6),
-            Text(match['manOfTheMatch'].toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.amber.shade900)),
+            Text(match['manOfTheMatch'].toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: _danger)),
           ]),
         ),
       ],

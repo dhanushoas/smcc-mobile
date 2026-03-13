@@ -286,18 +286,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.amber.shade50,
+                            color: _primary.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.amber.shade200),
+                            border: Border.all(color: _primary.withOpacity(0.1)),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.monetization_on, size: 14, color: Colors.amber),
+                              const Icon(Icons.toll, size: 14, color: _primary),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   '${match['toss']['winner']} WON TOSS & ELECTED TO ${match['toss']['decision'].toString().toUpperCase()}',
-                                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.amber.shade900),
+                                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: _primary),
                                 ),
                               ),
                             ],
@@ -550,17 +550,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF7D6),
+              color: const Color(0xFFDCFCE7),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFDE68A), width: 1),
+              border: Border.all(color: const Color(0xFFBBF7D0), width: 1),
             ),
             child: Row(
               children: [
-                const Icon(Icons.emoji_events, color: Color(0xFFF59E0B), size: 18),
+                const Text('🏆', style: TextStyle(fontSize: 18)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(resultText.toUpperCase(),
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: const Color(0xFF92400E), letterSpacing: 0.2)),
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: const Color(0xFF15803D), letterSpacing: 0.2)),
                 ),
               ],
             ),
@@ -570,10 +570,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               padding: const EdgeInsets.only(top: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.star, size: 16, color: Color(0xFFF59E0B)),
+                   const Text('🥇', style: TextStyle(fontSize: 16)),
                   const SizedBox(width: 6),
-                  Text('PLAYER OF THE MATCH: ${match['manOfTheMatch'].toString().toUpperCase()}',
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: const Color(0xFFD97706), letterSpacing: 0.5)),
+                  Text('MAN OF THE MATCH: ${match['manOfTheMatch'].toString().toUpperCase()}',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: _danger, letterSpacing: 0.5)),
                 ],
               ),
             ),
@@ -770,7 +770,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('SERIES: $teamA VS $teamB (${ps['totalMatches']} Matches)',
+                Text('$teamA VS $teamB SERIES ($aw-$bw) | TOTAL ${ps['totalMatches']}',
                   style: GoogleFonts.outfit(color: _primary, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5)),
                 if (seriesWinner != null) ...[
                   const SizedBox(height: 10),

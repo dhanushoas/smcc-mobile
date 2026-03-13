@@ -40,11 +40,11 @@ class PdfService {
               child: pw.Column(
                 children: [
                   pw.Text('RESULT: ${result.toUpperCase()}',
-                      style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#10b981'))), // Vibrant Emerald
+                      style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#15803d'))), // Green-700
                   pw.SizedBox(height: 4),
                   if (match['manOfTheMatch'] != null)
-                    pw.Text('MAN OF THE MATCH: ${match['manOfTheMatch'].toUpperCase()}',
-                        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#f59e0b'))), // Bold Amber
+                    pw.Text('PLAYER OF THE MATCH: ${match['manOfTheMatch'].toUpperCase()}',
+                        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#dc2626'))), // Red-600
                   pw.SizedBox(height: 10),
                 ],
               ),
@@ -74,7 +74,7 @@ class PdfService {
             pw.SizedBox(height: 6),
             pw.Center(
               child: pw.Text('Series Status: $seriesLeadStr',
-                  style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.green800)),
+                  style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#4f46e5'))),
             ),
           ],
           

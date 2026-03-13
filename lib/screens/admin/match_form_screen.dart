@@ -43,10 +43,8 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
     _competitionType = m?['competitionType'] ?? 'head-to-head';
     _seriesType = m?['seriesType'] ?? 'best_of_3';
 
-    _squadA = List<String>.from(m?['squadA'] ?? []);
-    _squadB = List<String>.from(m?['squadB'] ?? []);
-
-    _squadB = List<String>.from(m?['squadB'] ?? []);
+    _squadA = List<String>.from(m?['squadA'] ?? m?['teamASquad'] ?? []);
+    _squadB = List<String>.from(m?['squadB'] ?? m?['teamBSquad'] ?? []);
     
     if (widget.isCopy) {
       _selectedDate = DateTime.now();
@@ -68,7 +66,7 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
     }
 
     if (_squadA.length < 11 || _squadB.length < 11) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select squads before starting the match')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Both teams must have exactly 11 players!')));
       return;
     }
 

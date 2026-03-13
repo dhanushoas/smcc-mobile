@@ -575,12 +575,12 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.stars, color: Colors.amber, size: 20),
+          const Icon(Icons.toll, color: Colors.blueAccent, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               '${toss['winner']} won the toss & elected to ${toss['decision']}'.toUpperCase(),
-              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.amber.shade900),
+              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueAccent.shade700),
             ),
           ),
         ],

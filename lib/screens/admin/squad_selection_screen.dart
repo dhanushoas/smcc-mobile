@@ -34,21 +34,73 @@ class _SquadSelectionScreenState extends State<SquadSelectionScreen> {
     while(_squadB.length < 11) _squadB.add('');
   }
 
-  void _save() {
+  Map<String, List<String>>? _validateSquads() {
     final sA = _squadA.where((e) => e.trim().isNotEmpty).toList();
     final sB = _squadB.where((e) => e.trim().isNotEmpty).toList();
 
-    if (sA.length < 11 || sB.length < 11) {
+    if (sA.length != 11 || sB.length != 11) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least 11 players for each team.'))
+        const SnackBar(content: Text('Both teams must have exactly 11 players!'))
       );
-      return;
+      return null;
     }
 
-    Navigator.pop(context, {
-      'squadA': sA,
-      'squadB': sB,
-    });
+    final nameRegex = RegExp(r'^[A-Za-z\s]+$');
+
+    List<String>? checkTeam(List<String> squad, String teamName) {
+      final seen = <String>{};
+      final results = <String>[];
+      for (var name in squad) {
+        final cleanName = name.trim();
+        final rawName = cleanName.replaceAll(RegExp(r'\s?\((c|vc|wk)\)', caseSensitive: false), '').trim();
+
+        if (rawName.length < 3) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Player '$cleanName' in $teamName: Minimum 3 characters required."))
+          );
+          return null;
+        }
+        if (!nameRegex.hasMatch(rawName)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Player '$cleanName' in $teamName: Only English alphabets and spaces allowed."))
+          );
+          return null;
+        }
+        if (seen.contains(rawName.toLowerCase())) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Duplicate player '$rawName' in $teamName!"))
+          );
+          return null;
+        }
+        seen.add(rawName.toLowerCase());
+        results.add(cleanName);
+      }
+      return results;
+    }
+
+    final validatedA = checkTeam(sA, 'Team A');
+    if (validatedA == null) return null;
+    final validatedB = checkTeam(sB, 'Team B');
+    if (validatedB == null) return null;
+
+    final setA = validatedA.map((e) => e.trim().toLowerCase()).toSet();
+    for (var p in validatedB) {
+      if (setA.contains(p.trim().toLowerCase())) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Player '$p' cannot play for both teams!"))
+        );
+        return null;
+      }
+    }
+
+    return {'squadA': validatedA, 'squadB': validatedB};
+  }
+
+  void _save() {
+    final result = _validateSquads();
+    if (result != null) {
+      Navigator.pop(context, result);
+    }
   }
 
   @override
