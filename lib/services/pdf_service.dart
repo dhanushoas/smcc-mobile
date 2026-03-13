@@ -40,25 +40,26 @@ class PdfService {
               child: pw.Column(
                 children: [
                   pw.Text('RESULT: ${result.toUpperCase()}',
-                      style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.green)),
+                      style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.emerald500)), // Vibrant Emerald
                   pw.SizedBox(height: 4),
                   if (match['manOfTheMatch'] != null)
                     pw.Text('MAN OF THE MATCH: ${match['manOfTheMatch'].toUpperCase()}',
-                        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.pink)),
+                        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.amber500)), // Bold Amber
                   pw.SizedBox(height: 10),
                 ],
               ),
             ),
 
           pw.Center(
-            child: pw.Text(
-              match['competitionType'] == 'series' ? 'SMCC CRICKET SERIES' : 'SMCC CRICKET OFFICIAL SCORECARD',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+            child: pw.Text('${match['teamA'].toString().toUpperCase()} VS ${match['teamB'].toString().toUpperCase()}',
+                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo600)),
           ),
           pw.SizedBox(height: 6),
           pw.Center(
-            child: pw.Text('${match['teamA'].toString().toUpperCase()} VS ${match['teamB'].toString().toUpperCase()}',
-                style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
+            child: pw.Text(
+              '${(match['series'] ?? (match['competitionType'] == 'series' ? 'SERIES' : (match['competitionType'] == 'tournament' ? 'TOURNAMENT' : 'HEAD-TO-HEAD'))).toString().toUpperCase()}${match['matchNumber'] != null ? ' - MATCH ${match['matchNumber']}' : ''} - FULL SCORECARD',
+              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.slate600),
+            ),
           ),
           
           if (match['competitionType'] == 'series' && match['matchNumber'] != null) ...[
@@ -82,21 +83,21 @@ class PdfService {
           if (match['toss'] != null && match['toss']['winner'] != null)
             pw.Center(
               child: pw.Text(
-                  'TOSS: ${match['toss']['winner'].toString().toUpperCase()} WON AND ELECTED TO ${match['toss']['decision'].toString().toUpperCase()} FIRST',
-                  style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                  '${match['toss']['winner'].toString().toUpperCase()} WON THE TOSS AND ELECTED TO ${match['toss']['decision'].toString().toUpperCase()} FIRST.',
+                  style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)), 
             ),
           pw.SizedBox(height: 6),
           
           pw.Center(
             child: pw.Text(
-                'COMPETITION: ${(match['competitionType'] ?? 'HEAD-TO-HEAD').toString().toUpperCase()} | SERIES: ${(match['series'] ?? 'SMCC LIVE').toString().toUpperCase()} | GROUND: ${(match['venue'] ?? 'TBA').toString().toUpperCase()}',
-                style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600)),
+                'GROUND: ${(match['venue'] ?? 'TBA').toString().toUpperCase()} | DATE: ${formatDate(DateTime.parse(match['date']))}',
+                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
           ),
           pw.SizedBox(height: 4),
           pw.Center(
             child: pw.Text(
-                'DATE: ${formatDate(DateTime.parse(match['date']))} | EXPORTED: ${formatDate(DateTime.now())}',
-                style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                'EXPORTED ON: ${formatDate(DateTime.now()).toUpperCase()} @ ${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2,'0')}',
+                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
           ),
           pw.SizedBox(height: 10),
           pw.Divider(thickness: 1, color: PdfColors.blue900),
@@ -125,7 +126,7 @@ class PdfService {
                     context: context,
                     headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10),
                     cellStyle: const pw.TextStyle(fontSize: 9),
-                    headerDecoration: const pw.BoxDecoration(color: PdfColors.blue900),
+                    headerDecoration: const pw.BoxDecoration(color: PdfColors.indigo600),
                     data: [
                       ['Batter', 'Status', 'R', 'B', '4s', '6s', 'SR'],
                       ...(inn['batting'] as List).map((b) => [
@@ -164,7 +165,7 @@ class PdfService {
                     context: context,
                     headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10),
                     cellStyle: const pw.TextStyle(fontSize: 9),
-                    headerDecoration: const pw.BoxDecoration(color: PdfColors.green900),
+                    headerDecoration: const pw.BoxDecoration(color: PdfColors.slate700),
                     data: [
                       ['Bowler', 'O', 'M', 'R', 'W', 'WD', 'NB', 'Eco'],
                       ...(bowlingInn['bowling'] as List).map((b) => [

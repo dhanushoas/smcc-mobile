@@ -258,11 +258,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     children: [
                       Row(
                         children: [
-                          _buildCompetitionBadge(match['competitionType']?.toString(), groupType),
+                          _buildCompetitionBadge(match['competitionType']?.toString(), (match['series'] ?? 'SMCC').toString()),
+                          if (match['matchNumber'] != null) ...[
+                            const SizedBox(width: 8),
+                            Text('• MATCH ${match['matchNumber']}',
+                                style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey.shade800, letterSpacing: 0.5)),
+                          ],
                           const SizedBox(width: 8),
-                          Text('$seriesLabel • $dateLabel',
-                              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey.shade600, letterSpacing: 0.2)),
-
+                          Text('• $dateLabel',
+                              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey.shade500, letterSpacing: 0.2)),
                         ],
                       ),
                       _buildStatusBadge(status),
@@ -276,6 +280,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // ── Toss Info Badge
+                      if (match['toss']?['winner'] != null && !isCompleted && !isCancelled) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.amber.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.monetization_on, size: 14, color: Colors.amber),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  '${match['toss']['winner']} WON TOSS & ELECTED TO ${match['toss']['decision'].toString().toUpperCase()}',
+                                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.amber.shade900),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       // Team A row
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -346,28 +374,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildCompetitionBadge(String? type, String groupType) {
-    String t = groupType.toUpperCase();
-    if (t == 'HEAD-TO-HEAD') t = (type ?? 'HEAD-TO-HEAD').toUpperCase();
+  Widget _buildCompetitionBadge(String? type, String seriesName) {
+    String t = (type ?? 'head-to-head').toUpperCase();
     
     Color color = Colors.grey.shade600;
-    if (t == 'TOURNAMENT') color = _warning;
-    else if (t == 'SERIES') color = _primary;
+    String label = 'HEAD-TO-HEAD';
+    if (t == 'TOURNAMENT') {
+      color = _warning;
+      label = seriesName.toUpperCase();
+    } else if (t == 'SERIES') {
+      color = _primary;
+      label = seriesName.toUpperCase();
+    }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(12),
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(100),
         border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Text(
-        t,
+        label,
         style: GoogleFonts.outfit(
           color: color,
           fontSize: 9,
           fontWeight: FontWeight.w900,
-          letterSpacing: 0.5,
+          letterSpacing: 0.8,
         ),
       ),
     );
@@ -765,7 +798,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ] else ...[
                   const SizedBox(height: 6),
-                  Text('Series Lead: ${aw == bw ? 'Tied $aw-$bw' : (aw > bw ? teamA : teamB) + ' ${aw > bw ? aw : bw}-${aw < bw ? aw : bw}'}',
+                  Text('Series Standing: ${aw == bw ? 'Tied $aw-$bw' : (aw > bw ? teamA : teamB) + ' $aw-$bw'}',
                     style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.black87)),
                 ]
               ],

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import 'squad_selection_screen.dart';
+import '../../utils/formatters.dart';
 
 class MatchFormScreen extends StatefulWidget {
   final Map<String, dynamic>? existingMatch;
@@ -61,8 +62,8 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
     // Validate form inputs (date, time, teams, overs)
     if (!_formKey.currentState!.validate()) return;
 
-    if (_teamAController.text.trim().toLowerCase() == _teamBController.text.trim().toLowerCase()) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Both teams cannot be the same')));
+    if (checkTeamMatch(_teamAController.text, _teamBController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Both teams cannot be the same (case-insensitive check)')));
       return;
     }
 
@@ -251,6 +252,8 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
             const SizedBox(height: 20),
             _buildField('Overs Per Match', _oversController, Icons.timer_outlined, isNumber: true),
             const SizedBox(height: 24),
+            Text('DATE & START TIME', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueAccent, letterSpacing: 1)),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(

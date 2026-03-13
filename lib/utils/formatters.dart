@@ -12,6 +12,19 @@ String toCamelCase(String? text) {
   }).join(' ');
 }
 
+/// Robust comparison for team names
+bool checkTeamMatch(String? t1, String? t2) {
+  if (t1 == null || t2 == null) return false;
+  return t1.trim().toLowerCase() == t2.trim().toLowerCase();
+}
+
+/// Robust check if player name exists in a squad list
+bool isPlayerInSquad(List? squad, String? player) {
+  if (squad == null || player == null) return false;
+  final p = player.trim().toLowerCase();
+  return squad.any((s) => s != null && s.toString().trim().toLowerCase() == p);
+}
+
 /// Formats an ISO date string to "1.00 pm" style (mirrors web formatTime)
 String formatTime(String? dateInput) {
   if (dateInput == null || dateInput.isEmpty) return '';

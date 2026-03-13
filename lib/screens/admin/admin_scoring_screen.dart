@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../services/api_service.dart';
 import '../../core/scoring/scoring_engine.dart';
@@ -590,7 +591,6 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   Widget _buildScoringGrid(bool isPaused, bool isCompleted) {
     return Column(
       children: [
-        // ROW 1 – MATCH CONTROLS
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -599,7 +599,6 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             _controlButton('SQUADS', Icons.groups, Colors.blue, _showSquadsModal),
             _controlButton('TOSS', Icons.monetization_on, Colors.purple, (match['squadA'] ?? []).isEmpty || (match['squadB'] ?? []).isEmpty ? null : _showTossModal),
             _controlButton('DLS', Icons.cloud, Colors.indigo, _showDlsModal),
-
             _controlButton('REVERSE', Icons.history, Colors.orange, _handleUndo),
             _controlButton(
                 isPaused ? 'RESUME' : 'PAUSE',
@@ -683,32 +682,112 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
 
   Widget _buildAdvancedCorrectionPanel() {
     return ExpansionTile(
-      title: Text('ADVANCED CORRECTION PANEL', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.blueGrey)),
-      subtitle: Text('Manual state overrides & technical fixes', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey)),
+      maintainState: true,
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('ADVANCED CORRECTION PANEL', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, color: const Color(0xFF1E293B))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(color: Colors.red.shade600, borderRadius: BorderRadius.circular(4)),
+            child: Text('ADVANCED', style: GoogleFonts.outfit(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+          ),
+        ],
+      ),
+      subtitle: Text('Manual state overrides & technical fixes', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
       children: [
-         Padding(
+         Container(
+           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
            padding: const EdgeInsets.all(16.0),
+           decoration: BoxDecoration(
+             color: Colors.white,
+             borderRadius: BorderRadius.circular(20),
+             border: Border.all(color: Colors.grey.shade200),
+             boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+           ),
            child: Column(
+             crossAxisAlignment: CrossAxisAlignment.start,
              children: [
-                _buildManualInput('Runs', (val) => _handleManualUpdate('runs', val)),
-                _buildManualInput('Wickets', (val) => _handleManualUpdate('wickets', val)),
-                _buildManualInput('Overs', (val) => _handleManualUpdate('overs', val)),
-                const SizedBox(height: 16),
-                const Divider(),
-                Text('OVERS REDUCTION & TARGET', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.indigo)),
-                const SizedBox(height: 8),
-                _buildManualInput('Total Overs', (val) => _handleReductionUpdate('totalOvers', val)),
-                _buildManualInput('First Innings Overs', (val) => _handleReductionUpdate('firstInningsOvers', val)),
-                _buildManualInput('Second Innings Overs', (val) => _handleReductionUpdate('secondInningsOvers', val)),
-                _buildManualInput('Target Override', (val) => _handleReductionUpdate('customTarget', val)),
-                const Divider(),
-                const SizedBox(height: 8),
+                Text('MANUAL STATE OVERRIDE', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.blueAccent, letterSpacing: 1)),
+                const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: _actionBtn('DATE & TIME', Icons.calendar_month, _showDateOverridePicker)),
+                    Expanded(child: _buildManualInput('Runs', (val) => _handleManualUpdate('runs', val))),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildManualInput('Wickets', (val) => _handleManualUpdate('wickets', val))),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
+                _buildManualInput('Overs (e.g. 5.2)', (val) => _handleManualUpdate('overs', val)),
+                
+                const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+                
+                Text('MATCH REDUCTION & TARGET', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.indigo, letterSpacing: 1)),
+                const SizedBox(height: 12),
+                _buildManualInput('Match Total Overs', (val) => _handleReductionUpdate('totalOvers', val)),
+                Row(
+                  children: [
+                    Expanded(child: _buildManualInput('1st Inn Overs', (val) => _handleReductionUpdate('firstInningsOvers', val))),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildManualInput('2nd Inn Overs', (val) => _handleReductionUpdate('secondInningsOvers', val))),
+                  ],
+                ),
+                _buildManualInput('Target Points Override', (val) => _handleReductionUpdate('customTarget', val)),
+                
+                const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+                
+                Text('SCHEDULE & TIME CONTROLS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.teal, letterSpacing: 1)),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.teal.shade50),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today, size: 16, color: Colors.teal),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'MATCH DATE & TIME',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.grey.shade800),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _showDateOverridePicker,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(20)),
+                          child: Text('ADVANCED CORRECTION', style: GoogleFonts.outfit(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _showDateOverridePicker,
+                    icon: const Icon(Icons.edit_calendar_rounded, size: 18),
+                    label: Text('UPDATE DATE & TIME FIELDS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.teal.shade800,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.teal.shade100)),
+                    ),
+                  ),
+                ),
+                
+                const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+                
+                Text('CRITICAL ACTIONS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.orange.shade900, letterSpacing: 1)),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(child: _dangerBtn('FORCE END', () => _handleAdvancedAction('force_end'))),
@@ -718,7 +797,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                     Expanded(child: _dangerBtn('PURGE HIST', () => _handleAdvancedAction('purge_history'))),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(child: _actionBtn('DECLARE TIE', Icons.handshake_outlined, _handleDeclareTie)),
@@ -728,7 +807,8 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                 ),
              ],
            ),
-         )
+         ),
+         const SizedBox(height: 16),
       ],
     );
   }
@@ -1276,16 +1356,31 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       final pickedTime = await showTimePicker(
           context: context,
           initialTime: TimeOfDay.fromDateTime(initDate),
+          helpText: 'SELECT START TIME (24H: ${pickedDate.year}-${pickedDate.month.toString().padLeft(2,'0')}-${pickedDate.day.toString().padLeft(2,'0')})',
       );
       if (pickedTime == null) return;
 
       final newDateTime = DateTime(pickedDate.year, pickedDate.month, pickedDate.day, pickedTime.hour, pickedTime.minute);
 
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('CONFIRM DATE OVERRIDE', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.teal.shade900)),
+          content: Text('Update match start to: \n${DateFormat('MMM d, y').format(newDateTime)} at ${pickedTime.format(context)}?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('PROCEED', style: TextStyle(color: Colors.teal))),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+
       setState(() => isUpdating = true);
       try {
           final updated = await ApiService.updateMatchDateTime((match['_id'] ?? match['id']).toString(), {'matchDateTime': newDateTime.toIso8601String()});
           setState(() { match = updated; isUpdating = false; });
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Date & Time Updated!')));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Schedule Updated Successfully!')));
       } catch (e) {
           setState(() => isUpdating = false);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))));
@@ -1500,26 +1595,32 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Super Over Started! $nextBattingTeam batting first.')));
   }
 
-  Widget _buildCompetitionBadge(String? type) {
+  Widget _buildCompetitionBadge(String? type, [String seriesName = 'SMCC']) {
     final t = (type ?? 'head-to-head').toLowerCase();
     Color color = Colors.grey.shade600;
-    if (t == 'tournament') color = Colors.orange;
-    else if (t == 'series') color = const Color(0xFF2563EB);
+    String label = 'HEAD-TO-HEAD';
+    if (t == 'tournament') {
+        color = Colors.orange;
+        label = seriesName.toUpperCase();
+    } else if (t == 'series') {
+        color = const Color(0xFF2563EB);
+        label = seriesName.toUpperCase();
+    }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(12),
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(100),
         border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Text(
-        t.toUpperCase(),
+        label,
         style: GoogleFonts.outfit(
           color: color,
           fontSize: 9,
           fontWeight: FontWeight.w900,
-          letterSpacing: 0.5,
+          letterSpacing: 0.8,
         ),
       ),
     );

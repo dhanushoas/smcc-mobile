@@ -330,7 +330,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                       Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(color: _primary.withOpacity(0.08), borderRadius: BorderRadius.circular(6)),
-                          child: Text('Series Lead : $seriesLeadStr', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: _primary, fontSize: 13)),
+                          child: Text('Series Standing : $seriesLeadStr', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: _primary, fontSize: 13)),
                       ),
                       const SizedBox(height: 12),
                   ],
@@ -371,16 +371,29 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                 ],
                 Row(
                   children: [
+                    _buildCompetitionBadge(match['competitionType']?.toString(), (match['series'] ?? 'Tournament').toString()),
+                    if (match['matchNumber'] != null) ...[
+                      const SizedBox(width: 8),
+                      Text('• MATCH ${match['matchNumber']}',
+                          style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.grey.shade800, letterSpacing: 0.5)),
+                    ],
+                    if (match['status'] == 'completed') ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(100)),
+                        child: Text('COMPLETED', style: GoogleFonts.outfit(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
                     Icon(Icons.location_on, size: 14, color: _primary),
                     const SizedBox(width: 4),
                     Text('${formatTime(match['date'])} • ${(match['venue'] ?? 'TBA').toString().split(' ').map((s) => s.isNotEmpty ? s[0].toUpperCase() + s.substring(1) : '').join(' ')}', 
                         style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
-                    const SizedBox(width: 12),
-                    Icon(Icons.emoji_events, size: 14, color: _primary),
-                    const SizedBox(width: 4),
-                    Text(match['series'] ?? 'SMCC LIVE', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
-                    const SizedBox(width: 12),
-                    _buildCompetitionBadge(match['competitionType']?.toString()),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -389,18 +402,18 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.1),
+                      color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.amber.withOpacity(0.2)),
+                      border: Border.all(color: Colors.grey.shade200),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.info_outline, size: 16, color: Colors.amber),
+                        const Icon(Icons.info_outline, size: 16, color: Colors.indigo),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Toss: ${match['toss']['winner']} won & elected to ${match['toss']['decision']} first',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                            '${match['toss']['winner'].toString().toUpperCase()} WON TOSS & ELECTED TO ${match['toss']['decision'].toString().toUpperCase()} FIRST',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.black87),
                           ),
                         ),
                       ],
@@ -922,26 +935,32 @@ class _ScorecardScreenState extends State<ScorecardScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildCompetitionBadge(String? type) {
+  Widget _buildCompetitionBadge(String? type, [String seriesName = 'SMCC']) {
     final t = (type ?? 'head-to-head').toLowerCase();
     Color color = Colors.grey.shade600;
-    if (t == 'tournament') color = Colors.orange;
-    else if (t == 'series') color = _primary;
+    String label = 'HEAD-TO-HEAD';
+    if (t == 'tournament') {
+        color = Colors.orange;
+        label = seriesName.toUpperCase();
+    } else if (t == 'series') {
+        color = const Color(0xFF2563EB);
+        label = seriesName.toUpperCase();
+    }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(12),
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(100),
         border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Text(
-        t.toUpperCase(),
+        label,
         style: GoogleFonts.outfit(
           color: color,
           fontSize: 9,
           fontWeight: FontWeight.w900,
-          letterSpacing: 0.5,
+          letterSpacing: 0.8,
         ),
       ),
     );
