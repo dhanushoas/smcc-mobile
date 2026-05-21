@@ -104,3 +104,38 @@ String getBallDisplay(dynamic ball) {
   if (bs == 'OUT') return 'Wicket';
   return bs;
 }
+
+/// Formats an ISO date string to a friendly format showing date and time
+String formatMatchDateTime(String? dateInput) {
+  if (dateInput == null || dateInput.isEmpty) return '';
+  try {
+    final date = DateTime.parse(dateInput).toLocal();
+    final today = DateTime.now();
+    final tomorrow = today.add(const Duration(days: 1));
+
+    final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
+    final isTomorrow = date.year == tomorrow.year && date.month == tomorrow.month && date.day == tomorrow.day;
+
+    final hour = date.hour;
+    final minute = date.minute;
+    final ampm = hour >= 12 ? 'pm' : 'am';
+    final hour12 = hour % 12 == 0 ? 12 : hour % 12;
+    final minuteStr = minute.toString().padLeft(2, '0');
+    final timeStr = '$hour12.$minuteStr $ampm';
+
+    if (isToday) {
+      return 'TODAY • $timeStr';
+    } else if (isTomorrow) {
+      return 'TOMORROW • $timeStr';
+    } else {
+      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+                      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const weekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+      final weekdayStr = weekdays[date.weekday % 7];
+      final monthStr = months[date.month - 1];
+      return '$weekdayStr, $monthStr ${date.day} • $timeStr';
+    }
+  } catch (_) {
+    return '';
+  }
+}

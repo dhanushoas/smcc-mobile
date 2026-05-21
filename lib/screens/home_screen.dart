@@ -640,15 +640,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     // Upcoming
     final venue = match['venue'] ?? 'TBA';
-    // Helper to capitalize first letter of each word
     String titleCaseVenue = venue.toString().split(' ').map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' : '').join(' ');
     
-    return Row(children: [
-      const Icon(Icons.location_on, size: 12, color: _danger),
-      const SizedBox(width: 4),
-      Text('${formatTime(match['date'])} • $titleCaseVenue',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: Colors.grey.shade800, letterSpacing: 0.2)),
-    ]);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: _primary.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _primary.withOpacity(0.1), width: 1),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.calendar_month_rounded, size: 18, color: _primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  formatMatchDateTime(match['date']).toUpperCase(),
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: _primary, letterSpacing: 0.5),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, size: 10, color: _danger),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        titleCaseVenue.toUpperCase(),
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 9, color: Colors.grey.shade600, letterSpacing: 0.2),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
 
