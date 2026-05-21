@@ -1754,7 +1754,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                     children: [
                       Text(teamA.toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
                       const SizedBox(height: 8),
-                      for (int i=0; i<11; i++) Padding(
+                      for (int i=0; i<squadA.length; i++) Padding(
                          padding: const EdgeInsets.only(bottom: 8),
                          child: TextFormField(
                             initialValue: squadA[i],
@@ -1762,16 +1762,26 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                             decoration: InputDecoration(hintText: 'Player ${i+1}', isDense: true, border: const OutlineInputBorder()),
                          ),
                       ),
+                      TextButton.icon(
+                         onPressed: () => setModalState(() => squadA.add('')),
+                         icon: const Icon(Icons.add, size: 20),
+                         label: const Text('Add More Players'),
+                      ),
                       const SizedBox(height: 16),
                       Text(teamB.toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
                       const SizedBox(height: 8),
-                      for (int i=0; i<11; i++) Padding(
+                      for (int i=0; i<squadB.length; i++) Padding(
                          padding: const EdgeInsets.only(bottom: 8),
                          child: TextFormField(
                             initialValue: squadB[i],
                             onChanged: (v) => squadB[i] = v,
                             decoration: InputDecoration(hintText: 'Player ${i+1}', isDense: true, border: const OutlineInputBorder()),
                          ),
+                      ),
+                      TextButton.icon(
+                         onPressed: () => setModalState(() => squadB.add('')),
+                         icon: const Icon(Icons.add, size: 20),
+                         label: const Text('Add More Players'),
                       ),
                       const SizedBox(height: 24),
                       Text('STARTING PLAYERS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.indigo)),
@@ -1809,7 +1819,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                      final sA = squadA.where((e) => e.trim().isNotEmpty).toList();
                      final sB = squadB.where((e) => e.trim().isNotEmpty).toList();
                      if (sA.length < 11 || sB.length < 11) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter 11 players for each team')));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter at least 11 players for each team')));
                         return;
                      }
                      Navigator.pop(context);

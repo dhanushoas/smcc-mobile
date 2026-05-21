@@ -28,9 +28,13 @@ class _SquadScreenState extends State<SquadScreen> with SingleTickerProviderStat
 
   void _initSquads() {
     List squadA = widget.match['teamASquad'] ?? [], squadB = widget.match['teamBSquad'] ?? [];
-    for (int i = 0; i < 11; i++) {
-      _controllersA.add(TextEditingController(text: i < squadA.length ? squadA[i] : ''));
-      _controllersB.add(TextEditingController(text: i < squadB.length ? squadB[i] : ''));
+    final lenA = squadA.length > 11 ? squadA.length : 11;
+    final lenB = squadB.length > 11 ? squadB.length : 11;
+    for (int i = 0; i < lenA; i++) {
+      _controllersA.add(TextEditingController(text: i < squadA.length ? squadA[i].toString() : ''));
+    }
+    for (int i = 0; i < lenB; i++) {
+      _controllersB.add(TextEditingController(text: i < squadB.length ? squadB[i].toString() : ''));
     }
   }
 
@@ -50,7 +54,7 @@ class _SquadScreenState extends State<SquadScreen> with SingleTickerProviderStat
     List<String> a = _controllersA.map((c) => _capitalize(c.text.trim())).where((s) => s.isNotEmpty).toList();
     List<String> b = _controllersB.map((c) => _capitalize(c.text.trim())).where((s) => s.isNotEmpty).toList();
 
-    if (a.length < 11 || b.length < 11) { _showSnackBar('11 players per team required', isError: true); return; }
+    if (a.length < 11 || b.length < 11) { _showSnackBar('At least 11 players per team required', isError: true); return; }
     if (a.toSet().length != a.length || b.toSet().length != b.length) { _showSnackBar('Duplicate names found', isError: true); return; }
     if (a.toSet().intersection(b.toSet()).isNotEmpty) { _showSnackBar('Player in both teams found', isError: true); return; }
 
@@ -96,34 +100,48 @@ class _SquadScreenState extends State<SquadScreen> with SingleTickerProviderStat
   }
 
   Widget _buildTeamList(List<TextEditingController> controllers, Color primaryBlue) {
-    return ListView.builder(
-      padding: EdgeInsets.all(24),
-      itemCount: 11,
-      itemBuilder: (context, i) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
-          child: TextField(
-            controller: controllers[i],
-            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-            decoration: InputDecoration(
-              labelText: 'PLAYER ${i + 1}',
-              labelStyle: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5),
-              prefixIcon: Icon(Icons.person_outline_rounded, size: 18, color: primaryBlue),
-              filled: true,
-              fillColor: primaryBlue.withOpacity(0.03),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-              contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            ),
-            onChanged: (v) {
-              if (v.isNotEmpty) {
-                 String c = v.replaceAll(RegExp(r'[^a-zA-Z\s]'), '');
-                 if (c != v) { controllers[i].value = controllers[i].value.copyWith(text: c, selection: TextSelection.collapsed(offset: c.length)); v = c; }
-                 if (v.isNotEmpty && v[0] != v[0].toUpperCase()) controllers[i].value = controllers[i].value.copyWith(text: _capitalize(v), selection: TextSelection.collapsed(offset: v.length));
-              }
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            padding: EdgeInsets.all(24),
+            itemCount: controllers.length,
+            itemBuilder: (context, i) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: TextField(
+                  controller: controllers[i],
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                  decoration: InputDecoration(
+                    labelText: 'PLAYER ${i + 1}',
+                    labelStyle: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5),
+                    prefixIcon: Icon(Icons.person_outline_rounded, size: 18, color: primaryBlue),
+                    filled: true,
+                    fillColor: primaryBlue.withOpacity(0.03),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  ),
+                  onChanged: (v) {
+                    if (v.isNotEmpty) {
+                       String c = v.replaceAll(RegExp(r'[^a-zA-Z\s]'), '');
+                       if (c != v) { controllers[i].value = controllers[i].value.copyWith(text: c, selection: TextSelection.collapsed(offset: c.length)); v = c; }
+                       if (v.isNotEmpty && v[0] != v[0].toUpperCase()) controllers[i].value = controllers[i].value.copyWith(text: _capitalize(v), selection: TextSelection.collapsed(offset: v.length));
+                    }
+                  },
+                ),
+              );
             },
           ),
-        );
-      },
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: TextButton.icon(
+            onPressed: () => setState(() => controllers.add(TextEditingController())),
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text('Add More Players'),
+          ),
+        ),
+      ],
     );
   }
 }

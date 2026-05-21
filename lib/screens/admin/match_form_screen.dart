@@ -66,7 +66,7 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
     }
 
     if (_squadA.length < 11 || _squadB.length < 11) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Both teams must have exactly 11 players!')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Both teams must have at least 11 players!')));
       return;
     }
 

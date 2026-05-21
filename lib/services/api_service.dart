@@ -111,7 +111,7 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> getMatch(String id) async {
+  static Future<Map<String, dynamic>> getMatch(dynamic id) async {
     final response = await http.get(Uri.parse('$baseUrl/matches/$id'))
         .timeout(const Duration(seconds: 90));
     return Map<String, dynamic>.from(await _handleResponse(response));
@@ -127,7 +127,7 @@ class ApiService {
     return Map<String, dynamic>.from(await _handleResponse(response));
   }
 
-  static Future<Map<String, dynamic>> updateMatch(String id, Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> updateMatch(dynamic id, Map<String, dynamic> data) async {
     final headers = await _getHeaders();
     final response = await http.put(
       Uri.parse('$baseUrl/matches/$id'),
@@ -137,7 +137,7 @@ class ApiService {
     return Map<String, dynamic>.from(await _handleResponse(response));
   }
 
-  static Future<Map<String, dynamic>> updateScore(String id, Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> updateScore(dynamic id, Map<String, dynamic> data) async {
     final headers = await _getHeaders();
     final response = await http.put(
       Uri.parse('$baseUrl/matches/$id/score'),
@@ -147,7 +147,7 @@ class ApiService {
     return Map<String, dynamic>.from(await _handleResponse(response));
   }
 
-  static Future<Map<String, dynamic>> updateToss(String id, String winnerId, String decision) async {
+  static Future<Map<String, dynamic>> updateToss(dynamic id, String winnerId, String decision) async {
     final headers = await _getHeaders();
     final response = await http.put(
       Uri.parse('$baseUrl/matches/${id.toString()}/toss'),
@@ -161,7 +161,7 @@ class ApiService {
   }
 
 
-  static Future<Map<String, dynamic>> reverseMatch(String id) async {
+  static Future<Map<String, dynamic>> reverseMatch(dynamic id) async {
     final headers = await _getHeaders();
     final response = await http.put(
       Uri.parse('$baseUrl/matches/$id/reverse'),
@@ -170,7 +170,7 @@ class ApiService {
     return Map<String, dynamic>.from(await _handleResponse(response));
   }
 
-  static Future<Map<String, dynamic>> pauseMatch(String id, bool pause, String reason) async {
+  static Future<Map<String, dynamic>> pauseMatch(dynamic id, bool pause, String reason) async {
     final headers = await _getHeaders();
     final response = await http.put(
       Uri.parse('$baseUrl/matches/$id/pause'),
@@ -180,7 +180,7 @@ class ApiService {
     return Map<String, dynamic>.from(await _handleResponse(response));
   }
 
-  static Future<Map<String, dynamic>> updateMatchDateTime(String id, Map<String, dynamic> payload) async {
+  static Future<Map<String, dynamic>> updateMatchDateTime(dynamic id, Map<String, dynamic> payload) async {
     final headers = await _getHeaders();
     final response = await http.put(
       Uri.parse('$baseUrl/matches/$id/datetime'),
@@ -190,7 +190,7 @@ class ApiService {
     return Map<String, dynamic>.from(await _handleResponse(response));
   }
 
-  static Future<void> deleteMatch(String id) async {
+  static Future<void> deleteMatch(dynamic id) async {
     final headers = await _getHeaders();
     final response = await http.delete(
       Uri.parse('$baseUrl/matches/$id'),
@@ -281,14 +281,14 @@ class ApiService {
     }
   }
 
-  static Future<void> updateRegistrationAction(String id, String action) async {
+  static Future<void> updateRegistrationAction(dynamic id, String action) async {
     final headers = await _getHeaders();
     final response = await http.put(Uri.parse('$baseUrl/tournaments/registrations/$id/$action'), headers: headers)
         .timeout(const Duration(seconds: 30));
     await _handleResponse(response);
   }
 
-  static Future<void> deleteRegistration(String id) async {
+  static Future<void> deleteRegistration(dynamic id) async {
     final headers = await _getHeaders();
     final response = await http.delete(Uri.parse('$baseUrl/tournaments/registrations/$id'), headers: headers)
         .timeout(const Duration(seconds: 30));

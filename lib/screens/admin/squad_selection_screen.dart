@@ -38,9 +38,9 @@ class _SquadSelectionScreenState extends State<SquadSelectionScreen> {
     final sA = _squadA.where((e) => e.trim().isNotEmpty).toList();
     final sB = _squadB.where((e) => e.trim().isNotEmpty).toList();
 
-    if (sA.length != 11 || sB.length != 11) {
+    if (sA.length < 11 || sB.length < 11) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Both teams must have exactly 11 players!'))
+        const SnackBar(content: Text('Both teams must have at least 11 players!'))
       );
       return null;
     }

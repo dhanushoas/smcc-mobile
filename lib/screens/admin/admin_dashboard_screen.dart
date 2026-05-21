@@ -349,7 +349,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (confirmed == true) {
       try {
-        await ApiService.deleteMatch(match['_id'] ?? match['id']);
+        await ApiService.deleteMatch((match['_id'] ?? match['id']).toString());
         _fetchMatches();
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Match deleted')));
       } catch (e) {
