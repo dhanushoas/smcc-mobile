@@ -61,7 +61,7 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (checkTeamMatch(_teamAController.text, _teamBController.text)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Both teams cannot be the same (case-insensitive check)')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Both the teams can not be the same.')));
       return;
     }
 
@@ -316,7 +316,7 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
           controller: controller,
           enabled: enabled,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-          validator: (val) => (val == null || val.isEmpty) && enabled ? 'Required' : null,
+          validator: (val) => (val == null || val.isEmpty) && enabled ? (label.toLowerCase().contains('team') ? 'Team name is required.' : 'Required') : null,
           style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: enabled ? Colors.black : Colors.grey),
           decoration: InputDecoration(
             prefixIcon: Icon(icon, size: 20),

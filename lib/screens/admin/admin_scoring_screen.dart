@@ -196,7 +196,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             final bool isWOrNB = ['w', 'nb'].contains(extraType);
             
             // Advanced settings
-            final settings = currentScore['settings'] ?? {};
+            final settings = currentScore['settings'] ?? match['settings'] ?? {};
             final wideSettings = settings['wideBall'] ?? {'reBall': true, 'runs': 1};
             final nbSettings = settings['noBall'] ?? {'reBall': true, 'runs': 1};
             
@@ -254,6 +254,193 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             if (bIdx != -1) bowling[bIdx]['wickets'] = (int.tryParse(bowling[bIdx]['wickets']?.toString() ?? '0') ?? 0) + 1;
             _advanceBall(currentScore, bIdx != -1 ? bowling[bIdx] : null, false);
             _logBall(currentScore, 'W');
+            break;
+
+          case 'wicket_with_replacement':
+          case 'retired_with_replacement':
+            final String newName = value.toString().trim();
+            final wDetail = params?['wicketDetails'] ?? {'type': 'bowled', 'ballType': 'normal'};
+            final String wType = wDetail['type'].toString();
+            final String ballType = wDetail['ballType']?.toString() ?? 'normal';
+            final String whomOut = wDetail['whomOut']?.toString() ?? 'striker';
+            final String fielder = wDetail['fielder']?.toString() ?? '';
+            final bool crossed = wDetail['crossed'] == true;
+            final int completedRuns = int.tryParse(wDetail['runs']?.toString() ?? '0') ?? 0;
+            
+            final bool isStrikerReplacement = whomOut == 'striker';
+            final String outPlayerName = isStrikerReplacement ? strikerName.toString() : nonStrikerName.toString();
+            final int outIdx = batting.indexWhere((p) => (p['player'] ?? '').toString() == outPlayerName);
+            
+            if (type == 'wicket_with_replacement') {
+              if (outIdx != -1) {
+                currentInn['wickets'] = (int.tryParse(currentInn['wickets']?.toString() ?? '0') ?? 0) + 1;
+                currentScore['wickets'] = currentInn['wickets'];
+                
+                String outStatus = '';
+                if (wType == 'caught') {
+                  outStatus = 'c $fielder b $bowlerName';
+                } else if (wType == 'bowled') {
+                  outStatus = 'b $bowlerName';
+                } else if (wType == 'lbw') {
+                  outStatus = 'lbw b $bowlerName';
+                } else if (wType == 'stumped') {
+                  outStatus = 'st $fielder b $bowlerName';
+                } else if (wType == 'run out') {
+                  outStatus = 'run out ($fielder)';
+                } else if (wType == 'hit wicket') {
+                  outStatus = 'hit wicket b $bowlerName';
+                } else {
+                  outStatus = 'out';
+                }
+                
+                batting[outIdx]['status'] = outStatus;
+                if (wType != 'run out') {
+                  batting[outIdx]['bowler'] = bowlerName;
+                  if (bIdx != -1) {
+                    bowling[bIdx]['wickets'] = (int.tryParse(bowling[bIdx]['wickets']?.toString() ?? '0') ?? 0) + 1;
+                  }
+                }
+                
+                final List<Map<String, dynamic>> fallOfWickets = List<Map<String, dynamic>>.from(
+                  (currentInn['fallOfWickets'] as List? ?? []).map((e) => Map<String, dynamic>.from(e))
+                );
+                fallOfWickets.add({
+                  'wicket': currentInn['wickets'],
+                  'runs': currentInn['runs'],
+                  'overs': currentInn['overs'],
+                  'player': outPlayerName,
+                });
+                currentInn['fallOfWickets'] = fallOfWickets;
+                
+                bool ballCounts = true;
+                if (wType == 'run out') {
+                  currentInn['runs'] = (int.tryParse(currentInn['runs']?.toString() ?? '0') ?? 0) + completedRuns;
+                  currentScore['runs'] = currentInn['runs'];
+                  if (bIdx != -1) bowling[bIdx]['runs'] = (int.tryParse(bowling[bIdx]['runs']?.toString() ?? '0') ?? 0) + completedRuns;
+                  if (sIdx != -1) batting[sIdx]['runs'] = (int.tryParse(batting[sIdx]['runs']?.toString() ?? '0') ?? 0) + completedRuns;
+                  
+                  final settings = currentScore['settings'] ?? match['settings'] ?? {};
+                  final wideSettings = settings['wideBall'] ?? {'reBall': true, 'runs': 1};
+                  final nbSettings = settings['noBall'] ?? {'reBall': true, 'runs': 1};
+                  final int wideRunCost = int.tryParse(wideSettings['runs']?.toString() ?? '1') ?? 1;
+                  final int nbRunCost = int.tryParse(nbSettings['runs']?.toString() ?? '1') ?? 1;
+                  
+                  if (ballType == 'wide') {
+                    currentInn['runs'] = (int.tryParse(currentInn['runs']?.toString() ?? '0') ?? 0) + wideRunCost;
+                    currentScore['runs'] = currentInn['runs'];
+                    
+                    final extras = Map<String, dynamic>.from(currentInn['extras'] ?? {});
+                    extras['wides'] = (int.tryParse(extras['wides']?.toString() ?? '0') ?? 0) + wideRunCost;
+                    extras['total'] = (int.tryParse(extras['total']?.toString() ?? '0') ?? 0) + wideRunCost;
+                    currentInn['extras'] = extras;
+                    
+                    if (bIdx != -1) {
+                      bowling[bIdx]['runs'] = (int.tryParse(bowling[bIdx]['runs']?.toString() ?? '0') ?? 0) + wideRunCost;
+                      bowling[bIdx]['wides'] = (int.tryParse(bowling[bIdx]['wides']?.toString() ?? '0') ?? 0) + 1;
+                    }
+                    ballCounts = wideSettings['reBall'] == false;
+                  } else if (ballType == 'no-ball') {
+                    currentInn['runs'] = (int.tryParse(currentInn['runs']?.toString() ?? '0') ?? 0) + nbRunCost;
+                    currentScore['runs'] = currentInn['runs'];
+                    
+                    final extras = Map<String, dynamic>.from(currentInn['extras'] ?? {});
+                    extras['noBalls'] = (int.tryParse(extras['noBalls']?.toString() ?? '0') ?? 0) + nbRunCost;
+                    extras['total'] = (int.tryParse(extras['total']?.toString() ?? '0') ?? 0) + nbRunCost;
+                    currentInn['extras'] = extras;
+                    
+                    if (bIdx != -1) {
+                      bowling[bIdx]['runs'] = (int.tryParse(bowling[bIdx]['runs']?.toString() ?? '0') ?? 0) + nbRunCost;
+                      bowling[bIdx]['noBalls'] = (int.tryParse(bowling[bIdx]['noBalls']?.toString() ?? '0') ?? 0) + 1;
+                    }
+                    ballCounts = nbSettings['reBall'] == false;
+                  } else if (ballType == 'mankad') {
+                    ballCounts = false;
+                  }
+                  
+                  if (ballType != 'mankad' && ballType != 'wide') {
+                    if (sIdx != -1) batting[sIdx]['balls'] = (int.tryParse(batting[sIdx]['balls']?.toString() ?? '0') ?? 0) + 1;
+                  }
+                  
+                  _logBall(currentScore, 'W' + (completedRuns > 0 ? completedRuns.toString() : ''));
+                } else {
+                  if (wType == 'stumped' && ballType == 'wide') {
+                    final settings = currentScore['settings'] ?? match['settings'] ?? {};
+                    final wideSettings = settings['wideBall'] ?? {'reBall': true, 'runs': 1};
+                    final int wideRunCost = int.tryParse(wideSettings['runs']?.toString() ?? '1') ?? 1;
+                    
+                    currentInn['runs'] = (int.tryParse(currentInn['runs']?.toString() ?? '0') ?? 0) + wideRunCost;
+                    currentScore['runs'] = currentInn['runs'];
+                    
+                    final extras = Map<String, dynamic>.from(currentInn['extras'] ?? {});
+                    extras['wides'] = (int.tryParse(extras['wides']?.toString() ?? '0') ?? 0) + wideRunCost;
+                    extras['total'] = (int.tryParse(extras['total']?.toString() ?? '0') ?? 0) + wideRunCost;
+                    currentInn['extras'] = extras;
+                    
+                    if (bIdx != -1) {
+                      bowling[bIdx]['runs'] = (int.tryParse(bowling[bIdx]['runs']?.toString() ?? '0') ?? 0) + wideRunCost;
+                      bowling[bIdx]['wides'] = (int.tryParse(bowling[bIdx]['wides']?.toString() ?? '0') ?? 0) + 1;
+                    }
+                    ballCounts = wideSettings['reBall'] == false;
+                  } else {
+                    if (ballType != 'wide') {
+                      if (sIdx != -1) batting[sIdx]['balls'] = (int.tryParse(batting[sIdx]['balls']?.toString() ?? '0') ?? 0) + 1;
+                    }
+                  }
+                  _logBall(currentScore, 'W');
+                }
+                
+                if (ballCounts) {
+                  double currentOversVal = double.tryParse(currentInn['overs']?.toString() ?? '0.0') ?? 0.0;
+                  int totalMatchBalls = oversToBalls(currentOversVal) + 1;
+                  
+                  double currentBOversVal = bIdx != -1 ? (double.tryParse(bowling[bIdx]['overs']?.toString() ?? '0.0') ?? 0.0) : 0.0;
+                  int totalBowlerBalls = oversToBalls(currentBOversVal) + 1;
+                  
+                  if (totalMatchBalls % 6 == 0) {
+                    currentScore['thisOver'] = [];
+                    currentScore['lastOverBowler'] = currentScore['bowler'];
+                    currentScore['bowler'] = null;
+                    
+                    final temp = currentScore['striker'];
+                    currentScore['striker'] = currentScore['nonStriker'];
+                    currentScore['nonStriker'] = temp;
+                    
+                    Future.microtask(() => _showBowlerReplacementModal());
+                  }
+                  
+                  currentInn['overs'] = ballsToOvers(totalMatchBalls);
+                  currentScore['overs'] = currentInn['overs'].toStringAsFixed(1);
+                  if (bIdx != -1) bowling[bIdx]['overs'] = ballsToOvers(totalBowlerBalls);
+                }
+              }
+            } else {
+              if (outIdx != -1) {
+                batting[outIdx]['status'] = 'retired hurt';
+                batting[outIdx]['balls'] = (int.tryParse(batting[outIdx]['balls']?.toString() ?? '0') ?? 0) + 1;
+              }
+            }
+            
+            bool finalIsStrikerReplacement = isStrikerReplacement;
+            if (type == 'wicket_with_replacement') {
+              if (wType == 'run out' && crossed) {
+                final temp = currentScore['striker'];
+                currentScore['striker'] = currentScore['nonStriker'];
+                currentScore['nonStriker'] = temp;
+                finalIsStrikerReplacement = !isStrikerReplacement;
+              } else if (wType != 'run out') {
+                finalIsStrikerReplacement = true;
+              }
+            }
+            
+            if (finalIsStrikerReplacement) {
+              currentScore['striker'] = newName;
+            } else {
+              currentScore['nonStriker'] = newName;
+            }
+            
+            if (!batting.any((p) => (p['player'] ?? '').toString() == newName)) {
+              batting.add({'player': newName, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0.0});
+            }
             break;
 
           case 'swap':
@@ -378,6 +565,39 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
 
           case 'new_bowler':
             final nextB = value.toString().trim();
+            final lastB = currentScore['lastOverBowler']?.toString().trim();
+            final currentB = currentScore['bowler']?.toString().trim();
+
+            if (nextB.isEmpty) return;
+            if (nextB == currentB) {
+              if (mounted) {
+                setState(() => isUpdating = false);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("This bowler was already bowling! Select a different replacement."), backgroundColor: Colors.red));
+              }
+              return;
+            }
+            if (nextB == lastB) {
+              if (mounted) {
+                setState(() => isUpdating = false);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("New bowler's name can not be the same as previous bowler."), backgroundColor: Colors.red));
+              }
+              return;
+            }
+
+            final bowlerStat = bowling.firstWhere((b) => (b['player'] ?? '').toString().trim() == nextB, orElse: () => {});
+            if (bowlerStat.isNotEmpty) {
+              final double bowlerOvers = double.tryParse(bowlerStat['overs']?.toString() ?? '0.0') ?? 0.0;
+              final int maxOvers = int.tryParse(match['overs_per_match']?.toString() ?? match['totalOvers']?.toString() ?? '20') ?? 20;
+              final int limit = maxOvers <= 10 ? 2 : (maxOvers * 0.2).ceil();
+              if (bowlerOvers.floor() >= limit) {
+                if (mounted) {
+                  setState(() => isUpdating = false);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("A bowler cannot bowl more than $limit overs!"), backgroundColor: Colors.red));
+                }
+                return;
+              }
+            }
+
             currentMatch['currentBowler'] = nextB;
             currentScore['bowler'] = nextB;
             final isTeamA = match['teamA'].toString() == currentScore['battingTeam'].toString();
@@ -424,7 +644,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
         innings[bowlingTeamIdx] = currentBowlInn;
         
         List<dynamic> historyLog = List.from(match['history'] ?? []);
-        if (['runs', 'extra', 'wicket', 'swap', 'overthrow'].contains(type)) {
+        if (['runs', 'extra', 'wicket', 'swap', 'overthrow', 'wicket_with_replacement', 'retired_with_replacement'].contains(type)) {
             final snapshot = Map<String, dynamic>.from(match);
             snapshot.remove('history');
             historyLog.add(snapshot);
@@ -576,12 +796,12 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       _showWicketModalWithContext(runs);
     } else {
       if (_isWideChecked) {
-        final settings = match['score']?['settings'] ?? {};
+        final settings = match['score']?['settings'] ?? match['settings'] ?? {};
         final wideSettings = settings['wideBall'] ?? {'reBall': true, 'runs': 1};
         final int wideRunCost = int.tryParse(wideSettings['runs']?.toString() ?? '1') ?? 1;
         _handleUpdate('extra', value: 'w', params: {'amount': wideRunCost + runs});
       } else if (_isNbChecked) {
-        final settings = match['score']?['settings'] ?? {};
+        final settings = match['score']?['settings'] ?? match['settings'] ?? {};
         final nbSettings = settings['noBall'] ?? {'reBall': true, 'runs': 1};
         final int nbRunCost = int.tryParse(nbSettings['runs']?.toString() ?? '1') ?? 1;
         final bool isBat = !_isByesChecked && !_isLbChecked;
@@ -632,46 +852,289 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   }
 
   void _showWicketModalWithContext(int runs) {
-    final List<String> wicketTypes = ['Bowled', 'Caught', 'LBW', 'Stumped', 'Run Out', 'Hit Wicket', 'Retired'];
+    final score = match['score'] ?? {};
+    final String striker = score['striker']?.toString() ?? '';
+    final String nonStriker = score['nonStriker']?.toString() ?? '';
     
+    final innings = match['innings'] as List;
+    final String battingTeamName = score['battingTeam'].toString();
+    final int battingTeamIdx = innings.indexWhere((inn) => inn['team'].toString() == battingTeamName);
+    if (battingTeamIdx == -1) return;
+    
+    final currentInn = innings[battingTeamIdx] as Map<String, dynamic>;
+    final batting = List<Map<String, dynamic>>.from(currentInn['batting'] ?? []);
+    
+    final isTeamA = match['teamA'].toString() == battingTeamName;
+    final battingSquad = List<String>.from(isTeamA 
+        ? (match['squadA'] ?? match['teamASquad'] ?? []) 
+        : (match['squadB'] ?? match['teamBSquad'] ?? []));
+    final fieldingSquad = List<String>.from(isTeamA 
+        ? (match['squadB'] ?? match['teamBSquad'] ?? []) 
+        : (match['squadA'] ?? match['teamASquad'] ?? []));
+        
+    final List<String> availableBatsmen = battingSquad.where((name) {
+      final nameStr = name.trim();
+      if (nameStr.isEmpty) return false;
+      if (nameStr == striker || nameStr == nonStriker) return false;
+      
+      final pRow = batting.firstWhere(
+        (p) => p['player'].toString().trim() == nameStr,
+        orElse: () => {},
+      );
+      if (pRow.isNotEmpty) {
+        final status = pRow['status']?.toString().toLowerCase() ?? '';
+        if (status != 'not out') return false;
+      }
+      return true;
+    }).toList();
+
+    String wicketType = 'caught';
+    String fielder = '';
+    String ballType = 'normal';
+    String whomOut = 'striker';
+    bool crossed = false;
+    String nextBatsman = '';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('OUT!', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.red, letterSpacing: 2)),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: wicketTypes.map((type) => ElevatedButton(
-                onPressed: () {
-                   Navigator.pop(context);
-                   _handleUpdate('wicket', value: type);
-                   setState(() {
-                     _isWideChecked = false;
-                     _isNbChecked = false;
-                     _isByesChecked = false;
-                     _isLbChecked = false;
-                     _isWicketChecked = false;
-                   });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade50,
-                  foregroundColor: Colors.red.shade900,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
+          ),
+          padding: EdgeInsets.only(
+            left: 32,
+            right: 32,
+            top: 32,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    '☝️ WICKET DETAILS',
+                    style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.red),
+                  ),
                 ),
-                child: Text(type.toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10)),
-              )).toList(),
+                const SizedBox(height: 24),
+                
+                Text('WICKET TYPE', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: wicketType,
+                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'caught', child: Text('Caught')),
+                    DropdownMenuItem(value: 'bowled', child: Text('Bowled')),
+                    DropdownMenuItem(value: 'lbw', child: Text('LBW')),
+                    DropdownMenuItem(value: 'stumped', child: Text('Stumped')),
+                    DropdownMenuItem(value: 'run out', child: Text('Run Out')),
+                    DropdownMenuItem(value: 'hit wicket', child: Text('Hit Wicket')),
+                  ],
+                  onChanged: (val) {
+                    setModalState(() {
+                      wicketType = val!;
+                      if (wicketType == 'run out') {
+                        whomOut = 'striker';
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                if (wicketType == 'caught' || wicketType == 'stumped' || wicketType == 'run out') ...[
+                  Text(wicketType == 'stumped' ? 'WICKET KEEPER NAME' : 'FIELDER NAME', 
+                      style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+                  const SizedBox(height: 8),
+                  Autocomplete<String>(
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      return fieldingSquad.where((String option) {
+                        return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                      });
+                    },
+                    onSelected: (String selection) {
+                      setModalState(() => fielder = selection);
+                    },
+                    fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                      return TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        onChanged: (v) => setModalState(() => fielder = v),
+                        decoration: InputDecoration(
+                          border: const OutlineInputBorder(),
+                          hintText: wicketType == 'stumped' ? 'Enter Wicket Keeper name' : 'Enter Fielder name',
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                if (wicketType == 'run out') ...[
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: crossed,
+                        onChanged: (val) => setModalState(() => crossed = val ?? false),
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Batters Crossed?',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                if (wicketType == 'run out' || wicketType == 'stumped') ...[
+                  Text('BALL CATEGORY', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: ballType,
+                    decoration: const InputDecoration(border: OutlineInputBorder()),
+                    items: [
+                      const DropdownMenuItem(value: 'normal', child: Text('Normal Ball')),
+                      const DropdownMenuItem(value: 'wide', child: Text('Wide Ball (+1 Extra)')),
+                      if (wicketType == 'run out') ...[
+                        const DropdownMenuItem(value: 'no-ball', child: Text('No Ball (+1 Extra)')),
+                        const DropdownMenuItem(value: 'mankad', child: Text('Mankad (Non-striker)')),
+                      ]
+                    ],
+                    onChanged: (val) {
+                      setModalState(() {
+                        ballType = val!;
+                        if (ballType == 'mankad') {
+                          whomOut = 'non-striker';
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                if (wicketType == 'run out') ...[
+                  Text('WHO IS OUT?', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: ballType == 'mankad' ? null : () => setModalState(() => whomOut = 'striker'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: whomOut == 'striker' ? Colors.red : Colors.grey.shade200,
+                            foregroundColor: whomOut == 'striker' ? Colors.white : Colors.black87,
+                          ),
+                          child: Text('STRIKER ($striker)', maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => setModalState(() => whomOut = 'non-striker'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: whomOut == 'non-striker' ? Colors.red : Colors.grey.shade200,
+                            foregroundColor: whomOut == 'non-striker' ? Colors.white : Colors.black87,
+                          ),
+                          child: Text('NON-STRIKER ($nonStriker)', maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                Text('SELECT NEXT BATSMAN', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+                const SizedBox(height: 8),
+                Autocomplete<String>(
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    return availableBatsmen.where((String option) {
+                      return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                    });
+                  },
+                  onSelected: (String selection) {
+                    setModalState(() => nextBatsman = selection);
+                  },
+                  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      onChanged: (v) => setModalState(() => nextBatsman = v),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Search or type next batsman name',
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 32),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final nextB = nextBatsman.trim();
+                      if (nextB.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select or type next batsman!')));
+                        return;
+                      }
+                      
+                      final String otherBatsman = whomOut == 'striker' ? nonStriker : striker;
+                      if (nextB == otherBatsman) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text("Batsman's name can not be the same as current batsman."),
+                          backgroundColor: Colors.red,
+                        ));
+                        return;
+                      }
+                      if (nextB == (whomOut == 'striker' ? striker : nonStriker)) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text("Openers can not be the same."),
+                          backgroundColor: Colors.red,
+                        ));
+                        return;
+                      }
+                      
+                      Navigator.pop(context);
+                      
+                      _handleUpdate('wicket_with_replacement', value: nextB, params: {
+                        'wicketDetails': {
+                          'type': wicketType,
+                          'fielder': fielder.trim(),
+                          'ballType': ballType,
+                          'whomOut': whomOut,
+                          'crossed': crossed,
+                          'runs': runs,
+                        }
+                      });
+                      
+                      setState(() {
+                        _isWicketChecked = false;
+                        _isWideChecked = false;
+                        _isNbChecked = false;
+                        _isByesChecked = false;
+                        _isLbChecked = false;
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text('SUBMIT', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16)),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-          ],
+          ),
         ),
       ),
     );
@@ -1066,7 +1529,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
 
   void _showMatchSettingsModal() {
     final score = match['score'] ?? {};
-    final settings = score['settings'] ?? {};
+    final settings = score['settings'] ?? match['settings'] ?? {};
     final wideSettings = settings['wideBall'] ?? {'reBall': true, 'runs': 1};
     final nbSettings = settings['noBall'] ?? {'reBall': true, 'runs': 1};
     
@@ -1163,19 +1626,50 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            final int ppt = int.tryParse(playersController.text) ?? 11;
-                            final int wRuns = int.tryParse(wideRunsController.text) ?? 1;
-                            final int nRuns = int.tryParse(nbRunsController.text) ?? 1;
+                            final int? ppt = int.tryParse(playersController.text);
+                            final int? wRuns = int.tryParse(wideRunsController.text);
+                            final int? nRuns = int.tryParse(nbRunsController.text);
                             
+                            if (ppt == null || ppt < 2) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Team size can not be less than 2 players.', style: TextStyle(color: Colors.white)),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+                            if (wRuns == null || wRuns < 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Wide ball run can not be negative.', style: TextStyle(color: Colors.white)),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+                            if (nRuns == null || nRuns < 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('No ball run can not be negative.', style: TextStyle(color: Colors.white)),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
                             final updatedMatch = Map<String, dynamic>.from(match);
                             final currentScore = Map<String, dynamic>.from(updatedMatch['score'] ?? {});
                             
-                            currentScore['settings'] = {
+                            final Map<String, dynamic> newSettings = {
                               'playersPerTeam': ppt,
                               'wideBall': {'reBall': wideReBallVal, 'runs': wRuns},
                               'noBall': {'reBall': nbReBallVal, 'runs': nRuns},
                             };
+                            
+                            currentScore['settings'] = newSettings;
                             updatedMatch['score'] = currentScore;
+                            updatedMatch['settings'] = newSettings;
                             
                             Navigator.pop(context);
                             _handleUpdate('manual', value: updatedMatch);
@@ -2231,42 +2725,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   }
 
   void _showWicketModal() {
-    final List<String> wicketTypes = ['Bowled', 'Caught', 'LBW', 'Stumped', 'Run Out', 'Hit Wicket', 'Retired'];
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('OUT!', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.red, letterSpacing: 2)),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: wicketTypes.map((type) => ElevatedButton(
-                onPressed: () {
-                   Navigator.pop(context);
-                   _handleUpdate('wicket', value: type);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade50,
-                  foregroundColor: Colors.red.shade900,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: Text(type.toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10)),
-              )).toList(),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
+    _showWicketModalWithContext(0);
   }
 
   void _showOverthrowModal() {
@@ -3182,25 +3641,165 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
 
   void _showRetireModal() {
     final score = match['score'] ?? {};
-    final striker = score['striker'];
+    final String striker = score['striker']?.toString() ?? '';
+    final String nonStriker = score['nonStriker']?.toString() ?? '';
+    
+    if (striker.isEmpty) return;
 
-    if (striker == null) return;
+    final innings = match['innings'] as List;
+    final String battingTeamName = score['battingTeam'].toString();
+    final int battingTeamIdx = innings.indexWhere((inn) => inn['team'].toString() == battingTeamName);
+    if (battingTeamIdx == -1) return;
+    
+    final currentInn = innings[battingTeamIdx] as Map<String, dynamic>;
+    final batting = List<Map<String, dynamic>>.from(currentInn['batting'] ?? []);
+    
+    final isTeamA = match['teamA'].toString() == battingTeamName;
+    final battingSquad = List<String>.from(isTeamA 
+        ? (match['squadA'] ?? match['teamASquad'] ?? []) 
+        : (match['squadB'] ?? match['teamBSquad'] ?? []));
+        
+    final List<String> availableBatsmen = battingSquad.where((name) {
+      final nameStr = name.trim();
+      if (nameStr.isEmpty) return false;
+      if (nameStr == striker || nameStr == nonStriker) return false;
+      
+      final pRow = batting.firstWhere(
+        (p) => p['player'].toString().trim() == nameStr,
+        orElse: () => {},
+      );
+      if (pRow.isNotEmpty) {
+        final status = pRow['status']?.toString().toLowerCase() ?? '';
+        if (status != 'not out') return false;
+      }
+      return true;
+    }).toList();
 
-    showDialog(
+    String nextBatsman = '';
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('RETIRE BATTER?', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
-        content: Text('Are you sure you want to retire $striker?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _handleUpdate('retire', value: striker);
-            },
-            child: const Text('RETIRE', style: TextStyle(color: Colors.red)),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
           ),
-        ],
+          padding: EdgeInsets.only(
+            left: 32,
+            right: 32,
+            top: 32,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    '🏥 RETIRE BATSMAN',
+                    style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.blue),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Text(
+                    'Are you sure you want to retire $striker?',
+                    style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey.shade700),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                Text('SELECT NEXT BATSMAN', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+                const SizedBox(height: 8),
+                Autocomplete<String>(
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    return availableBatsmen.where((String option) {
+                      return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                    });
+                  },
+                  onSelected: (String selection) {
+                    setModalState(() => nextBatsman = selection);
+                  },
+                  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      onChanged: (v) => setModalState(() => nextBatsman = v),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Search or type next batsman name',
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 32),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text('CANCEL', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final nextB = nextBatsman.trim();
+                          if (nextB.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select or type next batsman!')));
+                            return;
+                          }
+                          
+                          if (nextB == nonStriker) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text("Batsman's name can not be the same as current batsman."),
+                              backgroundColor: Colors.red,
+                            ));
+                            return;
+                          }
+                          if (nextB == striker) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text("Openers can not be the same."),
+                              backgroundColor: Colors.red,
+                            ));
+                            return;
+                          }
+                          
+                          Navigator.pop(context);
+                          
+                          _handleUpdate('retired_with_replacement', value: nextB, params: {
+                            'wicketDetails': {
+                              'type': 'retired hurt',
+                              'whomOut': 'striker',
+                            }
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text('SUBMIT', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
