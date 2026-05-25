@@ -65,11 +65,6 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
       return;
     }
 
-    if (_squadA.length < 11 || _squadB.length < 11) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Both teams must have at least 11 players!')));
-      return;
-    }
-
     setState(() => _isSaving = true);
     final fullDate = DateTime(
       _selectedDate.year,
@@ -87,6 +82,8 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
       'teamB': _teamBController.text,
       'squadA': _squadA,
       'squadB': _squadB,
+      'teamASquad': _squadA,
+      'teamBSquad': _squadB,
       'venue': _venueController.text,
       'overs_per_match': int.tryParse(_oversController.text) ?? 20,
       'competitionType': _competitionType,
@@ -237,7 +234,7 @@ class _MatchFormScreenState extends State<MatchFormScreen> {
                 icon: const Icon(Icons.people_outline),
                 label: Text('ADD SQUADS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _squadA.length >= 11 && _squadB.length >= 11 ? Colors.green : Colors.orange,
+                  backgroundColor: (_squadA.isNotEmpty && _squadB.isNotEmpty) ? Colors.green : Colors.orange,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

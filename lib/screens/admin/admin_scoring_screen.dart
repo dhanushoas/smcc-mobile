@@ -106,17 +106,6 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
         final currentScore = Map<String, dynamic>.from(match['score'] ?? {});
         final innings = List<Map<String, dynamic>>.from((match['innings'] as List).map((e) => Map<String, dynamic>.from(e)));
         
-        // --- MATCH SETUP VALIDATION (Parity upgrade) ---
-        final squadA = List.from(match['squadA'] ?? []);
-        final squadB = List.from(match['squadB'] ?? []);
-        if (squadA.isEmpty || squadB.isEmpty) {
-          if (mounted) {
-            setState(() => isUpdating = false);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select squads before starting the match.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
-          }
-          return;
-        }
-
         final toss = match['toss'] ?? {};
         if (toss['winner'] == null || toss['decision'] == null) {
           if (mounted) {
@@ -139,7 +128,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
         final nonStrikerName = currentScore['nonStriker'];
         
         // Bypassing player validation for pure 'swap' logic or 'new_bowler' selection itself
-        if (type != 'swap' && type != 'retire' && type != 'new_bowler') {
+        if (type != 'swap' && type != 'retire' && type != 'new_bowler' && type != 'init') {
           if (strikerName == null || bowlerName == null) {
              if (mounted) {
                setState(() => isUpdating = false);
@@ -331,9 +320,84 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             }
             break;
             
+          case 'init':
+            final Map<String, dynamic> data = value as Map<String, dynamic>;
+            final String s = data['s'].toString().trim();
+            final String ns = data['ns'].toString().trim();
+            final String b = data['b'].toString().trim();
+            final String battingTeam = data['team'].toString().trim();
+
+            final isTeamA = match['teamA'].toString() == battingTeam;
+            final squadA = List<String>.from(currentMatch['squadA'] ?? currentMatch['teamASquad'] ?? []);
+            final squadB = List<String>.from(currentMatch['squadB'] ?? currentMatch['teamBSquad'] ?? []);
+            final teamASquad = List<String>.from(currentMatch['teamASquad'] ?? currentMatch['squadA'] ?? []);
+            final teamBSquad = List<String>.from(currentMatch['teamBSquad'] ?? currentMatch['squadB'] ?? []);
+
+            if (isTeamA) {
+              if (s.isNotEmpty && !squadA.contains(s)) squadA.add(s);
+              if (s.isNotEmpty && !teamASquad.contains(s)) teamASquad.add(s);
+              if (ns.isNotEmpty && !squadA.contains(ns)) squadA.add(ns);
+              if (ns.isNotEmpty && !teamASquad.contains(ns)) teamASquad.add(ns);
+              if (b.isNotEmpty && !squadB.contains(b)) squadB.add(b);
+              if (b.isNotEmpty && !teamBSquad.contains(b)) teamBSquad.add(b);
+            } else {
+              if (s.isNotEmpty && !squadB.contains(s)) squadB.add(s);
+              if (s.isNotEmpty && !teamBSquad.contains(s)) teamBSquad.add(s);
+              if (ns.isNotEmpty && !squadB.contains(ns)) squadB.add(ns);
+              if (ns.isNotEmpty && !teamBSquad.contains(ns)) teamBSquad.add(ns);
+              if (b.isNotEmpty && !squadA.contains(b)) squadA.add(b);
+              if (b.isNotEmpty && !teamASquad.contains(b)) teamASquad.add(b);
+            }
+
+            currentMatch['squadA'] = squadA;
+            currentMatch['squadB'] = squadB;
+            currentMatch['teamASquad'] = teamASquad;
+            currentMatch['teamBSquad'] = teamBSquad;
+
+            if (!batting.any((p) => p['player'].toString().trim() == s)) {
+              batting.add({'player': s, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0.0});
+            }
+            if (!batting.any((p) => p['player'].toString().trim() == ns)) {
+              batting.add({'player': ns, 'status': 'not out', 'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0, 'strikeRate': 0.0});
+            }
+            if (!bowling.any((p) => p['player'].toString().trim() == b)) {
+              bowling.add({'player': b, 'overs': '0.0', 'maidens': 0, 'runs': 0, 'wickets': 0, 'economy': 0.0});
+            }
+
+            currentScore['striker'] = s;
+            currentScore['nonStriker'] = ns;
+            currentScore['bowler'] = b;
+            currentMatch['currentBatsmen'] = [
+              {'name': s, 'onStrike': true, 'runs': 0, 'balls': 0},
+              {'name': ns, 'onStrike': false, 'runs': 0, 'balls': 0}
+            ];
+            currentMatch['currentBowler'] = b;
+            currentMatch['status'] = 'live';
+            currentScore['battingTeam'] = battingTeam;
+            break;
+
           case 'new_bowler':
-            currentMatch['currentBowler'] = value.toString();
-            currentScore['bowler'] = value.toString();
+            final nextB = value.toString().trim();
+            currentMatch['currentBowler'] = nextB;
+            currentScore['bowler'] = nextB;
+            final isTeamA = match['teamA'].toString() == currentScore['battingTeam'].toString();
+            final squadA = List<String>.from(currentMatch['squadA'] ?? currentMatch['teamASquad'] ?? []);
+            final squadB = List<String>.from(currentMatch['squadB'] ?? currentMatch['teamBSquad'] ?? []);
+            final teamASquad = List<String>.from(currentMatch['teamASquad'] ?? currentMatch['squadA'] ?? []);
+            final teamBSquad = List<String>.from(currentMatch['teamBSquad'] ?? currentMatch['squadB'] ?? []);
+
+            if (isTeamA) {
+              if (nextB.isNotEmpty && !squadB.contains(nextB)) squadB.add(nextB);
+              if (nextB.isNotEmpty && !teamBSquad.contains(nextB)) teamBSquad.add(nextB);
+            } else {
+              if (nextB.isNotEmpty && !squadA.contains(nextB)) squadA.add(nextB);
+              if (nextB.isNotEmpty && !teamASquad.contains(nextB)) teamASquad.add(nextB);
+            }
+
+            currentMatch['squadA'] = squadA;
+            currentMatch['squadB'] = squadB;
+            currentMatch['teamASquad'] = teamASquad;
+            currentMatch['teamBSquad'] = teamBSquad;
             break;
         }
         
@@ -366,7 +430,18 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             historyLog.add(snapshot);
         }
         
-        payload = {'score': currentScore, 'innings': innings, 'history': historyLog};
+        payload = {
+          'score': currentScore,
+          'innings': innings,
+          'history': historyLog,
+          'status': currentMatch['status'] ?? match['status'],
+          'currentBatsmen': currentMatch['currentBatsmen'] ?? match['currentBatsmen'],
+          'currentBowler': currentMatch['currentBowler'] ?? match['currentBowler'],
+          'teamASquad': currentMatch['teamASquad'] ?? match['teamASquad'],
+          'teamBSquad': currentMatch['teamBSquad'] ?? match['teamBSquad'],
+          'squadA': currentMatch['squadA'] ?? match['squadA'],
+          'squadB': currentMatch['squadB'] ?? match['squadB'],
+        };
       }
 
       final updated = await ApiService.updateScore((match['_id'] ?? match['id']).toString(), payload);
@@ -1317,16 +1392,16 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   }
 
   void _showSelectOpeningPlayersModal(String battingTeam) {
-    List<String> squadA = List<String>.from(match['squadA'] ?? []);
-    List<String> squadB = List<String>.from(match['squadB'] ?? []);
+    List<String> squadA = List<String>.from(match['teamASquad'] ?? match['squadA'] ?? []);
+    List<String> squadB = List<String>.from(match['teamBSquad'] ?? match['squadB'] ?? []);
     
     final isTeamA = match['teamA'].toString() == battingTeam;
     final battingSquad = isTeamA ? squadA : squadB;
     final bowlingSquad = isTeamA ? squadB : squadA;
     
-    String? striker;
-    String? nonStriker;
-    String? bowler;
+    String striker = '';
+    String nonStriker = '';
+    String bowler = '';
     
     showModalBottomSheet(
       context: context,
@@ -1345,31 +1420,67 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
               
               Text('STRIKER', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
               const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: striker,
-                decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Select Striker'),
-                items: battingSquad.where((e) => e.isNotEmpty).map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                onChanged: (v) => setModalState(() => striker = v),
+              Autocomplete<String>(
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  return battingSquad.where((String option) {
+                    return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                  });
+                },
+                onSelected: (String selection) {
+                  setModalState(() => striker = selection);
+                },
+                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    onChanged: (v) => setModalState(() => striker = v),
+                    decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Search or type Striker name'),
+                  );
+                },
               ),
               const SizedBox(height: 16),
               
               Text('NON-STRIKER', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
               const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: nonStriker,
-                decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Select Non-Striker'),
-                items: battingSquad.where((e) => e.isNotEmpty).map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                onChanged: (v) => setModalState(() => nonStriker = v),
+              Autocomplete<String>(
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  return battingSquad.where((String option) {
+                    return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                  });
+                },
+                onSelected: (String selection) {
+                  setModalState(() => nonStriker = selection);
+                },
+                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    onChanged: (v) => setModalState(() => nonStriker = v),
+                    decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Search or type Non-Striker name'),
+                  );
+                },
               ),
               const SizedBox(height: 16),
               
               Text('OPENING BOWLER', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
               const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: bowler,
-                decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Select Bowler'),
-                items: bowlingSquad.where((e) => e.isNotEmpty).map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                onChanged: (v) => setModalState(() => bowler = v),
+              Autocomplete<String>(
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  return bowlingSquad.where((String option) {
+                    return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                  });
+                },
+                onSelected: (String selection) {
+                  setModalState(() => bowler = selection);
+                },
+                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    onChanged: (v) => setModalState(() => bowler = v),
+                    decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Search or type Bowler name'),
+                  );
+                },
               ),
               
               const SizedBox(height: 32),
@@ -1377,11 +1488,14 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    if (striker == null || nonStriker == null || bowler == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select all players!')));
+                    final s = striker.trim();
+                    final ns = nonStriker.trim();
+                    final b = bowler.trim();
+                    if (s.isEmpty || ns.isEmpty || b.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select or type all players!')));
                       return;
                     }
-                    if (striker == nonStriker) {
+                    if (s == ns) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Striker and Non-Striker must be different!')));
                       return;
                     }
@@ -1389,9 +1503,9 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                     Navigator.pop(context);
                     
                     _handleUpdate('init', value: {
-                      's': striker,
-                      'ns': nonStriker,
-                      'b': bowler,
+                      's': s,
+                      'ns': ns,
+                      'b': b,
                       'team': battingTeam
                     });
                   },
@@ -1498,17 +1612,26 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   
   Widget _buildBowlerRow(Map<String, dynamic> row) {
     final style = GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w900, color: const Color(0xFF2E7D32));
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(flex: 3, child: Text(row['player']?.toString() ?? '', style: style, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(child: Center(child: Text('${row['overs'] ?? 0.0}', style: style))),
-          Expanded(child: Center(child: Text('${row['maidens'] ?? 0}', style: style))),
-          Expanded(child: Center(child: Text('${row['runs'] ?? 0}', style: style))),
-          Expanded(child: Center(child: Text('${row['wickets'] ?? 0}', style: style))),
-          Expanded(flex: 2, child: Center(child: Text('${row['economy'] ?? 0.0}', style: style))),
-        ],
+    return InkWell(
+      onTap: _showBowlerReplacementModal,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Expanded(flex: 3, child: Row(
+              children: [
+                Expanded(child: Text(row['player']?.toString() ?? '', style: style, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                const SizedBox(width: 4),
+                const Icon(Icons.edit, size: 12, color: Color(0xFF2E7D32)),
+              ],
+            )),
+            Expanded(child: Center(child: Text('${row['overs'] ?? 0.0}', style: style))),
+            Expanded(child: Center(child: Text('${row['maidens'] ?? 0}', style: style))),
+            Expanded(child: Center(child: Text('${row['runs'] ?? 0}', style: style))),
+            Expanded(child: Center(child: Text('${row['wickets'] ?? 0}', style: style))),
+            Expanded(flex: 2, child: Center(child: Text('${row['economy'] ?? 0.0}', style: style))),
+          ],
+        ),
       ),
     );
   }
@@ -1682,34 +1805,9 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     final striker = score['striker'];
     final bowler = score['bowler'];
     
-    final bool isReady = squadA.isNotEmpty && squadB.isNotEmpty && toss['winner'] != null && striker != null && bowler != null;
+    final bool isReady = toss['winner'] != null && striker != null && bowler != null;
     
     if (!isReady) {
-      if (squadA.isEmpty || squadB.isEmpty) {
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Column(
-            children: [
-              Text('SQUADS REQUIRED', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange)),
-              const SizedBox(height: 12),
-              Text('Please enter player squads before continuing setup.', style: GoogleFonts.outfit(color: Colors.grey.shade600)),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () => _showSquadsModal(),
-                icon: const Icon(Icons.people),
-                label: Text('SETUP SQUADS', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
-              ),
-            ],
-          ),
-        );
-      }
       return _buildScorerSetupCard();
     }
     
@@ -2018,16 +2116,10 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
 
   bool _checkReadiness() {
     final toss = match['toss'] ?? {};
-    final squadA = List.from(match['squadA'] ?? []);
-    final squadB = List.from(match['squadB'] ?? []);
     final score = match['score'] ?? {};
     final striker = score['striker'];
     final bowler = score['bowler'];
 
-    if (squadA.isEmpty || squadB.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select squads before starting the match.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
-      return false;
-    }
     if (toss['winner'] == null || toss['decision'] == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Complete toss before scoring.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
       return false;
@@ -2318,29 +2410,93 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     }
     final String battingTeamName = match['score']?['battingTeam']?.toString() ?? '';
     final int bowlingTeamIdx = (match['teamA'].toString() == battingTeamName) ? 1 : 0;
-    final bowlingSquad = List<String>.from((bowlingTeamIdx == 0 ? match['teamASquad'] : match['teamBSquad']) ?? []);
+    final bowlingSquad = List<String>.from((bowlingTeamIdx == 0 ? (match['teamASquad'] ?? match['squadA']) : (match['teamBSquad'] ?? match['squadB'])) ?? []);
     
+    String customBowler = '';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('⚾ REPLACE BOWLER', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 24),
-            ...bowlingSquad.where((p) => p.toString().trim().isNotEmpty).map((p) => ListTile(
-              title: Text(p.toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-              onTap: () {
-                Navigator.pop(context);
-                _handleUpdate('new_bowler', value: p);
-              },
-            )).toList(),
-            const SizedBox(height: 32),
-          ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
+          padding: EdgeInsets.only(left: 32, right: 32, top: 32, bottom: MediaQuery.of(context).viewInsets.bottom + 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('⚾ REPLACE BOWLER', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 16),
+              Autocomplete<String>(
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  return bowlingSquad.where((String option) {
+                    return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                  });
+                },
+                onSelected: (String selection) {
+                  setModalState(() => customBowler = selection);
+                },
+                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    onChanged: (v) => setModalState(() => customBowler = v),
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Search or type bowler name...',
+                      labelText: 'Bowler Name',
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final b = customBowler.trim();
+                    if (b.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select or type a bowler name')));
+                      return;
+                    }
+                    Navigator.pop(context);
+                    _handleUpdate('new_bowler', value: b);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('CONFIRM BOWLER', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                ),
+              ),
+              if (bowlingSquad.where((p) => p.toString().trim().isNotEmpty).isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('OR SELECT FROM SQUAD:', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                ),
+                const SizedBox(height: 8),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.3),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: bowlingSquad.where((p) => p.toString().trim().isNotEmpty).map((p) => ListTile(
+                      title: Text(p.toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                      contentPadding: EdgeInsets.zero,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _handleUpdate('new_bowler', value: p);
+                      },
+                    )).toList(),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -2808,13 +2964,6 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   }
 
   void _showTossModal() {
-    final squadA = List.from(match['squadA'] ?? []);
-    final squadB = List.from(match['squadB'] ?? []);
-    if (squadA.isEmpty || squadB.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select squads first!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
-      return;
-    }
-
     final toss = match['toss'] ?? {};
     if (toss['winner'] != null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Toss already conducted!')));
@@ -2905,8 +3054,8 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   void _showSquadsModal() {
     final teamA = match['teamA'];
     final teamB = match['teamB'];
-    List<String> squadA = List<String>.from(match['squadA'] ?? []);
-    List<String> squadB = List<String>.from(match['squadB'] ?? []);
+    List<String> squadA = List<String>.from(match['teamASquad'] ?? match['squadA'] ?? []);
+    List<String> squadB = List<String>.from(match['teamBSquad'] ?? match['squadB'] ?? []);
     while(squadA.length < 11) squadA.add('');
     while(squadB.length < 11) squadB.add('');
 
@@ -2999,15 +3148,13 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
                      // Save to API
                      final sA = squadA.where((e) => e.trim().isNotEmpty).toList();
                      final sB = squadB.where((e) => e.trim().isNotEmpty).toList();
-                     if (sA.length < 11 || sB.length < 11) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter at least 11 players for each team')));
-                        return;
-                     }
                      Navigator.pop(context);
                      
                      final updated = Map<String, dynamic>.from(match);
                      updated['squadA'] = sA;
                      updated['squadB'] = sB;
+                     updated['teamASquad'] = sA;
+                     updated['teamBSquad'] = sB;
                      
                      final score = Map<String, dynamic>.from(updated['score'] ?? {});
                      if (striker != null) score['striker'] = striker;
