@@ -25,6 +25,13 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   bool isUpdating = false;
   late io.Socket _socket;
 
+  // Checkbox states for delivery type
+  bool _isWideChecked = false;
+  bool _isNbChecked = false;
+  bool _isByesChecked = false;
+  bool _isLbChecked = false;
+  bool _isWicketChecked = false;
+
   @override
   void initState() {
     super.initState();
@@ -199,31 +206,48 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             final bool isBOrLB = ['b', 'lb'].contains(extraType);
             final bool isWOrNB = ['w', 'nb'].contains(extraType);
             
-            currentScore['runs'] = (int.tryParse(currentScore['runs']?.toString() ?? '0') ?? 0) + amount + (isWOrNB ? 1 : 0);
+            // Advanced settings
+            final settings = currentScore['settings'] ?? {};
+            final wideSettings = settings['wideBall'] ?? {'reBall': true, 'runs': 1};
+            final nbSettings = settings['noBall'] ?? {'reBall': true, 'runs': 1};
+            
+            final int wideRunCost = int.tryParse(wideSettings['runs']?.toString() ?? '1') ?? 1;
+            final int nbRunCost = int.tryParse(nbSettings['runs']?.toString() ?? '1') ?? 1;
+            final bool wideReBall = wideSettings['reBall'] == true;
+            final bool nbReBall = nbSettings['reBall'] == true;
+            
+            final int penalty = extraType == 'w' ? wideRunCost : (extraType == 'nb' ? nbRunCost : 0);
+            
+            currentScore['runs'] = (int.tryParse(currentScore['runs']?.toString() ?? '0') ?? 0) + amount;
             
             if (isBOrLB) {
                if (sIdx != -1) batting[sIdx]['balls'] = (int.tryParse(batting[sIdx]['balls']?.toString() ?? '0') ?? 0) + 1;
             }
             if (isWOrNB) {
                if (bIdx != -1) {
-                 bowling[bIdx]['runs'] = (int.tryParse(bowling[bIdx]['runs']?.toString() ?? '0') ?? 0) + amount + 1;
+                 bowling[bIdx]['runs'] = (int.tryParse(bowling[bIdx]['runs']?.toString() ?? '0') ?? 0) + amount;
                  if (extraType == 'w') bowling[bIdx]['wides'] = (int.tryParse(bowling[bIdx]['wides']?.toString() ?? '0') ?? 0) + 1;
                  if (extraType == 'nb') bowling[bIdx]['noBalls'] = (int.tryParse(bowling[bIdx]['noBalls']?.toString() ?? '0') ?? 0) + 1;
                }
                if (extraType == 'nb' && params?['isBat'] == true) {
-                 if (sIdx != -1) {
-                   batting[sIdx]['runs'] = (int.tryParse(batting[sIdx]['runs']?.toString() ?? '0') ?? 0) + amount;
+                 final int batterRuns = amount - penalty;
+                 if (sIdx != -1 && batterRuns > 0) {
+                   batting[sIdx]['runs'] = (int.tryParse(batting[sIdx]['runs']?.toString() ?? '0') ?? 0) + batterRuns;
                    batting[sIdx]['balls'] = (int.tryParse(batting[sIdx]['balls']?.toString() ?? '0') ?? 0) + 1;
                  }
                }
             }
             
-            _advanceBall(currentScore, bIdx != -1 ? bowling[bIdx] : null, isWOrNB);
+            final bool isReBall = extraType == 'w' ? wideReBall : (extraType == 'nb' ? nbReBall : false);
+            _advanceBall(currentScore, bIdx != -1 ? bowling[bIdx] : null, isReBall);
+            
             String ballLog;
             if (extraType == 'w') {
-                ballLog = amount > 0 ? 'W+$amount' : 'W';
+                final int baseR = amount - penalty;
+                ballLog = baseR > 0 ? 'W+$baseR' : 'W';
             } else if (extraType == 'nb') {
-                ballLog = amount > 0 ? 'NB+$amount' : 'NB';
+                final int baseR = amount - penalty;
+                ballLog = baseR > 0 ? 'NB+$baseR' : 'NB';
             } else {
                 ballLog = '${extraType.toUpperCase()}+$amount';
             }
@@ -413,26 +437,1113 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
     }
   }
 
+  // Helper to build a styled checkbox
+  Widget _buildCheckbox(String label, bool value, ValueChanged<bool?> onChanged) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Checkbox(
+          value: value,
+          onChanged: onChanged,
+          activeColor: const Color(0xFF2E7D32),
+        ),
+        Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
+      ],
+    );
+  }
+
+  // Circular run button
+  Widget _circleRunButton(String label, int runs) {
+    return InkWell(
+      onTap: () => _handleScoringClick(runs),
+      borderRadius: BorderRadius.circular(100),
+      child: Container(
+        width: 54,
+        height: 54,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFF2E7D32), width: 2.5),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF2E7D32)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Vertical action button helper
+  Widget _actionVerticalButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 14),
+        label: Text(label, style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          elevation: 1,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  // Handle run click taking checkboxes into account
+  void _handleScoringClick(int runs) {
+    if (_isWicketChecked) {
+      _showWicketModalWithContext(runs);
+    } else {
+      if (_isWideChecked) {
+        final settings = match['score']?['settings'] ?? {};
+        final wideSettings = settings['wideBall'] ?? {'reBall': true, 'runs': 1};
+        final int wideRunCost = int.tryParse(wideSettings['runs']?.toString() ?? '1') ?? 1;
+        _handleUpdate('extra', value: 'w', params: {'amount': wideRunCost + runs});
+      } else if (_isNbChecked) {
+        final settings = match['score']?['settings'] ?? {};
+        final nbSettings = settings['noBall'] ?? {'reBall': true, 'runs': 1};
+        final int nbRunCost = int.tryParse(nbSettings['runs']?.toString() ?? '1') ?? 1;
+        final bool isBat = !_isByesChecked && !_isLbChecked;
+        _handleUpdate('extra', value: 'nb', params: {'amount': nbRunCost + runs, 'isBat': isBat});
+      } else if (_isByesChecked) {
+        _handleUpdate('extra', value: 'b', params: {'amount': runs});
+      } else if (_isLbChecked) {
+        _handleUpdate('extra', value: 'lb', params: {'amount': runs});
+      } else {
+        _handleUpdate('runs', value: runs);
+      }
+      
+      // Reset checkboxes
+      setState(() {
+        _isWideChecked = false;
+        _isNbChecked = false;
+        _isByesChecked = false;
+        _isLbChecked = false;
+        _isWicketChecked = false;
+      });
+    }
+  }
+
+  void _showCustomRunsDialog() {
+    final runsController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('CUSTOM RUNS', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: runsController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Runs completed', border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          TextButton(
+            onPressed: () {
+              final int r = int.tryParse(runsController.text) ?? 0;
+              Navigator.pop(context);
+              _handleScoringClick(r);
+            },
+            child: const Text('SUBMIT'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showWicketModalWithContext(int runs) {
+    final List<String> wicketTypes = ['Bowled', 'Caught', 'LBW', 'Stumped', 'Run Out', 'Hit Wicket', 'Retired'];
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('OUT!', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.red, letterSpacing: 2)),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: wicketTypes.map((type) => ElevatedButton(
+                onPressed: () {
+                   Navigator.pop(context);
+                   _handleUpdate('wicket', value: type);
+                   setState(() {
+                     _isWideChecked = false;
+                     _isNbChecked = false;
+                     _isByesChecked = false;
+                     _isLbChecked = false;
+                     _isWicketChecked = false;
+                   });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade50,
+                  foregroundColor: Colors.red.shade900,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(type.toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 10)),
+              )).toList(),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Dynamic Partnership Calculation
+  Map<String, dynamic> calculatePartnership() {
+    final score = match['score'] ?? {};
+    final striker = score['striker'];
+    final nonStriker = score['nonStriker'];
+    
+    if (striker == null || nonStriker == null) {
+      return {'runs': 0, 'balls': 0, 'strikerRuns': 0, 'strikerBalls': 0, 'nonStrikerRuns': 0, 'nonStrikerBalls': 0, 'extras': 0};
+    }
+    
+    final history = match['history'] as List? ?? [];
+    final currentWickets = score['wickets'] ?? 0;
+    
+    Map<String, dynamic>? lastWicketState;
+    for (int i = history.length - 1; i >= 0; i--) {
+      final state = history[i];
+      final stateWickets = state['score']?['wickets'] ?? 0;
+      if (stateWickets < currentWickets) {
+        lastWicketState = state;
+        break;
+      }
+    }
+    
+    int startStrikerRuns = 0;
+    int startStrikerBalls = 0;
+    int startNonStrikerRuns = 0;
+    int startNonStrikerBalls = 0;
+    int startExtras = 0;
+    
+    if (lastWicketState != null) {
+      final lastScore = lastWicketState['score'] ?? {};
+      final battingTeamName = lastScore['battingTeam'];
+      final innings = lastWicketState['innings'] as List? ?? [];
+      final battingTeamIdx = innings.indexWhere((inn) => inn['team'] == battingTeamName);
+      if (battingTeamIdx != -1) {
+        final batting = innings[battingTeamIdx]['batting'] as List? ?? [];
+        final sRow = batting.firstWhere((p) => p['player'] == striker, orElse: () => null);
+        final nsRow = batting.firstWhere((p) => p['player'] == nonStriker, orElse: () => null);
+        startStrikerRuns = sRow?['runs'] ?? 0;
+        startStrikerBalls = sRow?['balls'] ?? 0;
+        startNonStrikerRuns = nsRow?['runs'] ?? 0;
+        startNonStrikerBalls = nsRow?['balls'] ?? 0;
+        startExtras = innings[battingTeamIdx]['extras']?['total'] ?? 0;
+      }
+    }
+    
+    final battingTeamName = score['battingTeam'];
+    final currentInningsList = match['innings'] as List? ?? [];
+    final currentBattingTeamIdx = currentInningsList.indexWhere((inn) => inn['team'] == battingTeamName);
+    
+    int currentStrikerRuns = 0;
+    int currentStrikerBalls = 0;
+    int currentNonStrikerRuns = 0;
+    int currentNonStrikerBalls = 0;
+    int currentExtras = 0;
+    
+    if (currentBattingTeamIdx != -1) {
+      final batting = currentInningsList[currentBattingTeamIdx]['batting'] as List? ?? [];
+      final sRow = batting.firstWhere((p) => p['player'] == striker, orElse: () => null);
+      final nsRow = batting.firstWhere((p) => p['player'] == nonStriker, orElse: () => null);
+      currentStrikerRuns = sRow?['runs'] ?? 0;
+      currentStrikerBalls = sRow?['balls'] ?? 0;
+      currentNonStrikerRuns = nsRow?['runs'] ?? 0;
+      currentNonStrikerBalls = nsRow?['balls'] ?? 0;
+      currentExtras = currentInningsList[currentBattingTeamIdx]['extras']?['total'] ?? 0;
+    }
+    
+    final pStrikerRuns = currentStrikerRuns - startStrikerRuns;
+    final pStrikerBalls = currentStrikerBalls - startStrikerBalls;
+    final pNonStrikerRuns = currentNonStrikerRuns - startNonStrikerRuns;
+    final pNonStrikerBalls = currentNonStrikerBalls - startNonStrikerBalls;
+    final pExtras = currentExtras - startExtras;
+    
+    final pRuns = pStrikerRuns + pNonStrikerRuns + pExtras;
+    final pBalls = pStrikerBalls + pNonStrikerBalls;
+    
+    return {
+      'runs': pRuns,
+      'balls': pBalls,
+      'strikerRuns': pStrikerRuns,
+      'strikerBalls': pStrikerBalls,
+      'nonStrikerRuns': pNonStrikerRuns,
+      'nonStrikerBalls': pNonStrikerBalls,
+      'extras': pExtras
+    };
+  }
+
+  void _showPartnershipsModal() {
+    final score = match['score'] ?? {};
+    final striker = score['striker'];
+    final nonStriker = score['nonStriker'];
+    if (striker == null || nonStriker == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select batsmen first!')));
+      return;
+    }
+    
+    final pData = calculatePartnership();
+    
+    final strikerRunsController = TextEditingController(text: pData['strikerRuns'].toString());
+    final strikerBallsController = TextEditingController(text: pData['strikerBalls'].toString());
+    final nonStrikerRunsController = TextEditingController(text: pData['nonStrikerRuns'].toString());
+    final nonStrikerBallsController = TextEditingController(text: pData['nonStrikerBalls'].toString());
+    final extrasController = TextEditingController(text: pData['extras'].toString());
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
+          ),
+          padding: EdgeInsets.only(left: 32, right: 32, top: 32, bottom: MediaQuery.of(context).viewInsets.bottom + 32),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('PARTNERSHIP DETAILS', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFF2E7D32))),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(striker.toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.green.shade800), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: strikerRunsController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Runs', border: OutlineInputBorder()),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: strikerBallsController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Balls', border: OutlineInputBorder()),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      children: [
+                        Text(
+                          '${int.tryParse(strikerRunsController.text) ?? 0} + ${int.tryParse(nonStrikerRunsController.text) ?? 0} + ${int.tryParse(extrasController.text) ?? 0}',
+                          style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey),
+                        ),
+                        Text(
+                          '${(int.tryParse(strikerRunsController.text) ?? 0) + (int.tryParse(nonStrikerRunsController.text) ?? 0) + (int.tryParse(extrasController.text) ?? 0)}',
+                          style: GoogleFonts.outfit(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.green),
+                        ),
+                        Text(
+                          '(${(int.tryParse(strikerBallsController.text) ?? 0) + (int.tryParse(nonStrikerBallsController.text) ?? 0)} balls)',
+                          style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(nonStriker.toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: nonStrikerRunsController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Runs', border: OutlineInputBorder()),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: nonStrikerBallsController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Balls', border: OutlineInputBorder()),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: extrasController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Extras', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text('CANCEL', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final int newSRuns = int.tryParse(strikerRunsController.text) ?? pData['strikerRuns'];
+                          final int newSBalls = int.tryParse(strikerBallsController.text) ?? pData['strikerBalls'];
+                          final int newNSRuns = int.tryParse(nonStrikerRunsController.text) ?? pData['nonStrikerRuns'];
+                          final int newNSBalls = int.tryParse(nonStrikerBallsController.text) ?? pData['nonStrikerBalls'];
+                          final int newExtras = int.tryParse(extrasController.text) ?? pData['extras'];
+                          
+                          final diffSRuns = newSRuns - pData['strikerRuns'];
+                          final diffSBalls = newSBalls - pData['strikerBalls'];
+                          final diffNSRuns = newNSRuns - pData['nonStrikerRuns'];
+                          final diffNSBalls = newNSBalls - pData['nonStrikerBalls'];
+                          final diffExtras = newExtras - pData['extras'];
+                          
+                          final updatedMatch = Map<String, dynamic>.from(match);
+                          final currentScore = Map<String, dynamic>.from(updatedMatch['score'] ?? {});
+                          final innings = List<Map<String, dynamic>>.from((updatedMatch['innings'] as List).map((e) => Map<String, dynamic>.from(e)));
+                          
+                          final String battingTeamName = currentScore['battingTeam'].toString();
+                          final int battingTeamIdx = innings.indexWhere((inn) => inn['team'].toString() == battingTeamName);
+                          
+                          if (battingTeamIdx != -1) {
+                            final currentInn = Map<String, dynamic>.from(innings[battingTeamIdx]);
+                            final batting = List<Map<String, dynamic>>.from((currentInn['batting'] ?? []).map((e) => Map<String, dynamic>.from(e)));
+                            final extras = Map<String, dynamic>.from(currentInn['extras'] ?? {});
+                            
+                            int sIdx = batting.indexWhere((p) => p['player'] == striker);
+                            int nsIdx = batting.indexWhere((p) => p['player'] == nonStriker);
+                            
+                            if (sIdx != -1) {
+                              batting[sIdx]['runs'] = (batting[sIdx]['runs'] ?? 0) + diffSRuns;
+                              batting[sIdx]['balls'] = (batting[sIdx]['balls'] ?? 0) + diffSBalls;
+                            }
+                            if (nsIdx != -1) {
+                              batting[nsIdx]['runs'] = (batting[nsIdx]['runs'] ?? 0) + diffNSRuns;
+                              batting[nsIdx]['balls'] = (batting[nsIdx]['balls'] ?? 0) + diffNSBalls;
+                            }
+                            
+                            extras['total'] = (extras['total'] ?? 0) + diffExtras;
+                            currentInn['extras'] = extras;
+                            
+                            currentScore['runs'] = (currentScore['runs'] ?? 0) + diffSRuns + diffNSRuns + diffExtras;
+                            
+                            currentInn['batting'] = batting;
+                            currentInn['runs'] = currentScore['runs'];
+                            innings[battingTeamIdx] = currentInn;
+                            
+                            updatedMatch['score'] = currentScore;
+                            updatedMatch['innings'] = innings;
+                            
+                            Navigator.pop(context);
+                            _handleUpdate('manual', value: updatedMatch);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text('UPDATE', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showExtrasBreakdownModal() {
+    final score = match['score'] ?? {};
+    final String battingTeamName = score['battingTeam']?.toString() ?? '';
+    final innings = match['innings'] as List? ?? [];
+    final battingTeamIdx = innings.indexWhere((inn) => inn['team'] == battingTeamName);
+    
+    if (battingTeamIdx == -1) return;
+    
+    final currentInn = innings[battingTeamIdx];
+    final extras = currentInn['extras'] ?? {};
+    
+    final widesController = TextEditingController(text: (extras['wides'] ?? 0).toString());
+    final noBallsController = TextEditingController(text: (extras['noBalls'] ?? 0).toString());
+    final byesController = TextEditingController(text: (extras['byes'] ?? 0).toString());
+    final legByesController = TextEditingController(text: (extras['legByes'] ?? 0).toString());
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('EXTRAS BREAKDOWN', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.amber.shade900)),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(child: TextField(controller: widesController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Wides', border: OutlineInputBorder()))),
+                  const SizedBox(width: 12),
+                  Expanded(child: TextField(controller: noBallsController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'No Balls', border: OutlineInputBorder()))),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: TextField(controller: byesController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Byes', border: OutlineInputBorder()))),
+                  const SizedBox(width: 12),
+                  Expanded(child: TextField(controller: legByesController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Leg Byes', border: OutlineInputBorder()))),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
+                      child: Text('CANCEL', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final int newW = int.tryParse(widesController.text) ?? (extras['wides'] ?? 0);
+                        final int newNb = int.tryParse(noBallsController.text) ?? (extras['noBalls'] ?? 0);
+                        final int newB = int.tryParse(byesController.text) ?? (extras['byes'] ?? 0);
+                        final int newLb = int.tryParse(legByesController.text) ?? (extras['legByes'] ?? 0);
+                        
+                        final int newTotal = newW + newNb + newB + newLb;
+                        final int oldTotal = (extras['total'] ?? 0);
+                        final int diff = newTotal - oldTotal;
+                        
+                        final updatedMatch = Map<String, dynamic>.from(match);
+                        final currentScore = Map<String, dynamic>.from(updatedMatch['score'] ?? {});
+                        final inningsList = List<Map<String, dynamic>>.from((updatedMatch['innings'] as List).map((e) => Map<String, dynamic>.from(e)));
+                        
+                        final currentInnMap = Map<String, dynamic>.from(inningsList[battingTeamIdx]);
+                        final currentExtras = Map<String, dynamic>.from(currentInnMap['extras'] ?? {});
+                        
+                        currentExtras['wides'] = newW;
+                        currentExtras['noBalls'] = newNb;
+                        currentExtras['byes'] = newB;
+                        currentExtras['legByes'] = newLb;
+                        currentExtras['total'] = newTotal;
+                        
+                        currentInnMap['extras'] = currentExtras;
+                        currentInnMap['runs'] = (currentInnMap['runs'] ?? 0) + diff;
+                        inningsList[battingTeamIdx] = currentInnMap;
+                        
+                        currentScore['runs'] = (currentScore['runs'] ?? 0) + diff;
+                        updatedMatch['score'] = currentScore;
+                        updatedMatch['innings'] = inningsList;
+                        
+                        Navigator.pop(context);
+                        _handleUpdate('manual', value: updatedMatch);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber.shade900,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      ),
+                      child: Text('SAVE EXTRAS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMatchSettingsModal() {
+    final score = match['score'] ?? {};
+    final settings = score['settings'] ?? {};
+    final wideSettings = settings['wideBall'] ?? {'reBall': true, 'runs': 1};
+    final nbSettings = settings['noBall'] ?? {'reBall': true, 'runs': 1};
+    
+    final playersController = TextEditingController(text: (settings['playersPerTeam'] ?? 11).toString());
+    final wideRunsController = TextEditingController(text: (wideSettings['runs'] ?? 1).toString());
+    final nbRunsController = TextEditingController(text: (nbSettings['runs'] ?? 1).toString());
+    
+    bool wideReBallVal = wideSettings['reBall'] == true;
+    bool nbReBallVal = nbSettings['reBall'] == true;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: Container(
+            decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
+            padding: const EdgeInsets.all(32),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(child: Text('MATCH SETTINGS', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFF2E7D32)))),
+                  const SizedBox(height: 24),
+                  
+                  Text('PLAYERS PER TEAM', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: playersController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(border: OutlineInputBorder()),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  Text('NO BALL CONFIGURATION', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.green.shade800)),
+                  const Divider(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Re-ball No Ball?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                      Switch(
+                        value: nbReBallVal,
+                        onChanged: (val) => setModalState(() => nbReBallVal = val),
+                        activeColor: const Color(0xFF2E7D32),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text('No Ball Run Penalty Value', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: nbRunsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(border: OutlineInputBorder()),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  Text('WIDE BALL CONFIGURATION', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.green.shade800)),
+                  const Divider(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Re-ball Wide Ball?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                      Switch(
+                        value: wideReBallVal,
+                        onChanged: (val) => setModalState(() => wideReBallVal = val),
+                        activeColor: const Color(0xFF2E7D32),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Wide Ball Run Penalty Value', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: wideRunsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(border: OutlineInputBorder()),
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
+                          child: Text('CANCEL', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            final int ppt = int.tryParse(playersController.text) ?? 11;
+                            final int wRuns = int.tryParse(wideRunsController.text) ?? 1;
+                            final int nRuns = int.tryParse(nbRunsController.text) ?? 1;
+                            
+                            final updatedMatch = Map<String, dynamic>.from(match);
+                            final currentScore = Map<String, dynamic>.from(updatedMatch['score'] ?? {});
+                            
+                            currentScore['settings'] = {
+                              'playersPerTeam': ppt,
+                              'wideBall': {'reBall': wideReBallVal, 'runs': wRuns},
+                              'noBall': {'reBall': nbReBallVal, 'runs': nRuns},
+                            };
+                            updatedMatch['score'] = currentScore;
+                            
+                            Navigator.pop(context);
+                            _handleUpdate('manual', value: updatedMatch);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2E7D32),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                          ),
+                          child: Text('SAVE SETTINGS', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScorerSetupCard() {
+    final toss = match['toss'] ?? {};
+    
+    String? selectedTossWinner = toss['winner'];
+    String? selectedDecision = toss['decision']?.toString().toUpperCase();
+    final oversController = TextEditingController(text: (match['overs_per_match'] ?? match['totalOvers'] ?? 20).toString());
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Text(
+              'SCORER SETUP',
+              style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF2E7D32)),
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          Text('HOST TEAM', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+          const SizedBox(height: 6),
+          Text(
+            match['teamA']?.toString().toUpperCase() ?? '',
+            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+          ),
+          const Divider(),
+          
+          Text('VISITOR TEAM', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+          const SizedBox(height: 6),
+          Text(
+            match['teamB']?.toString().toUpperCase() ?? '',
+            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+          ),
+          const Divider(),
+          
+          const SizedBox(height: 12),
+          Text('TOSS WINNER', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+          const SizedBox(height: 6),
+          StatefulBuilder(
+            builder: (context, setTossState) => Column(
+              children: [
+                Row(
+                  children: [
+                    Radio<String>(
+                      value: match['teamA'],
+                      groupValue: selectedTossWinner,
+                      onChanged: (val) => setTossState(() => selectedTossWinner = val),
+                      activeColor: const Color(0xFF2E7D32),
+                    ),
+                    Expanded(child: Text(match['teamA'] ?? '', style: GoogleFonts.outfit(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    Radio<String>(
+                      value: match['teamB'],
+                      groupValue: selectedTossWinner,
+                      onChanged: (val) => setTossState(() => selectedTossWinner = val),
+                      activeColor: const Color(0xFF2E7D32),
+                    ),
+                    Expanded(child: Text(match['teamB'] ?? '', style: GoogleFonts.outfit(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  ],
+                ),
+                
+                const SizedBox(height: 12),
+                Text('OPTED TO', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Radio<String>(
+                      value: 'BAT',
+                      groupValue: selectedDecision,
+                      onChanged: (val) => setTossState(() => selectedDecision = val),
+                      activeColor: const Color(0xFF2E7D32),
+                    ),
+                    Expanded(child: Text('BAT', style: GoogleFonts.outfit(fontWeight: FontWeight.bold))),
+                    Radio<String>(
+                      value: 'BOWL',
+                      groupValue: selectedDecision,
+                      onChanged: (val) => setTossState(() => selectedDecision = val),
+                      activeColor: const Color(0xFF2E7D32),
+                    ),
+                    Expanded(child: Text('BOWL', style: GoogleFonts.outfit(fontWeight: FontWeight.bold))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          const Divider(),
+          const SizedBox(height: 12),
+          Text('OVERS', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: oversController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(border: OutlineInputBorder(), hintText: '16'),
+          ),
+          
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showMatchSettingsModal(),
+                  icon: const Icon(Icons.settings, size: 18),
+                  label: Text('ADVANCED', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    if (selectedTossWinner == null || selectedDecision == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select toss winner and decision!')));
+                      return;
+                    }
+                    
+                    setState(() => isUpdating = true);
+                    try {
+                      await ApiService.updateToss((match['_id'] ?? match['id']).toString(), selectedTossWinner!, selectedDecision!);
+                      
+                      final totalOvers = int.tryParse(oversController.text) ?? 20;
+                      final updatedMatch = Map<String, dynamic>.from(match);
+                      updatedMatch['overs_per_match'] = totalOvers;
+                      updatedMatch['totalOvers'] = totalOvers;
+                      
+                      updatedMatch['toss'] = {
+                        'winner': selectedTossWinner,
+                        'decision': selectedDecision!.toLowerCase(),
+                      };
+                      
+                      final List<dynamic> innings = List.from(updatedMatch['innings'] ?? []);
+                      final String opposition = (selectedTossWinner == updatedMatch['teamA']) ? updatedMatch['teamB'] : updatedMatch['teamA'];
+                      final String battingTeam = (selectedDecision == 'BAT') ? selectedTossWinner! : opposition;
+                      
+                      if (innings.isEmpty) {
+                        innings.add({
+                          'team': battingTeam,
+                          'runs': 0, 'wickets': 0, 'overs': 0,
+                          'batting': [], 'bowling': [],
+                          'extras': {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0}
+                        });
+                        innings.add({
+                          'team': (battingTeam == updatedMatch['teamA'] ? updatedMatch['teamB'] : updatedMatch['teamA']),
+                          'runs': 0, 'wickets': 0, 'overs': 0,
+                          'batting': [], 'bowling': [],
+                          'extras': {'total': 0, 'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0}
+                        });
+                        updatedMatch['innings'] = innings;
+                        
+                        final currentScore = Map<String, dynamic>.from(updatedMatch['score'] ?? {});
+                        currentScore['battingTeam'] = battingTeam;
+                        updatedMatch['score'] = currentScore;
+                      }
+                      
+                      setState(() {
+                        match = updatedMatch;
+                        isUpdating = false;
+                      });
+                      
+                      _showSelectOpeningPlayersModal(battingTeam);
+                    } catch (e) {
+                      setState(() => isUpdating = false);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to start: $e')));
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('START MATCH', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSelectOpeningPlayersModal(String battingTeam) {
+    List<String> squadA = List<String>.from(match['squadA'] ?? []);
+    List<String> squadB = List<String>.from(match['squadB'] ?? []);
+    
+    final isTeamA = match['teamA'].toString() == battingTeam;
+    final battingSquad = isTeamA ? squadA : squadB;
+    final bowlingSquad = isTeamA ? squadB : squadA;
+    
+    String? striker;
+    String? nonStriker;
+    String? bowler;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32))),
+          padding: EdgeInsets.only(left: 32, right: 32, top: 32, bottom: MediaQuery.of(context).viewInsets.bottom + 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Text('SELECT OPENING PLAYERS', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFF2E7D32)))),
+              const SizedBox(height: 24),
+              
+              Text('STRIKER', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: striker,
+                decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Select Striker'),
+                items: battingSquad.where((e) => e.isNotEmpty).map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                onChanged: (v) => setModalState(() => striker = v),
+              ),
+              const SizedBox(height: 16),
+              
+              Text('NON-STRIKER', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: nonStriker,
+                decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Select Non-Striker'),
+                items: battingSquad.where((e) => e.isNotEmpty).map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                onChanged: (v) => setModalState(() => nonStriker = v),
+              ),
+              const SizedBox(height: 16),
+              
+              Text('OPENING BOWLER', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: bowler,
+                decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Select Bowler'),
+                items: bowlingSquad.where((e) => e.isNotEmpty).map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                onChanged: (v) => setModalState(() => bowler = v),
+              ),
+              
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (striker == null || nonStriker == null || bowler == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select all players!')));
+                      return;
+                    }
+                    if (striker == nonStriker) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Striker and Non-Striker must be different!')));
+                      return;
+                    }
+                    
+                    Navigator.pop(context);
+                    
+                    _handleUpdate('init', value: {
+                      's': striker,
+                      'ns': nonStriker,
+                      'b': bowler,
+                      'team': battingTeam
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('START MATCH', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayersTableCard(Map<String, dynamic> score) {
+    final String battingTeamName = score['battingTeam']?.toString() ?? '';
+    final List<dynamic> innings = match['innings'] as List? ?? [];
+    final int battingTeamIdx = innings.indexWhere((inn) => inn['team'] == battingTeamName);
+    
+    if (battingTeamIdx == -1) return const SizedBox.shrink();
+    
+    final currentInn = innings[battingTeamIdx];
+    final batting = List.from(currentInn['batting'] ?? []);
+    
+    final striker = score['striker'];
+    final nonStriker = score['nonStriker'];
+    final bowler = score['bowler'];
+    
+    final strikerRow = batting.firstWhere((p) => p['player'] == striker, orElse: () => null);
+    final nonStrikerRow = batting.firstWhere((p) => p['player'] == nonStriker, orElse: () => null);
+    
+    final bowlingTeamIdx = battingTeamIdx == 0 ? 1 : 0;
+    final bowlingSquad = bowlingTeamIdx < innings.length ? innings[bowlingTeamIdx]['bowling'] as List? ?? [] : [];
+    final bowlerRow = bowlingSquad.firstWhere((p) => p['player'] == bowler, orElse: () => null);
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(flex: 3, child: Text('BATSMAN', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey))),
+              Expanded(child: Center(child: Text('R', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey)))),
+              Expanded(child: Center(child: Text('B', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey)))),
+              Expanded(child: Center(child: Text('4s', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey)))),
+              Expanded(child: Center(child: Text('6s', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey)))),
+              Expanded(flex: 2, child: Center(child: Text('SR', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey)))),
+            ],
+          ),
+          const Divider(),
+          if (strikerRow != null) _buildBatsmanRow(strikerRow, true),
+          if (nonStrikerRow != null) _buildBatsmanRow(nonStrikerRow, false),
+          
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(flex: 3, child: Text('BOWLER', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey))),
+              Expanded(child: Center(child: Text('O', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey)))),
+              Expanded(child: Center(child: Text('M', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey)))),
+              Expanded(child: Center(child: Text('R', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey)))),
+              Expanded(child: Center(child: Text('W', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey)))),
+              Expanded(flex: 2, child: Center(child: Text('ER', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey)))),
+            ],
+          ),
+          const Divider(),
+          if (bowlerRow != null) _buildBowlerRow(bowlerRow),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildBatsmanRow(Map<String, dynamic> row, bool isStriker) {
+    final style = GoogleFonts.outfit(
+      fontSize: 13,
+      fontWeight: isStriker ? FontWeight.w900 : FontWeight.bold,
+      color: isStriker ? const Color(0xFF2E7D32) : Colors.black87,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(flex: 3, child: Text('${row['player']}${isStriker ? '*' : ''}', style: style, maxLines: 1, overflow: TextOverflow.ellipsis)),
+          Expanded(child: Center(child: Text('${row['runs'] ?? 0}', style: style))),
+          Expanded(child: Center(child: Text('${row['balls'] ?? 0}', style: style))),
+          Expanded(child: Center(child: Text('${row['fours'] ?? 0}', style: style))),
+          Expanded(child: Center(child: Text('${row['sixes'] ?? 0}', style: style))),
+          Expanded(flex: 2, child: Center(child: Text('${row['strikeRate'] ?? 0.0}', style: style))),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildBowlerRow(Map<String, dynamic> row) {
+    final style = GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w900, color: const Color(0xFF2E7D32));
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(flex: 3, child: Text(row['player']?.toString() ?? '', style: style, maxLines: 1, overflow: TextOverflow.ellipsis)),
+          Expanded(child: Center(child: Text('${row['overs'] ?? 0.0}', style: style))),
+          Expanded(child: Center(child: Text('${row['maidens'] ?? 0}', style: style))),
+          Expanded(child: Center(child: Text('${row['runs'] ?? 0}', style: style))),
+          Expanded(child: Center(child: Text('${row['wickets'] ?? 0}', style: style))),
+          Expanded(flex: 2, child: Center(child: Text('${row['economy'] ?? 0.0}', style: style))),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final score = match['score'] ?? {};
     final bool isPaused = score['isPaused'] ?? false;
     final bool isCompleted = match['status'] == 'completed';
+    
+    final toss = match['toss'] ?? {};
+    final squadA = List.from(match['squadA'] ?? []);
+    final squadB = List.from(match['squadB'] ?? []);
+    final striker = score['striker'];
+    final bowler = score['bowler'];
+    
+    final bool isMatchSetupReady = squadA.isNotEmpty && squadB.isNotEmpty && toss['winner'] != null && striker != null && bowler != null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black),
+        backgroundColor: const Color(0xFF2E7D32),
+        iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           '${match['teamA']} vs ${match['teamB']}'.toUpperCase(),
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.black, fontSize: 16),
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16),
         ),
         actions: [
-            const Center(child: Padding(padding: EdgeInsets.only(right: 16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))),
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf, color: Colors.redAccent),
+            icon: const Icon(Icons.settings, color: Colors.white),
+            onPressed: () => _showMatchSettingsModal(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
             onPressed: () => PdfService.generateScorecard(match),
           ),
         ],
@@ -440,15 +1551,19 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _buildStickyHeader(score),
+            if (isMatchSetupReady) _buildStickyHeader(score),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                   _buildMatchStatus(),
-                   const SizedBox(height: 16),
-                  _buildTossBanner(),
-                  _buildScoringGrid(isPaused, isCompleted),
+                  if (isMatchSetupReady) ...[
+                    _buildPlayersTableCard(score),
+                    const SizedBox(height: 16),
+                    _buildTossBanner(),
+                    _buildScoringGrid(isPaused, isCompleted),
+                  ] else ...[
+                    _buildScoringGrid(isPaused, isCompleted),
+                  ],
                   const SizedBox(height: 24),
                   _buildAdvancedCorrectionPanel(),
                   const SizedBox(height: 32),
@@ -462,23 +1577,44 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   }
 
   Widget _buildStickyHeader(Map<String, dynamic> score) {
+    final String battingTeamName = score['battingTeam']?.toString() ?? 'TEAM';
+    final int runs = int.tryParse(score['runs']?.toString() ?? '0') ?? 0;
+    final double overs = double.tryParse(score['overs']?.toString() ?? '0.0') ?? 0.0;
+    final int balls = oversToBalls(overs);
+    final double crr = balls > 0 ? (runs / (balls / 6.0)) : 0.0;
+    
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        gradient: LinearGradient(
+          colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.only(bottomLeft: Radius.circular(32), bottomRight: Radius.circular(32)),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))],
+        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 6))],
       ),
       child: Column(
         children: [
-          _buildCompetitionBadge(match['competitionType']?.toString()),
-          const SizedBox(height: 8),
-          Text(
-            (score['battingTeam'] ?? 'Team').toString().toUpperCase(),
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.blueAccent, fontSize: 14, letterSpacing: 1),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${battingTeamName.toUpperCase()} - 1ST INNINGS',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 14, letterSpacing: 0.5),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(12)),
+                child: Text(
+                  'CRR: ${crr.toStringAsFixed(2)}',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -486,76 +1622,26 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             children: [
               Text(
                 '${score['runs'] ?? 0}',
-                style: GoogleFonts.outfit(fontSize: 64, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
+                style: GoogleFonts.outfit(fontSize: 72, fontWeight: FontWeight.w900, color: Colors.white),
               ),
               Text(
                 ' / ${score['wickets'] ?? 0}',
-                style: GoogleFonts.outfit(fontSize: 40, fontWeight: FontWeight.w900, color: const Color(0xFF64748B)),
+                style: GoogleFonts.outfit(fontSize: 44, fontWeight: FontWeight.w900, color: Colors.green, ...{ 'color': Colors.green.shade100 }),
               ),
             ],
           ),
+          const SizedBox(height: 4),
           Text(
             '(${score['overs'] ?? 0.0} OVERS)',
-            style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
+            style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green.shade100),
           ),
           if (score['target'] != null)
              Container(
                margin: const EdgeInsets.only(top: 12),
-               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-               decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(100)),
-               child: Text('TARGET: ${score['target']}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.redAccent, fontSize: 13)),
+               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(100)),
+               child: Text('TARGET: ${score['target']}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: const Color(0xFF1B5E20), fontSize: 13)),
              ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMatchStatus() {
-    final toss = match['toss'] ?? {};
-    final squadA = List.from(match['squadA'] ?? []);
-    final squadB = List.from(match['squadB'] ?? []);
-    final score = match['score'] ?? {};
-    final striker = score['striker'];
-    final bowler = score['bowler'];
-
-    bool hasToss = toss['winner'] != null;
-    bool hasSquads = squadA.isNotEmpty && squadB.isNotEmpty;
-    bool hasPlayers = striker != null && bowler != null;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('MATCH READINESS', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueAccent, letterSpacing: 1)),
-          const SizedBox(height: 12),
-          _statusRow('Squads', hasSquads),
-          _statusRow('Toss', hasToss),
-          _statusRow('Striker/Bowler', hasPlayers),
-        ],
-      ),
-    );
-  }
-
-  Widget _statusRow(String label, bool isReady) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey.shade700)),
-          Row(
-            children: [
-              Text(isReady ? 'READY' : 'PENDING', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11, color: isReady ? Colors.green : Colors.orange)),
-              const SizedBox(width: 4),
-              Icon(isReady ? Icons.check_circle : Icons.pending, size: 14, color: isReady ? Colors.green : Colors.orange),
-            ],
-          ),
         ],
       ),
     );
@@ -589,95 +1675,190 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
   }
 
   Widget _buildScoringGrid(bool isPaused, bool isCompleted) {
+    final toss = match['toss'] ?? {};
+    final squadA = List.from(match['squadA'] ?? []);
+    final squadB = List.from(match['squadB'] ?? []);
+    final score = match['score'] ?? {};
+    final striker = score['striker'];
+    final bowler = score['bowler'];
+    
+    final bool isReady = squadA.isNotEmpty && squadB.isNotEmpty && toss['winner'] != null && striker != null && bowler != null;
+    
+    if (!isReady) {
+      if (squadA.isEmpty || squadB.isEmpty) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            children: [
+              Text('SQUADS REQUIRED', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange)),
+              const SizedBox(height: 12),
+              Text('Please enter player squads before continuing setup.', style: GoogleFonts.outfit(color: Colors.grey.shade600)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => _showSquadsModal(),
+                icon: const Icon(Icons.people),
+                label: Text('SETUP SQUADS', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
+              ),
+            ],
+          ),
+        );
+      }
+      return _buildScorerSetupCard();
+    }
+    
     return Column(
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: WrapAlignment.center,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            children: [
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                alignment: WrapAlignment.center,
+                children: [
+                  _buildCheckbox('Wide', _isWideChecked, (val) {
+                    setState(() {
+                      _isWideChecked = val ?? false;
+                      if (_isWideChecked) _isNbChecked = false;
+                    });
+                  }),
+                  _buildCheckbox('No Ball', _isNbChecked, (val) {
+                    setState(() {
+                      _isNbChecked = val ?? false;
+                      if (_isNbChecked) _isWideChecked = false;
+                    });
+                  }),
+                  _buildCheckbox('Byes', _isByesChecked, (val) {
+                    setState(() {
+                      _isByesChecked = val ?? false;
+                      if (_isByesChecked) _isLbChecked = false;
+                    });
+                  }),
+                  _buildCheckbox('Leg Byes', _isLbChecked, (val) {
+                    setState(() {
+                      _isLbChecked = val ?? false;
+                      if (_isLbChecked) _isByesChecked = false;
+                    });
+                  }),
+                  _buildCheckbox('Wicket', _isWicketChecked, (val) {
+                    setState(() {
+                      _isWicketChecked = val ?? false;
+                    });
+                  }),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _showRetireModal(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade100,
+                        foregroundColor: Colors.black87,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text('Retire', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _handleUpdate('swap'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade100,
+                        foregroundColor: Colors.black87,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text('Swap Batsman', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _controlButton('SQUADS', Icons.groups, Colors.blue, _showSquadsModal),
-            _controlButton('TOSS', Icons.monetization_on, Colors.purple, (match['squadA'] ?? []).isEmpty || (match['squadB'] ?? []).isEmpty ? null : _showTossModal),
-            _controlButton('DLS', Icons.cloud, Colors.indigo, _showDlsModal),
-            _controlButton('REVERSE', Icons.history, Colors.orange, _handleUndo),
-            _controlButton(
-                isPaused ? 'RESUME' : 'PAUSE',
-                isPaused ? Icons.play_circle_filled : Icons.pause_circle_filled,
-                isPaused ? Colors.green : Colors.red,
-                () => _handlePauseToggle(!isPaused)
+            Expanded(
+              flex: 2,
+              child: Column(
+                children: [
+                  _actionVerticalButton('Undo', Icons.undo, Colors.orange, _handleUndo),
+                  const SizedBox(height: 12),
+                  _actionVerticalButton('Partnerships', Icons.people_outline, Colors.teal, _showPartnershipsModal),
+                  const SizedBox(height: 12),
+                  _actionVerticalButton('Extras', Icons.more_horiz, Colors.indigo, _showExtrasBreakdownModal),
+                  const SizedBox(height: 12),
+                  _actionVerticalButton(
+                    isPaused ? 'Resume' : 'Pause',
+                    isPaused ? Icons.play_arrow : Icons.pause,
+                    isPaused ? Colors.green : Colors.red,
+                    () => _handlePauseToggle(!isPaused),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 3,
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: [
+                  _circleRunButton('0', 0),
+                  _circleRunButton('1', 1),
+                  _circleRunButton('2', 2),
+                  _circleRunButton('3', 3),
+                  _circleRunButton('4', 4),
+                  _circleRunButton('5', 5),
+                  _circleRunButton('6', 6),
+                  InkWell(
+                    onTap: _showCustomRunsDialog,
+                    borderRadius: BorderRadius.circular(100),
+                    child: Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: const Color(0xFF2E7D32), width: 2.5),
+                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                      ),
+                      child: Center(
+                        child: Text(
+                          '...',
+                          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF2E7D32)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-
-        // ROW 2 – PRIMARY SCORING
-        Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-                _scoreBtn('0', () => _handleUpdate('runs', value: 0)),
-                _scoreBtn('1', () => _handleUpdate('runs', value: 1)),
-                _scoreBtn('2', () => _handleUpdate('runs', value: 2)),
-                _scoreBtn('3', () => _handleUpdate('runs', value: 3)),
-                _scoreBtn('4', () => _handleUpdate('runs', value: 4)),
-                _scoreBtn('6', () => _handleUpdate('runs', value: 6)),
-                _scoreBtn('WKT', () => _showWicketModal(), isWicket: true),
-            ]
-        ),
-        const SizedBox(height: 16),
-
-        // ROW 3 – EXTRAS
-        Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-                _extraBtn('WIDE', () => _showExtrasModal('wd')),
-                _extraBtn('NO BALL', () => _showExtrasModal('nb')),
-                _extraBtn('LEG BYE', () => _showExtrasModal('lb')),
-                _extraBtn('BYE', () => _showExtrasModal('b')),
-                _extraBtn('O/THROW', () => _showOverthrowModal()),
-            ]
-        ),
-
-        const SizedBox(height: 16),
-
-        // ROW 4 – PLAYER ACTIONS
-        Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-                _actionBtn('CHANGE STRIKE', Icons.swap_calls, () => _handleUpdate('swap')),
-                _actionBtn('RETIRE', Icons.exit_to_app, _showRetireModal),
-                _actionBtn('REPLACE BOWLER', Icons.psychology, () => _showBowlerReplacementModal()),
-            ]
-        ),
-        const SizedBox(height: 16),
-
-        // ROW 5 – STATE INDICATOR
-        InkWell(
-          onTap: () => _handleUpdate('free_hit', value: !(match['score']?['freeHit'] ?? false)),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: (match['score']?['freeHit'] ?? false) ? Colors.red.shade600 : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: (match['score']?['freeHit'] ?? false) ? [BoxShadow(color: Colors.red.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))] : [],
-            ),
-            child: Center(
-              child: Text(
-                (match['score']?['freeHit'] ?? false) ? 'FREE HIT ON' : 'FREE HIT OFF',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: (match['score']?['freeHit'] ?? false) ? Colors.white : Colors.grey.shade500, letterSpacing: 1.5),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildAdvancedCorrectionPanel() {
