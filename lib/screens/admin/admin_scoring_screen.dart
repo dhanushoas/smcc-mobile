@@ -2246,7 +2246,7 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
               ),
               Text(
                 ' / ${score['wickets'] ?? 0}',
-                style: GoogleFonts.outfit(fontSize: 44, fontWeight: FontWeight.w900, color: Colors.green, ...{ 'color': Colors.green.shade100 }),
+                style: GoogleFonts.outfit(fontSize: 44, fontWeight: FontWeight.w900, color: Colors.green.shade100),
               ),
             ],
           ),
@@ -2454,6 +2454,8 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             ),
           ],
         ),
+      ],
+    );
   }
 
   Widget _buildAdvancedCorrectionPanel() {
