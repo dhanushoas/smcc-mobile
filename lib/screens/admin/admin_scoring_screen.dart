@@ -214,7 +214,10 @@ class _AdminScoringScreenState extends State<AdminScoringScreen> {
             }
             if (isWOrNB) {
                if (bIdx != -1) {
-                 bowling[bIdx]['runs'] = (int.tryParse(bowling[bIdx]['runs']?.toString() ?? '0') ?? 0) + amount;
+                 // Per MCC Laws: bowler charged full amount for wides, but for NB only penalty if byes/leg byes
+                 final bool nbIsBat = extraType == 'nb' && params?['isBat'] == true;
+                 final int bowlerCharge = (extraType == 'nb' && !nbIsBat) ? penalty : amount;
+                 bowling[bIdx]['runs'] = (int.tryParse(bowling[bIdx]['runs']?.toString() ?? '0') ?? 0) + bowlerCharge;
                  if (extraType == 'w') bowling[bIdx]['wides'] = (int.tryParse(bowling[bIdx]['wides']?.toString() ?? '0') ?? 0) + 1;
                  if (extraType == 'nb') bowling[bIdx]['noBalls'] = (int.tryParse(bowling[bIdx]['noBalls']?.toString() ?? '0') ?? 0) + 1;
                }
